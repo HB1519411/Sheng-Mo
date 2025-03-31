@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>简易代码编辑器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #121212;
+            color: #c0c0c0;
+            margin: 0;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            min-height: 100vh;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+
+        #file-editors-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        .file-editor {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .editor-header {
+            color: #e0c2a3;
+            background-color: #2a2a2a;
+            margin: 0;
+            padding: 5px;
+            text-align: center;
+            font-size: 1em;
+            border-bottom: 1px solid #333;
+        }
+
+        textarea {
+            flex-grow: 1;
+            width: 100%;
+            height: 150px;
+            min-height: 100px;
+            padding: 5px;
+            margin: 0;
+            border: none;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 0.9em;
+            white-space: pre;
+            overflow-wrap: break-word;
+            resize: none;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 5px;
+            padding: 5px;
+            background-color: #2a2a2a;
+            border-top: 1px solid #333;
+        }
+
+        .std-button {
+            color: #e0c2a3;
+            background-color: #3a3a3a;
+            border: 1px solid #e0c2a3;
+            padding: 5px 10px;
+            border-radius: 3px;
+            text-align: center;
+            cursor: pointer;
+            flex-grow: 1;
+            font-size: 0.9em;
+        }
+
+        .std-button:disabled {
+            background-color: #555;
+            color: #888;
+            border-color: #777;
+            cursor: not-allowed;
+        }
+
+
+        .std-button:hover:not(:disabled) {
+            background-color: #555;
+        }
+
+        #message-area {
+            color: #999;
+            text-align: center;
+            margin-top: 10px;
+            height: 20px;
+            line-height: 20px;
+            font-size: 0.9em;
+        }
+
+        #import-file {
+            display: none;
+        }
+
+        @media (max-width: 1024px) {
+             #file-editors-container {
+                grid-template-columns: repeat(2, 1fr);
+             }
+        }
+        @media (max-width: 600px) {
+             #file-editors-container {
+                grid-template-columns: 1fr;
+             }
+             textarea {
+                height: 120px;
+             }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="file-editors-container">
+        <div class="file-editor">
+            <h2 class="editor-header">backend.py</h2>
+            <textarea id="backend-py-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('backend.py', 'backend-py-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('backend.py', 'backend-py-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">gemini_chat.html</h2>
+            <textarea id="gemini-chat-html-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('gemini_chat.html', 'gemini-chat-html-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('gemini_chat.html', 'gemini-chat-html-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">core.js</h2>
+            <textarea id="core-js-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('core.js', 'core-js-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('core.js', 'core-js-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">ui_elements.js</h2>
+            <textarea id="ui-elements-js-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('ui_elements.js', 'ui-elements-js-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('ui_elements.js', 'ui-elements-js-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">ui_settings.js</h2>
+            <textarea id="ui-settings-js-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('ui_settings.js', 'ui-settings-js-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('ui_settings.js', 'ui-settings-js-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">ui_chat.js</h2>
+            <textarea id="ui-chat-js-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('ui_chat.js', 'ui-chat-js-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('ui_chat.js', 'ui-chat-js-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">main.js</h2>
+            <textarea id="main-js-content"></textarea>
+            <div class="button-container">
+                <button class="std-button get-btn" onclick="getFile('main.js', 'main-js-content')">获取</button>
+                <button class="std-button save-btn" onclick="saveFile('main.js', 'main-js-content')">保存</button>
+            </div>
+        </div>
+        <div class="file-editor">
+            <h2 class="editor-header">修改规则</h2>
+            <textarea id="modification-rules-content"></textarea>
+            <div class="button-container">
+                <button id="export-btn" class="std-button" onclick="exportFiles()">导出</button>
+                <button id="import-btn" class="std-button" onclick="importFiles()">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="import-file" accept=".txt" onchange="handleImportFile(event)">
+
+    <div id="message-area">
+
+    </div>
+
+    <script>
+        const fileSelectors = [
+            { filename: 'backend.py', textareaId: 'backend-py-content', type: 'python' },
+            { filename: 'gemini_chat.html', textareaId: 'gemini-chat-html-content', type: 'html' },
+            { filename: 'core.js', textareaId: 'core-js-content', type: 'javascript' },
+            { filename: 'ui_elements.js', textareaId: 'ui-elements-js-content', type: 'javascript' },
+            { filename: 'ui_settings.js', textareaId: 'ui-settings-js-content', type: 'javascript' },
+            { filename: 'ui_chat.js', textareaId: 'ui-chat-js-content', type: 'javascript' },
+            { filename: 'main.js', textareaId: 'main-js-content', type: 'javascript' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadModificationRules();
+        });
+
+        async function getFile(filename, textareaId) {
+            const textarea = document.getElementById(textareaId);
+            const getButton = textarea.closest('.file-editor').querySelector('.get-btn');
+            const saveButton = textarea.closest('.file-editor').querySelector('.save-btn');
+
+            if (getButton) getButton.disabled = true;
+            if (saveButton) saveButton.disabled = true;
+
+            try {
+                const response = await fetch(`/get-file-content?filename=${filename}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    textarea.value = `// 获取文件失败: ${errorData.error || response.statusText}`;
+                    displayMessage(`获取 ${filename} 失败: ${errorData.error || response.statusText}`, 'error');
+                    return false;
+                }
+                const data = await response.json();
+                textarea.value = data.content;
+
+                return true;
+            } catch (error) {
+                textarea.value = `// 获取文件出错: ${error.message}`;
+                displayMessage(`获取 ${filename} 出错: ${error.message}`, 'error');
+                return false;
+            } finally {
+                if (getButton) getButton.disabled = false;
+                if (saveButton) saveButton.disabled = false;
+            }
+        }
+
+        async function saveFile(filename, textareaId) {
+            let originalContent = document.getElementById(textareaId).value;
+
+
+            const lines = originalContent.split('\n');
+            const filteredLines = lines.filter(line => !/^(#|\/\/|-|`)/.test(line));
+            const filteredContent = filteredLines.join('\n');
+
+
+            const getButton = document.getElementById(textareaId).closest('.file-editor').querySelector('.get-btn');
+            const saveButton = document.getElementById(textareaId).closest('.file-editor').querySelector('.save-btn');
+
+            if (getButton) getButton.disabled = true;
+            if (saveButton) saveButton.disabled = true;
+
+            try {
+                const response = await fetch('/save-file-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+
+                    body: JSON.stringify({ filename: filename, content: filteredContent })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    displayMessage(`保存 ${filename} 失败: ${errorData.error || response.statusText}`, 'error');
+                    return false;
+                }
+                displayMessage(`成功保存 ${filename} (已过滤)`, 'success');
+                return true;
+            } catch (error) {
+                displayMessage(`保存 ${filename} 出错: ${error.message}`, 'error');
+                return false;
+            } finally {
+                if (getButton) getButton.disabled = false;
+                if (saveButton) saveButton.disabled = false;
+            }
+        }
+
+        function displayMessage(message, type = 'info') {
+            const messageArea = document.getElementById('message-area');
+            messageArea.textContent = message;
+            if (type === 'error') messageArea.style.color = 'red';
+            else if (type === 'success') messageArea.style.color = 'lime';
+            else messageArea.style.color = '#999';
+            clearTimeout(messageArea.timer);
+            messageArea.timer = setTimeout(() => {
+                messageArea.textContent = '';
+                messageArea.style.color = '#999';
+            }, 3000);
+        }
+
+        function loadModificationRules() {
+             const defaultRules = `修改规则：
+
+项目文件组成:
+- gemini_chat.html (主聊天界面)
+- editor.html (本编辑器界面, 一般不需你修改)
+- backend.py (后端服务)
+- core.js (核心逻辑与状态)
+- ui_elements.js (DOM元素引用)
+- ui_settings.js (设置界面逻辑)
+- ui_chat.js (聊天界面逻辑)
+- main.js (初始化与事件)
+- auto_get_files (XX).txt (包含此规则和所有代码, 用于提供上下文)
+
+核心要求:
+1.  **完整代码输出**: 当我要求修改代码时, 你必须输出 **修改后** 的、**完整** 的脚本文件内容。如果一个文件有修改, 就输出那个文件的 **全部** 内容。**绝对禁止** 只输出修改部分或省略未修改部分。如果某个文件完全没有修改, 则 **不要** 输出该文件。
+2.  **单一文件操作**: 我只会对单个文件进行整体复制粘贴替换, 无法进行局部修改。你的输出必须严格遵守第 1 条规则。
+3.  **保持极简**: 这是自用工具, 追求轻量和简约。**禁止** 添加任何我未明确要求的功能、库或复杂的代码结构, 即使你认为那样更“健壮”。
+4.  **移除注释**: 输出的代码中 **不得包含任何注释**。如果原始代码中有注释, 输出时必须移除。
+5.  **一致性**:
+    *   **UI风格**: 所有 HTML/CSS 必须保持统一的视觉风格 (暗色背景、指定颜色、紧凑布局)。
+    *   **跨文件修改**: 如果修改一个功能涉及多个文件, 必须同时修改所有相关文件中的对应部分, 确保功能完整且无 BUG。修复 BUG 时也要检查并修复所有文件中类似的问题。
+6.  **移动端优先**: \`gemini_chat.html\` 是设计在手机 Termux 环境下使用的, 布局需紧凑, 元素间不留白。\`editor.html\` 主要在桌面端使用, 但也要保持简洁。
+
+请严格遵守以上规则进行代码修改。`;
+            const rules = localStorage.getItem('modificationRulesContent');
+            document.getElementById('modification-rules-content').value = rules || defaultRules;
+        }
+
+
+        function saveModificationRules() {
+            const rules = document.getElementById('modification-rules-content').value;
+            localStorage.setItem('modificationRulesContent', rules);
+        }
+
+        document.getElementById('modification-rules-content').addEventListener('input', saveModificationRules);
+
+        async function exportFiles() {
+            const exportButton = document.getElementById('export-btn');
+            const importButton = document.getElementById('import-btn');
+            exportButton.disabled = true;
+            importButton.disabled = true;
+            displayMessage("正在获取所有文件最新内容...", 'info');
+
+            let allFetched = true;
+            const fetchPromises = fileSelectors.map(file => getFile(file.filename, file.textareaId));
+
+            try {
+                const results = await Promise.all(fetchPromises);
+                allFetched = results.every(result => result === true);
+            } catch (error) {
+                allFetched = false;
+                displayMessage(`获取文件过程中发生意外错误: ${error.message}`, 'error');
+            }
+
+
+            if (!allFetched) {
+                displayMessage("部分或全部文件获取失败，请检查错误信息后重试导出。", 'error');
+                exportButton.disabled = false;
+                importButton.disabled = false;
+                return;
+            }
+
+            displayMessage("所有文件获取成功，正在整理导出内容...", 'success');
+
+            let formattedContent = `--- START OF FILE modification_rules.txt ---\n${document.getElementById('modification-rules-content').value}\n--- END OF FILE modification_rules.txt ---\n`;
+            let successCount = 0;
+
+            for (const file of fileSelectors) {
+                try {
+                    const content = document.getElementById(file.textareaId).value;
+
+                    if (content.startsWith('// 获取文件失败') || content.startsWith('// 获取文件出错')) {
+                         throw new Error(`内容不是有效代码`);
+                    }
+                    const startMarker = `--- START OF FILE ${file.filename} ---`;
+                    const endMarker = `--- END OF FILE ${file.filename} ---`;
+
+                    formattedContent += `\n${startMarker}\n\`\`\`${file.type}\n${content.trim()}\n\`\`\`\n${endMarker}\n\n`;
+                    successCount++;
+                } catch (error) {
+
+                    displayMessage(`整理 ${file.filename} 内容时出错: ${error.message}`, 'warning');
+                }
+            }
+
+            if (successCount < fileSelectors.length) {
+                 displayMessage(`部分文件内容整理失败 (${successCount}/${fileSelectors.length})，但仍尝试导出。`, 'warning');
+            }
+
+            try {
+                await navigator.clipboard.writeText(formattedContent);
+                displayMessage(`内容已复制 (${successCount}/${fileSelectors.length} 文件)，并开始下载...`, 'success');
+            } catch (err) {
+                displayMessage(`复制失败 (${successCount}/${fileSelectors.length} 文件)，但会尝试下载文件...`, 'warning');
+            }
+
+            const blob = new Blob([formattedContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            a.download = `auto_get_files_${timestamp}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            exportButton.disabled = false;
+            importButton.disabled = false;
+        }
+
+
+        function importFiles() {
+            document.getElementById('import-file').click();
+        }
+
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                const fileBlocks = content.split('--- START OF FILE ');
+                let filesImported = 0;
+
+                const fileMap = {
+                    'backend.py': 'backend-py-content',
+                    'gemini_chat.html': 'gemini-chat-html-content',
+                    'core.js': 'core-js-content',
+                    'ui_elements.js': 'ui-elements-js-content',
+                    'ui_settings.js': 'ui-settings-js-content',
+                    'ui_chat.js': 'ui-chat-js-content',
+                    'main.js': 'main-js-content',
+                    'core_logic.js': 'core-js-content',
+                    'ui_manager.js': 'ui-settings-js-content'
+                };
+
+                for (let i = 0; i < fileBlocks.length; i++) {
+                    const block = fileBlocks[i];
+                    if (!block.trim()) continue; // 跳过空块
+
+                    const firstLineEnd = block.indexOf('\n');
+                    if (firstLineEnd === -1) continue; // 无效块格式
+
+                    const firstLine = block.substring(0, firstLineEnd).trim();
+                    const filenameEndMarker = ' ---';
+                    if (!firstLine.endsWith(filenameEndMarker)) continue; // 第一行不是有效的标记
+
+                    const filename = firstLine.substring(0, firstLine.length - filenameEndMarker.length).trim();
+
+                    if (filename === 'modification_rules.txt') {
+                        const rulesEndMarker = '--- END OF FILE modification_rules.txt ---';
+                        const rulesEndIndex = block.indexOf(rulesEndMarker);
+                        if (rulesEndIndex > -1) {
+                            const rulesContent = block.substring(firstLineEnd + 1, rulesEndIndex).trim();
+                            document.getElementById('modification-rules-content').value = rulesContent;
+                        } else {
+                            console.warn("Could not find end marker for modification rules.");
+                        }
+                        continue; // 处理完规则，进行下一次循环
+                    }
+
+                    const codeBlockStartMatch = block.match(/```.*\n/);
+                    if (!codeBlockStartMatch) {
+                         console.warn(`Could not find code block start for ${filename}`);
+                         continue;
+                    }
+
+                    const codeBlockStartIndex = codeBlockStartMatch.index + codeBlockStartMatch[0].length;
+
+                    const codeBlockEndIndex = block.indexOf('\n```', codeBlockStartIndex);
+                    if (codeBlockEndIndex === -1) {
+                         console.warn(`Could not find code block end marker for ${filename}`);
+                         continue;
+                    }
+
+                    let codeContent = block.substring(codeBlockStartIndex, codeBlockEndIndex);
+                    codeContent = codeContent.trim();
+
+
+                    const textareaId = fileMap[filename];
+                    if (textareaId) {
+                        const textarea = document.getElementById(textareaId);
+                        if (textarea) {
+                            textarea.value = codeContent;
+                            filesImported++;
+                        } else {
+                             console.warn(`Textarea ID not found for filename: ${filename} (mapped to ${textareaId})`);
+                        }
+                    } else {
+                        console.warn(`Filename not mapped in import: ${filename}`);
+                    }
+                }
+                displayMessage(`文件内容已导入 (${filesImported} 个文件)`, 'success');
+                saveModificationRules();
+                event.target.value = null;
+            };
+            reader.onerror = function() {
+                 displayMessage(`读取文件失败`, 'error');
+                 event.target.value = null;
+            };
+            reader.readAsText(file);
+        }
+
+    </script>
+</body>
+</html>

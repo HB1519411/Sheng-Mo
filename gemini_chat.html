@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>绳墨</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #121212;
+            color: #c0c0c0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            font-size: 1.5em;
+        }
+
+        .std-button {
+            color: #e0c2a3;
+            background-color: #3a3a3a;
+            border: 1px solid #e0c2a3;
+            border-radius: 5px;
+            text-align: center;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 36px;
+            height: 36px;
+            line-height: normal;
+            z-index: 5;
+            cursor: pointer;
+        }
+
+        .std-button.role-state-active {
+            background-color: green;
+        }
+
+        .std-button.edit-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: inherit;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+
+        #top-toolbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            z-index: 5;
+            background-color: transparent;
+            box-sizing: border-box;
+            padding: 0;
+        }
+
+        #settings-icon {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 11;
+            background-color: transparent;
+        }
+
+        #novel-button {
+            position: absolute;
+            top: 0;
+            right: 75px;
+            z-index: 9;
+            background-color: transparent;
+        }
+
+
+        #role-button {
+            margin-left: 36px;
+            background-color: transparent;
+        }
+        #rule-button {
+             margin-left: 0;
+             background-color: transparent;
+        }
+
+        #add-admin-button {
+             background-color: transparent;
+             margin-left: 5px;
+        }
+
+        #run-pause-button {
+            background-color: transparent;
+        }
+
+        #role-buttons-wrapper {
+            position: absolute;
+            top: 36px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 5;
+            max-height: calc(100vh - 36px);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #555 #121212;
+        }
+
+
+        #role-buttons-list-container {
+            display: none;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 6;
+        }
+
+        .role-button-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0px;
+        }
+
+        .role-button-container .std-button {
+            margin-right: 0px;
+        }
+
+        .role-state-buttons {
+            display: none;
+        }
+
+        .role-state-buttons.active {
+            display: flex;
+        }
+
+        .role-state-buttons .std-button {
+            margin-left: 0px;
+        }
+
+        #settings-panel,
+        .setting-page-template,
+        #image-viewer-page {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: inherit;
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+
+
+        .setting-page-template.active,
+        #settings-panel.active,
+        #image-viewer-page.active {
+            display: flex;
+        }
+
+
+        .settings-header {
+            text-align: center;
+            color: #e0c2a3;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
+            position: relative;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+
+        .settings-section {
+            box-sizing: border-box;
+            width: 100%;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 40px;
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ddd;
+            font-weight: bold;
+        }
+
+        .settings-input,
+        .settings-textarea,
+        .settings-select,
+        .settings-menu-item {
+            width: 100%;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            background-color: #252525;
+            color: #f0f0f0;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 5px;
+            display: block;
+            font-size: 1em;
+            font-family: inherit;
+        }
+
+
+        .settings-menu-item:hover {
+            background-color: #3a3a3a;
+        }
+
+        .settings-textarea {
+            height: 100px;
+            font-family: monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            resize: vertical;
+        }
+
+        #error-log-display {
+            height: 200px;
+            font-size: 0.8em;
+        }
+        #world-info-display {
+             height: 150px;
+             font-size: 0.8em;
+             white-space: pre;
+        }
+        #novelai-last-prompt-display {
+             height: 150px;
+             font-size: 0.8em;
+             white-space: pre-wrap;
+             background-color: #303030;
+        }
+        #roleplay-rules-textarea {
+            height: 150px;
+        }
+        #public-info-textarea {
+            height: 150px;
+        }
+
+
+        #role-list-container,
+        #chatroom-list-container,
+        #novel-list-container {
+            margin-top: 10px;
+        }
+
+
+        .role-item,
+        .chatroom-item,
+        .novel-item,
+        .chatroom-role-item,
+        .chatroom-novel-item {
+            padding: 8px;
+            background-color: #252525;
+            color: #f0f0f0;
+            margin-bottom: 5px;
+            border-radius: 5px;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .role-item span,
+        .chatroom-item label,
+        .novel-item .novel-name,
+        .chatroom-role-item label,
+        .chatroom-novel-item label
+         {
+            margin-left: 8px;
+            cursor: pointer;
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 10px;
+        }
+
+
+        .role-item span { margin-left: 0; }
+        .novel-item .novel-name { margin-left: 0; cursor: default; }
+        .chatroom-role-item label { margin-left: 0; }
+        .chatroom-novel-item label { margin-left: 0; }
+
+
+        .item-actions {
+            display: flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .chatroom-item input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #777;
+            border-radius: 50%;
+            background-color: #252525;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            margin-right: 5px;
+        }
+
+        .chatroom-item input[type="radio"]:checked {
+            border-color: #e0c2a3;
+        }
+
+        .chatroom-item input[type="radio"]:checked::after {
+            content: '';
+            display: block;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background-color: #e0c2a3;
+            border-radius: 50%;
+        }
+
+
+        #chat-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            scrollbar-width: none;
+            scrollbar-color: auto;
+            height: 100%;
+            background-color: transparent;
+            box-sizing: border-box;
+            padding-top: 36px;
+            padding-bottom: 0;
+        }
+        #chat-area::-webkit-scrollbar {
+             display: none;
+        }
+
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            margin: 8px 10px;
+            max-width: 95%;
+            position: relative;
+            order: 1;
+        }
+
+        .message-container.empty-user-message {
+            order: 9999;
+        }
+
+        .message-container[data-source-type="user"] {
+            align-items: flex-end;
+        }
+        .message-container:not([data-source-type="user"]) {
+            align-items: flex-start;
+        }
+
+
+        .role-name-button-above-bubble {
+            margin-bottom: -8px;
+            margin-left: 10px;
+            z-index: 1;
+            align-self: flex-start;
+        }
+
+        .message-container[data-source-type="user"] .role-name-button-above-bubble {
+            align-self: flex-end;
+            margin-right: 10px;
+            margin-left: 0px;
+        }
+
+
+        .user-message, .ai-response {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            border-radius: 15px;
+            padding: 10px;
+            z-index: 1;
+            position: relative;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            background-color: #FFF2E2;
+            color: #000;
+            text-align: left;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .ai-response img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+
+        #image-viewer-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 101;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        #image-viewer-page.active {
+             display: flex;
+        }
+
+        #image-viewer-content {
+            display: block;
+            height: 100%;
+            width: auto;
+            max-width: none;
+            object-fit: contain;
+            margin: auto;
+        }
+
+
+        .message-actions-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            align-items: center;
+            z-index: 2;
+            left: 46px;
+            gap: 0;
+        }
+
+        .message-container[data-source-type="user"] .message-actions-container {
+            right: 46px;
+            left: auto;
+        }
+
+
+        .message-actions-container.active {
+            display: flex;
+        }
+
+
+        .tool-setting-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .tool-setting-item label {
+            margin-left: 8px;
+            cursor: pointer;
+            flex-grow: 1;
+        }
+
+
+        #drawing-master-enabled-settings, #drawing-master-display-settings,
+        #game-host-enabled-settings, #game-host-display-settings,
+        #writing-master-enabled-settings, #writing-master-display-settings,
+        #character-update-master-enabled-settings, #character-update-master-display-settings,
+        .chatroom-role-item input[type="checkbox"],
+        .chatroom-novel-item input[type="checkbox"],
+        #novel-bookshelf-page .novel-activation-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #777;
+            border-radius: 3px;
+            background-color: #252525;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        #drawing-master-enabled-settings:checked, #drawing-master-display-settings:checked,
+        #game-host-enabled-settings:checked, #game-host-display-settings:checked,
+        #writing-master-enabled-settings:checked, #writing-master-display-settings:checked,
+        #character-update-master-enabled-settings:checked, #character-update-master-display-settings:checked,
+        .chatroom-role-item input[type="checkbox"]:checked,
+        .chatroom-novel-item input[type="checkbox"]:checked,
+        #novel-bookshelf-page .novel-activation-checkbox:checked {
+            border-color: #e0c2a3;
+        }
+
+        #drawing-master-enabled-settings:checked::after, #drawing-master-display-settings:checked::after,
+        #game-host-enabled-settings:checked::after, #game-host-display-settings:checked::after,
+        #writing-master-enabled-settings:checked::after, #writing-master-display-settings:checked::after,
+        #character-update-master-enabled-settings:checked::after, #character-update-master-display-settings:checked::after,
+        .chatroom-role-item input[type="checkbox"]:checked::after,
+        .chatroom-novel-item input[type="checkbox"]:checked::after,
+        #novel-bookshelf-page .novel-activation-checkbox:checked::after {
+            content: '✔';
+            display: block;
+            position: absolute;
+            top: -1px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+            line-height: 16px;
+            text-align: center;
+            color: #e0c2a3;
+        }
+
+
+        #novel-interface {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #FFF2E2;
+            color: #000;
+            z-index: 8;
+            overflow: hidden;
+
+            flex-direction: column;
+        }
+        #novel-interface.active {
+            display: flex;
+        }
+
+        #novel-interface-toolbar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            padding-right: 108px;
+            z-index: 9;
+        }
+
+        #novel-bookshelf-button,
+        #novel-toc-button {
+             background-color: transparent;
+             color: #3a3a3a;
+             border-color: #3a3a3a;
+             margin-left: 0px;
+        }
+
+
+        #novel-bookshelf-button {
+            position: absolute;
+            top: 0;
+            right: 111px;
+        }
+        #novel-toc-button {
+            position: absolute;
+            top: 0;
+            right: 147px;
+        }
+
+        #novel-content-area {
+            flex-grow: 1;
+            height: calc(100% - 36px);
+            overflow-y: auto;
+            padding: 46px 10px 10px 10px;
+            box-sizing: border-box;
+            font-size: 1em;
+            line-height: 1.3;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            margin-top: 36px;
+        }
+
+        #novel-content-area .novel-chapter-marker {
+            display: block;
+            font-weight: bold;
+            margin-top: 0.5em;
+            margin-bottom: 0.2em;
+        }
+
+
+
+        #novel-bookshelf-page,
+        #novel-toc-page {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: inherit;
+            color: inherit;
+            z-index: 10;
+            overflow-y: auto;
+            flex-direction: column;
+        }
+        #novel-bookshelf-page.active,
+        #novel-toc-page.active {
+            display: flex;
+        }
+
+
+        .novel-page-header {
+             text-align: center;
+             color: #3a3a3a;
+             margin-bottom: 8px;
+             padding-bottom: 5px;
+             border-bottom: 1px solid #ccc;
+             position: relative;
+             height: 36px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             flex-shrink: 0;
+        }
+
+
+        .novel-close-button {
+             position: absolute;
+             top: 0;
+             right: 0;
+             background-color: transparent;
+             color: #3a3a3a;
+             border-color: #3a3a3a;
+        }
+
+        .novel-page-section {
+            box-sizing: border-box;
+            padding-top: 10px;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .novel-page-group {
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+
+        #novel-bookshelf-list-container .novel-bookshelf-item,
+        #novel-toc-list-container .novel-toc-item {
+            padding: 8px;
+            background-color: #f0e6d8;
+            color: #000;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        #novel-bookshelf-list-container .novel-bookshelf-item label {
+            flex-grow: 1;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+        #novel-bookshelf-list-container .novel-bookshelf-item input[type="radio"] {
+             appearance: none;
+             -webkit-appearance: none;
+             -moz-appearance: none;
+             width: 16px;
+             height: 16px;
+             border: 2px solid #777;
+             border-radius: 50%;
+             background-color: #FFF2E2;
+             cursor: pointer;
+             position: relative;
+             flex-shrink: 0;
+        }
+         #novel-bookshelf-list-container .novel-bookshelf-item input[type="radio"]:checked {
+             border-color: #8B4513;
+         }
+         #novel-bookshelf-list-container .novel-bookshelf-item input[type="radio"]:checked::after {
+            content: '';
+            display: block;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background-color: #8B4513;
+            border-radius: 50%;
+         }
+
+         #novel-toc-list-container .novel-toc-item {
+             cursor: pointer;
+             text-align: left;
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+         }
+
+         .ai-response .game-host-controls {
+             display: flex;
+             margin-bottom: 5px;
+             gap: 5px;
+         }
+
+         .ai-response .game-host-view-button {
+             display: inline-block;
+             background: none;
+             border: none;
+             padding: 0;
+             margin: 0;
+             font-size: 1.2em;
+             cursor: pointer;
+             color: #3a3a3a;
+             vertical-align: middle;
+             width: auto;
+             height: auto;
+             line-height: normal;
+             border-radius: 0;
+         }
+
+         .ai-response .game-host-view-button.active {
+             opacity: 0.5;
+             background: none;
+             color: #3a3a3a;
+             border: none;
+         }
+
+         .ai-response .game-host-content {
+             font-size: 0.9em;
+             line-height: 1.6;
+             margin-top: 5px;
+             padding: 0;
+             color: #3a3a3a;
+             white-space: normal;
+         }
+         .ai-response .game-host-content .value-block {
+             display: inline-block;
+             background-color: #e8d8c2;
+             color: #3a3a3a;
+             padding: 1px 5px;
+             border-radius: 3px;
+             margin-right: 5px;
+             margin-bottom: 3px;
+             white-space: pre-wrap;
+             vertical-align: baseline;
+         }
+         .ai-response .game-host-content .icon {
+             margin-right: 5px;
+             vertical-align: baseline;
+         }
+         .ai-response .game-host-content > div {
+             margin-bottom: 2px;
+         }
+
+         #api-key-failure-counts-display {
+            font-size: 0.8em;
+            color: #aaa;
+            max-height: 100px;
+            overflow-y: auto;
+            background-color: #1c1c1c;
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #444;
+        }
+        #api-key-failure-counts-display div {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 3px;
+        }
+        #api-key-failure-counts-display .key-prefix {
+            color: #bbb;
+            margin-right: 5px;
+        }
+        #api-key-failure-counts-display .fail-count {
+            font-weight: bold;
+            color: #d99;
+            margin-left: 5px;
+        }
+
+
+    </style>
+</head>
+<body>
+
+    <div id="chat-container">
+        <div id="settings-icon" class="std-button">⚙</div>
+        <div id="novel-button" class="std-button">📖</div>
+
+        <div id="top-toolbar">
+            <div id="role-button" class="std-button">👤</div>
+            <div id="rule-button" class="std-button">📜</div>
+             <div style="margin-left: auto; display: flex; align-items: center;">
+                <div id="add-admin-button" class="std-button">📏</div>
+                <div id="run-pause-button" class="std-button">▶</div>
+            </div>
+        </div>
+
+        <div id="role-buttons-wrapper">
+           <div id="role-buttons-list-container">
+           </div>
+        </div>
+
+
+        <div id="settings-panel">
+
+             <div id="settings-main-page" class="setting-page-template active" style="flex-direction: column;">
+                 <div class="settings-header">
+                     设置
+
+                 </div>
+                 <div id="settings-menu" class="settings-section">
+                     <div class="settings-menu-item" data-target="api-settings-page">API 设置</div>
+                     <div class="settings-menu-item" data-target="novelai-settings-page">绘图设置</div>
+                     <div class="settings-menu-item" data-target="error-log-page">报错日志</div>
+                     <div class="settings-menu-item" data-target="role-settings-page">角色设置</div>
+                     <div class="settings-menu-item" data-target="chat-room-settings-page">聊天室设置</div>
+                     <div class="settings-menu-item" data-target="tool-list-page">工具列表</div>
+                     <div class="settings-menu-item" id="story-mode-menu-item" data-target="story-mode-page">剧情模式</div>
+                 </div>
+             </div>
+
+             <div id="api-settings-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     API 设置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group api-settings">
+                        <label for="api-key-textarea-settings" class="settings-label">谷歌 API 密钥 (每行一个)</label>
+                        <textarea id="api-key-textarea-settings" class="settings-textarea"></textarea>
+                        <div id="api-key-failure-counts-display" class="settings-group" style="margin-top: 10px;"></div>
+
+                        <label for="system-instruction-settings" class="settings-label">System Instruction</label>
+                        <textarea id="system-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="user1-instruction-settings" class="settings-label">User1</label>
+                        <textarea id="user1-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="model1-instruction-settings" class="settings-label">Model1</label>
+                        <textarea id="model1-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="model2-instruction-settings" class="settings-label">Model2</label>
+                        <textarea id="model2-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="user3-instruction-settings" class="settings-label">User3</label>
+                        <textarea id="user3-instruction-settings" class="settings-textarea"></textarea>
+
+                    </div>
+                    <div class="settings-group model-settings">
+                        <label for="primary-model-select-settings" class="settings-label">主要模型 (角色/写作/更新)</label>
+                        <select id="primary-model-select-settings" class="settings-select" style="width: 100%;">
+                            <option value="" disabled selected>正在加载模型列表...</option>
+                        </select>
+                        <label for="secondary-model-select-settings" class="settings-label">次要模型 (绘图/主持)</label>
+                        <select id="secondary-model-select-settings" class="settings-select" style="width: 100%;">
+                            <option value="" disabled selected>正在加载模型列表...</option>
+                        </select>
+                    </div>
+                    <div class="settings-group sending-settings">
+                        <label for="temperature-settings" class="settings-label">Temperature</label>
+                        <input type="number" id="temperature-settings" class="settings-input" value="1.0" step="0.1">
+
+                        <label for="top-p-settings" class="settings-label">Top P</label>
+                        <input type="number" id="top-p-settings" class="settings-input" value="0.9" step="0.01">
+
+                        <label for="top-k-settings" class="settings-label">Top K</label>
+                        <input type="number" id="top-k-settings" class="settings-input" value="40" type="number">
+
+                        <label for="max-output-tokens-settings" class="settings-label">Max Output Tokens</label>
+                        <input type="number" id="max-output-tokens-settings" class="settings-input" value="2048">
+
+                        <label for="response-mime-type-settings" class="settings-label">Response Mime Type</label>
+                        <select id="response-mime-type-settings" class="settings-select">
+                            <option value="text/plain">text/plain</option>
+                            <option value="application/json" selected>application/json</option>
+                            <option value="text/x.enum">text/x-enum</option>
+                        </select>
+                    </div>
+                  </div>
+             </div>
+
+             <div id="novelai-settings-page" class="setting-page-template" style="flex-direction: column;">
+                <div class="settings-header">
+                    绘图设置
+                    <div class="close-button std-button">✕</div>
+                </div>
+                <div class="settings-section">
+                   <div class="settings-group novelai-api">
+                       <label for="novelai-api-key-settings" class="settings-label">NovelAI API Key</label>
+                       <input type="text" id="novelai-api-key-settings" class="settings-input">
+
+                       <label for="novelai-model-settings" class="settings-label">模型 (Model)</label>
+                       <select id="novelai-model-settings" class="settings-select">
+                           <option value="nai-diffusion-3">nai-diffusion-3</option>
+                           <option value="nai-diffusion-4-curated-preview">nai-diffusion-4-curated-preview</option>
+                           <option value="nai-diffusion-4-full">nai-diffusion-4-full</option>
+                       </select>
+                   </div>
+                   <div class="settings-group novelai-prompts">
+                       <label for="novelai-artist-chain-settings" class="settings-label">艺术家链 (Artist Chain)</label>
+                       <input type="text" id="novelai-artist-chain-settings" class="settings-input" autocomplete="off">
+
+                       <label for="novelai-default-positive-prompt-settings" class="settings-label">默认正面提示词</label>
+                       <textarea id="novelai-default-positive-prompt-settings" class="settings-textarea"></textarea>
+
+                       <label for="novelai-default-negative-prompt-settings" class="settings-label">默认负面提示词</label>
+                       <textarea id="novelai-default-negative-prompt-settings" class="settings-textarea"></textarea>
+
+                       <label for="novelai-last-prompt-display" class="settings-label">上次发送的主要绘图提示词</label>
+                       <textarea id="novelai-last-prompt-display" class="settings-textarea" readonly></textarea>
+                   </div>
+                   <div class="settings-group novelai-params">
+                       <label for="novelai-width-settings" class="settings-label">宽度 (Width)</label>
+                       <input type="number" id="novelai-width-settings" class="settings-input" value="1024" step="64">
+
+                       <label for="novelai-height-settings" class="settings-label">高度 (Height)</label>
+                       <input type="number" id="novelai-height-settings" class="settings-input" value="1024" step="64">
+
+                       <label for="novelai-steps-settings" class="settings-label">步数 (Steps)</label>
+                       <input type="number" id="novelai-steps-settings" class="settings-input" value="28" min="1" max="50">
+
+                       <label for="novelai-scale-settings" class="settings-label">引导系数 (Scale)</label>
+                       <input type="number" id="novelai-scale-settings" class="settings-input" value="5" step="0.1">
+
+                       <label for="novelai-cfg-rescale-settings" class="settings-label">CFG 重调 (CFG Rescale)</label>
+                       <input type="number" id="novelai-cfg-rescale-settings" class="settings-input" value="0" step="0.01">
+
+                       <label for="novelai-sampler-settings" class="settings-label">采样器 (Sampler)</label>
+                       <select id="novelai-sampler-settings" class="settings-select">
+                           <option value="k_euler">k_euler</option>
+                           <option value="k_euler_ancestral">k_euler_ancestral</option>
+                           <option value="k_dpmpp_2s_ancestral">k_dpmpp_2s_ancestral</option>
+                           <option value="k_dpmpp_2m">k_dpmpp_2m</option>
+                           <option value="k_dpm_2">k_dpm_2</option>
+                           <option value="ddim_v3">ddim_v3</option>
+                       </select>
+
+                       <label for="novelai-noise-schedule-settings" class="settings-label">噪点调度 (Noise Schedule)</label>
+                       <select id="novelai-noise-schedule-settings" class="settings-select">
+                            <option value="native">native</option>
+                            <option value="karras">karras</option>
+                            <option value="exponential">exponential</option>
+                            <option value="polyexponential">polyexponential</option>
+                       </select>
+
+                       <label for="novelai-seed-settings" class="settings-label">种子 (Seed) (0 = 随机)</label>
+                       <input type="number" id="novelai-seed-settings" class="settings-input" value="0" min="0">
+                   </div>
+                </div>
+             </div>
+
+
+             <div id="error-log-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     报错日志
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group error-log-settings">
+                        <label for="error-log-display" class="settings-label">错误信息</label>
+                        <textarea id="error-log-display" class="settings-textarea" readonly></textarea>
+                        <div id="clear-error-log-button" class="settings-menu-item">清空错误日志</div>
+                        <div id="copy-error-log-button" class="settings-menu-item">复制错误信息</div>
+                        <div id="clear-all-config-button" class="settings-menu-item" style="color: red; border-color: red;">清空全部配置 (危险)</div>
+                        <div id="export-config-button" class="settings-menu-item">导出完整配置 (ZIP)</div>
+                        <input type="file" id="import-config-file" style="display: none;" accept=".zip">
+                        <div id="import-config-button" class="settings-menu-item">导入完整配置 (ZIP)</div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="role-settings-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     角色设置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div id="role-settings-menu" class="settings-section">
+                     <div class="settings-menu-item" data-target="common-settings-page">共用设置</div>
+                     <div class="settings-menu-item" data-target="role-list-page">角色名单</div>
+
+                 </div>
+             </div>
+
+             <div id="common-settings-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     共用设置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group common-settings">
+                        <label for="response-schema-json-settings" class="settings-label">Response Schema (JSON) (角色/临时角色)</label>
+                        <textarea id="response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS) (角色/临时角色)</label>
+                        <textarea id="response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="user2-instruction-settings" class="settings-label">User2 (角色/临时角色)</label>
+                        <textarea id="user2-instruction-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="role-list-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     角色名单
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group role-list">
+                        <div id="add-role-button" class = "settings-menu-item">十</div>
+                        <div id="role-list-container">
+                        </div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="role-detail-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     <span id="role-detail-header-title">角色详情</span>
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group role-detail">
+                        <label for="role-instruction-textarea" class="settings-label">角色设定</label>
+                        <textarea id="role-instruction-textarea" class="settings-textarea"></textarea>
+
+                        <label for="role-memory-textarea" class="settings-label">角色记忆</label>
+                        <textarea id="role-memory-textarea" class="settings-textarea"></textarea>
+
+                        <label for="role-state-textarea" class="settings-label">角色状态</label>
+                        <textarea id="role-state-textarea" class="settings-textarea" readonly></textarea>
+
+                        <label for="role-drawing-template-settings" class="settings-label">Drawing Template</label>
+                        <input type="text" id="role-drawing-template-settings" class="settings-input" autocomplete="off">
+
+                        <div id="export-role-button" class="settings-menu-item" style="margin-top: 15px;">导出此角色</div>
+                        <input type="file" id="import-role-file" style="display: none;" accept=".json">
+                        <div id="import-role-button" class="settings-menu-item">导入此角色</div>
+                    </div>
+                 </div>
+             </div>
+
+
+             <div id="tool-list-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     工具列表
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div id="tool-list-container" class="settings-section">
+                     <div id="tool-list-menu" class="settings-section">
+                         <div class="settings-menu-item tool-item" data-target="drawing-master-page">绘图大师</div>
+                         <div class="settings-menu-item tool-item" data-target="game-host-page">游戏主持人</div>
+                         <div class="settings-menu-item tool-item" data-target="writing-master-page">写作大师</div>
+                         <div class="settings-menu-item tool-item" data-target="character-update-master-page">角色更新大师</div>
+                     </div>
+                 </div>
+             </div>
+
+             <div id="chat-room-settings-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     聊天室设置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div id="chat-room-settings-menu" class="settings-section">
+                     <div class="settings-menu-item" data-target="general-config-page">通用配置</div>
+                     <div class="settings-menu-item" data-target="chat-room-directory-page">聊天室目录</div>
+                 </div>
+             </div>
+
+             <div id="general-config-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     通用配置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group general-config">
+                         <label for="reference-text-length-settings" class="settings-label">参考文本字符数</label>
+                         <input type="number" id="reference-text-length-settings" class="settings-input" value="40000" step="1000">
+                    </div>
+                 </div>
+             </div>
+
+             <div id="chat-room-directory-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     聊天室目录
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group chat-room-directory">
+                        <div id="add-chatroom-button" class = "settings-menu-item">十</div>
+                        <div id="chatroom-list-container">
+                        </div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="chat-room-detail-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     <span id="chatroom-detail-header-title">聊天室详情 - 1</span>
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div id="chatroom-settings-menu" class="settings-section">
+                     <div class="settings-menu-item" data-target="current-chatroom-settings-page">当前聊天室设置</div>
+                     <div class="settings-menu-item" data-target="chatroom-role-page">聊天室角色</div>
+                     <div class="settings-menu-item" data-target="chatroom-novel-page">聊天室小说</div>
+                 </div>
+
+             </div>
+
+             <div id="current-chatroom-settings-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     当前聊天室设置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group current-chatroom-settings">
+                        <label for="chatroom-history-display" class="settings-label">消息记录</label>
+                        <textarea id="chatroom-history-display" class="settings-textarea" readonly></textarea>
+                        <div id="clear-chatroom-history-button" class="settings-menu-item">清空消息记录</div>
+
+                        <label for="world-info-display" class="settings-label">最新世界信息</label>
+                        <textarea id="world-info-display" class="settings-textarea" readonly></textarea>
+
+                        <label for="roleplay-rules-textarea" class="settings-label">扮演规则 (当前聊天室)</label>
+                        <textarea id="roleplay-rules-textarea" class="settings-textarea"></textarea>
+
+                        <label for="public-info-textarea" class="settings-label">公共信息 (当前聊天室)</label>
+                        <textarea id="public-info-textarea" class="settings-textarea"></textarea>
+
+                        <div id="export-chatroom-button" class="settings-menu-item" style="margin-top: 15px;">导出此聊天室 (ZIP)</div>
+                        <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip">
+                        <div id="import-chatroom-button" class="settings-menu-item">导入此聊天室 (ZIP)</div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="chatroom-role-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     聊天室角色
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group chatroom-role">
+                        <div id="chatroom-role-list-container">
+                        </div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="chatroom-novel-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     聊天室小说
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                  <div class="settings-section">
+                    <div class="settings-group chatroom-novel">
+
+                        <div id="chatroom-novel-list-container">
+
+                        </div>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="story-mode-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     剧情模式
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group story-mode-list">
+                        <div id="add-novel-button" class="settings-menu-item">十 添加小说 (从剪贴板)</div>
+                        <div id="novel-list-container">
+                        </div>
+                    </div>
+                 </div>
+             </div>
+
+
+             <div id="drawing-master-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     绘图大师
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group god-settings">
+                        <div class="tool-setting-item">
+                            <label for="drawing-master-enabled-settings">启用</label>
+                            <input type="checkbox" id="drawing-master-enabled-settings">
+                        </div>
+                        <div class="tool-setting-item">
+                            <label for="drawing-master-display-settings">显示输出</label>
+                            <input type="checkbox" id="drawing-master-display-settings" checked>
+                        </div>
+                        <label for="drawing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
+                        <textarea id="drawing-master-response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="drawing-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
+                        <textarea id="drawing-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="drawing-master-user2-instruction-settings" class="settings-label">User2</label>
+                        <textarea id="drawing-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="game-host-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     游戏主持人
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group god-settings">
+                        <div class="tool-setting-item">
+                            <label for="game-host-enabled-settings">启用</label>
+                            <input type="checkbox" id="game-host-enabled-settings">
+                        </div>
+                        <div class="tool-setting-item">
+                            <label for="game-host-display-settings">显示输出</label>
+                            <input type="checkbox" id="game-host-display-settings" checked>
+                        </div>
+                        <label for="game-host-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
+                        <textarea id="game-host-response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="game-host-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
+                        <textarea id="game-host-response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="game-host-user2-instruction-settings" class="settings-label">User2</label>
+                        <textarea id="game-host-user2-instruction-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="writing-master-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     写作大师
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group god-settings">
+                        <div class="tool-setting-item">
+                            <label for="writing-master-enabled-settings">启用</label>
+                            <input type="checkbox" id="writing-master-enabled-settings">
+                        </div>
+                        <div class="tool-setting-item">
+                            <label for="writing-master-display-settings">显示输出</label>
+                            <input type="checkbox" id="writing-master-display-settings" checked>
+                        </div>
+                        <label for="writing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
+                        <textarea id="writing-master-response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="writing-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
+                        <textarea id="writing-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="writing-master-user2-instruction-settings" class="settings-label">User2</label>
+                        <textarea id="writing-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="character-update-master-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     角色更新大师
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group god-settings">
+                        <div class="tool-setting-item">
+                            <label for="character-update-master-enabled-settings">启用</label>
+                            <input type="checkbox" id="character-update-master-enabled-settings">
+                        </div>
+                        <div class="tool-setting-item">
+                            <label for="character-update-master-display-settings">显示输出</label>
+                            <input type="checkbox" id="character-update-master-display-settings" checked>
+                        </div>
+                        <label for="character-update-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
+                        <textarea id="character-update-master-response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="character-update-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
+                        <textarea id="character-update-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="character-update-master-user2-instruction-settings" class="settings-label">User2</label>
+                        <textarea id="character-update-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+        </div>
+
+
+        <div id="novel-interface">
+            <div id="novel-interface-toolbar">
+                 <div id="novel-toc-button" class="std-button">☰</div>
+                 <div id="novel-bookshelf-button" class="std-button">📚</div>
+            </div>
+
+
+            <div id="novel-content-area">
+
+            </div>
+
+
+            <div id="novel-bookshelf-page">
+                 <div class="novel-page-header">
+                     书目
+                     <div class="novel-close-button std-button">✕</div>
+                 </div>
+                 <div class="novel-page-section">
+                    <div class="novel-page-group">
+                        <div id="novel-bookshelf-list-container">
+
+                        </div>
+                    </div>
+                 </div>
+            </div>
+
+
+            <div id="novel-toc-page">
+                 <div class="novel-page-header">
+                     目录
+                     <div class="novel-close-button std-button">✕</div>
+                 </div>
+                 <div class="novel-page-section">
+                    <div class="novel-page-group">
+                        <div id="novel-toc-list-container">
+
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+
+
+        <div id="chat-area">
+
+        </div>
+
+        <div id="image-viewer-page">
+             <img id="image-viewer-content" src="" alt="Image Viewer">
+        </div>
+    </div>
+
+
+    <script src="core.js"></script>
+    <script src="ui_elements.js"></script>
+    <script src="ui_settings.js"></script>
+    <script src="ui_chat.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
