@@ -1,84 +1,51 @@
 @echo off
 cls
-echo ============================================================
-echo  Git Commit and Push New Version Branch Script
-echo ============================================================
-echo This script will:
-echo 1. Stage all changes.
-echo 2. Commit changes with your provided message (used as version).
-echo 3. Create a NEW branch named after that version/message.
-echo 4. Push the NEW branch to GitHub (origin).
-echo ============================================================
-echo IMPORTANT: Run this script from the root directory of your
-echo            local Sheng-Mo Git repository.
-echo Repository Target: git@github.com:HB1519411/Sheng-Mo.git
-echo ============================================================
-echo WARNING: Please use a version identifier suitable for a branch name
-echo          (e.g., 'v1.3', 'release-2.0', '1.3.1'). Avoid spaces
-echo          and special characters like \, /, :, *, ?, ", <, >, |.
-echo ============================================================
-echo.
-
-echo Staging all changes (git add .)...
 git add .
-echo.
 
-set "version_message="
-:GetVersionMessage
-set "version_message="
-set /p version_message="Enter the version or name for the new branch (e.g., 1.3): "
+set "version_input="
+:GetVersionInput
+set "version_input="
+set /p version_input="Enter the version or name for the new branch (e.g., 1.3): "
 
-REM Check if the version message is empty
-if "%version_message%"=="" (
+if "%version_input%"=="" (
     echo.
     echo ERROR: Version/Branch name cannot be empty. Please try again.
-    goto GetVersionMessage
+    goto GetVersionInput
 )
-REM Basic check for spaces (optional, but recommended)
-echo "%version_message%" | findstr /C:" " > nul
-if not errorlevel 1 (
+
+REM --- New Space Check ---
+set "check_space=%version_input: =%"
+if not "%check_space%"=="%version_input%" (
     echo.
-    echo WARNING: Spaces are not recommended in branch names.
+    echo WARNING: Spaces were detected in the input. Not recommended for branch names.
     set /p confirm_space="Continue anyway? (y/n): "
-    if /i not "%confirm_space%"=="y" goto GetVersionMessage
+    if /i not "%confirm_space%"=="y" goto GetVersionInput
 )
+REM --- End of New Space Check ---
 
-
-set "new_branch_name=%version_message%"
 echo.
-echo Preparing to commit with message and create branch: "%new_branch_name%"
+echo Preparing to commit with message and create branch: "%version_input%"
 echo.
 
-echo Committing changes on the current branch (git commit -m "%version_message%")...
-git commit -m "%version_message%"
-
-REM Check if the commit command failed (e.g., nothing to commit)
+echo Attempting to commit changes (using message "%version_input%")...
+git commit -m "%version_input%"
 if errorlevel 1 (
     echo.
-    echo WARNING: Git commit may have failed or there were no changes to commit.
-    echo          If there were no changes, no new branch will be created or pushed.
-    echo          Check messages above.
+    echo WARNING: Git commit failed or there were no changes to commit. Will create branch based on current state.
+)
+
+echo.
+echo Creating new branch "%version_input%"...
+git branch "%version_input%"
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to create branch "%version_input%". It might already exist.
     goto End
 )
 
 echo.
-echo Creating new branch named "%new_branch_name%"...
-git branch "%new_branch_name%"
-
-REM Check if branch creation failed (e.g., branch already exists)
-if errorlevel 1 (
-    echo.
-    echo ERROR: Failed to create branch "%new_branch_name%". It might already exist.
-    echo        You may need to delete the existing local/remote branch or choose a different name.
-    goto End
-)
-
-echo.
-echo Pushing the new branch "%new_branch_name%" to remote repository (origin)...
-REM The -u flag sets the upstream branch for the new local branch to origin/<new_branch_name>
-git push -u origin "%new_branch_name%"
-
-REM Check if the push command failed
+echo Pushing new branch "%version_input%" to origin...
+git push -u origin "%version_input%"
 if errorlevel 1 (
     echo.
     echo ERROR: Git push failed for the new branch. Check connection, permissions, or remote status.
@@ -87,12 +54,7 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  SUCCESS! New branch "%new_branch_name%" pushed to GitHub.
-echo ============================================================
-echo REMINDER: To make "%new_branch_name%" the default branch,
-echo           you MUST manually change it in your repository
-echo           settings on the GitHub website:
-echo           Settings -> Branches -> Default branch -> Switch branch
+echo  SUCCESS! New branch "%version_input%" pushed to GitHub.
 echo ============================================================
 
 :End
