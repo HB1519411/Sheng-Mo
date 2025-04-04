@@ -13,7 +13,7 @@ if "%version_input%"=="" (
     goto GetVersionInput
 )
 
-REM --- New Space Check ---
+REM --- Space Check ---
 set "check_space=%version_input: =%"
 if not "%check_space%"=="%version_input%" (
     echo.
@@ -21,40 +21,45 @@ if not "%check_space%"=="%version_input%" (
     set /p confirm_space="Continue anyway? (y/n): "
     if /i not "%confirm_space%"=="y" goto GetVersionInput
 )
-REM --- End of New Space Check ---
+REM --- End of Space Check ---
 
 echo.
-echo Preparing to commit with message and create branch: "%version_input%"
+echo Preparing to commit with message and create/overwrite branch: "%version_input%"
 echo.
 
 echo Attempting to commit changes (using message "%version_input%")...
 git commit -m "%version_input%"
 if errorlevel 1 (
     echo.
-    echo WARNING: Git commit failed or there were no changes to commit. Will create branch based on current state.
+    echo WARNING: Git commit failed or there were no changes to commit. Branch will be based on current HEAD.
 )
 
 echo.
-echo Creating new branch "%version_input%"...
-git branch "%version_input%"
+echo Forcing creation/update of local branch "%version_input%" to current commit...
+echo WARNING: If local branch "%version_input%" already exists, it will be reset!
+git branch -f "%version_input%"
+REM Check for *other* branch creation errors, though less likely with -f
 if errorlevel 1 (
     echo.
-    echo ERROR: Failed to create branch "%version_input%". It might already exist.
+    echo ERROR: Failed to create/update local branch "%version_input%" for reasons other than existence.
     goto End
 )
 
+
 echo.
-echo Pushing new branch "%version_input%" to origin...
-git push -u origin "%version_input%"
+echo Force pushing branch "%version_input%" to origin...
+echo WARNING: This will OVERWRITE the remote branch "%version_input%" if it exists!
+git push --force -u origin "%version_input%"
 if errorlevel 1 (
     echo.
-    echo ERROR: Git push failed for the new branch. Check connection, permissions, or remote status.
+    echo ERROR: Git force push failed for branch "%version_input%". Check connection, permissions, or remote status.
     goto End
 )
 
 echo.
 echo ============================================================
-echo  SUCCESS! New branch "%version_input%" pushed to GitHub.
+echo  SUCCESS! Branch "%version_input%" forced pushed to GitHub.
+echo          Local and remote branches (if existed) were overwritten.
 echo ============================================================
 
 :End
