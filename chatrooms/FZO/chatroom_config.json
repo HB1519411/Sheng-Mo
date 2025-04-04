@@ -1,0 +1,21 @@
+{
+  "name": "FZO",
+  "roleplayRules": "",
+  "publicInfo": "",
+  "activeNovelIds": [],
+  "roleStates": {
+    "不知名魔术师": "用",
+    "管理员": "默",
+    "阿尔托莉雅": "活",
+    "爱丽丝菲尔·冯·爱因兹贝伦": "活"
+  },
+  "roleDetailedStates": {
+    "不知名魔术师": "characterName: 不知名魔术师\ndemeanor: 面色苍白 (喘息)\nclothing\n  outerwear\n    coat: 黑色风衣 (多处烧焦痕迹)\n    top: 深蓝色高领毛衣 (袖口磨损)\n    bottom: 黑色牛仔裤 (膝盖处有破洞)\n    socks: 黑色棉袜 (潮湿)\n    shoes: 黑色皮鞋 (沾满泥土)\n    otherOuterwear: 无\n  underwear\n    pants: 灰色棉质内裤 (紧绷)\n    bra: 不适用\n    otherUnderwear: 无\naccessories\n  - 银质戒指 (左手无名指)\n  - 怀表 (链条断裂)\nshortTermStatus: 魔力透支 (头晕恶心)\nlongTermStatus: 魔术回路损伤 (修复中)\nactionPose\n  - 单膝跪地\n  - 右手撑地\n  - 左手按住胸口\ncurrentAction: 维持召唤仪式 (魔力供给)",
+    "阿尔托莉雅": "characterName: 阿尔托莉雅\ndemeanor: 略带疑惑 (观察Master)\nclothing\n  outerwear\n    coat: 无\n    top: 银蓝色铠甲 (覆盖全身)\n    bottom: 无\n    socks: 不适用\n    shoes: 银色战靴 (金属光泽)\n    otherOuterwear: 无\n  underwear\n    pants: 不适用\n    bra: 不适用\n    otherUnderwear: 无\naccessories\n  - 无\nshortTermStatus: 魔力充盈 (随时可战斗)\nlongTermStatus: 风王结界 (隐匿圣剑)\nactionPose\n  - 站立\n  - 手持圣剑\n  - 环顾四周\ncurrentAction: 观察Master (等待指示)",
+    "爱丽丝菲尔·冯·爱因兹贝伦": ""
+  },
+  "novelCurrentSegmentIds": {
+    "novel-1743735405235-2zapdzh": 0
+  },
+  "backgroundImageFilename": "background.png"
+}

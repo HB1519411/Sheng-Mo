@@ -14,6 +14,7 @@
             align-items: flex-start;
             min-height: 100vh;
             font-size: 1.5em;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .std-button {
@@ -30,6 +31,7 @@
             line-height: normal;
             z-index: 5;
             cursor: pointer;
+            user-select: none;
         }
 
         .std-button.role-state-active {
@@ -52,8 +54,8 @@
             margin: 0;
             position: relative;
             overflow: hidden;
-            background-size: cover;
-            background-position: center;
+            background-size: auto 100vh;
+            background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
         }
@@ -107,6 +109,35 @@
             background-color: transparent;
         }
 
+        #loading-spinner {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, calc(-50% + 5px));
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(224, 194, 163, 0.3);
+            border-radius: 50%;
+            border-top-color: #e0c2a3;
+            z-index: 6;
+        }
+
+        #loading-spinner.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        #loading-spinner.retry-indicator {
+             border-top-color: red;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, calc(-50% + 5px)) rotate(360deg);
+            }
+        }
+
+
         #role-buttons-wrapper {
             position: absolute;
             top: 36px;
@@ -151,6 +182,45 @@
 
         .role-state-buttons .std-button {
             margin-left: 0px;
+        }
+
+        #active-role-trigger-list {
+            position: absolute;
+            top: 36px;
+            right: 0px;
+            width: auto;
+            max-width: 150px;
+            display: none;
+            flex-direction: column;
+            align-items: flex-end;
+            background-color: #252525;
+            border: 1px solid #555;
+            border-radius: 0 0 5px 5px;
+            z-index: 7;
+            padding: 5px;
+            gap: 5px;
+        }
+
+        .active-role-trigger-button {
+            background-color: #3a3a3a;
+            color: #e0c2a3;
+            border: 1px solid #777;
+            border-radius: 3px;
+            padding: 5px 8px;
+            text-align: center;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9em;
+            line-height: 1.2;
+            height: auto;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #settings-panel,
@@ -268,6 +338,16 @@
         #public-info-textarea {
             height: 150px;
         }
+         #system-instruction-preset-settings,
+         #shared-database-instruction-settings,
+         #chatroom-main-prompt-settings,
+         #drawing-master-main-prompt-settings,
+         #game-host-main-prompt-settings,
+         #writing-master-main-prompt-settings,
+         #character-update-master-main-prompt-settings,
+         #private-assistant-main-prompt-settings {
+             height: 150px;
+         }
 
 
         #role-list-container,
@@ -280,8 +360,8 @@
         .role-item,
         .chatroom-item,
         .novel-item,
-        .chatroom-role-item,
-        .chatroom-novel-item {
+
+        .prompt-preset-item {
             padding: 8px;
             background-color: #252525;
             color: #f0f0f0;
@@ -296,8 +376,8 @@
         .role-item span,
         .chatroom-item label,
         .novel-item .novel-name,
-        .chatroom-role-item label,
-        .chatroom-novel-item label
+
+        .prompt-preset-item .preset-role-label
          {
             margin-left: 8px;
             cursor: pointer;
@@ -311,8 +391,23 @@
 
         .role-item span { margin-left: 0; }
         .novel-item .novel-name { margin-left: 0; cursor: default; }
-        .chatroom-role-item label { margin-left: 0; }
-        .chatroom-novel-item label { margin-left: 0; }
+
+        .prompt-preset-item .preset-role-label { margin-left: 0; cursor: default; width: 20px; flex-grow: 0; flex-shrink: 0; text-align: center; font-weight:bold; }
+        .prompt-preset-item .preset-instruction-textarea {
+            flex-grow: 1;
+            height: 60px;
+            margin: 0 5px 0 0;
+            font-size: 0.9em;
+            line-height: 1.3;
+            resize: vertical;
+            font-family: monospace;
+            white-space: pre-wrap;
+            border: 1px solid #555;
+            background-color: #303030;
+            color: #f0f0f0;
+            border-radius: 5px;
+            padding: 5px;
+        }
 
 
         .item-actions {
@@ -320,6 +415,15 @@
             gap: 5px;
             flex-shrink: 0;
         }
+         .prompt-preset-item .item-actions {
+             flex-direction: column;
+             gap: 3px;
+         }
+         .prompt-preset-item .item-actions .std-button {
+             width: 24px;
+             height: 24px;
+             font-size: 0.8em;
+         }
 
         .chatroom-item input[type="radio"] {
             appearance: none;
@@ -364,7 +468,7 @@
             background-color: transparent;
             box-sizing: border-box;
             padding-top: 36px;
-            padding-bottom: 0;
+            padding-bottom: 60vh;
         }
         #chat-area::-webkit-scrollbar {
              display: none;
@@ -379,9 +483,6 @@
             order: 1;
         }
 
-        .message-container.empty-user-message {
-            order: 9999;
-        }
 
         .message-container[data-source-type="user"] {
             align-items: flex-end;
@@ -493,12 +594,12 @@
         }
 
 
-        #drawing-master-enabled-settings, #drawing-master-display-settings,
-        #game-host-enabled-settings, #game-host-display-settings,
-        #writing-master-enabled-settings, #writing-master-display-settings,
-        #character-update-master-enabled-settings, #character-update-master-display-settings,
-        .chatroom-role-item input[type="checkbox"],
-        .chatroom-novel-item input[type="checkbox"],
+        #drawing-master-enabled-settings,
+        #game-host-enabled-settings,
+        #writing-master-enabled-settings,
+        #character-update-master-enabled-settings,
+        #private-assistant-enabled-settings,
+
         #novel-bookshelf-page .novel-activation-checkbox {
             appearance: none;
             -webkit-appearance: none;
@@ -515,22 +616,22 @@
             margin-left: 5px;
         }
 
-        #drawing-master-enabled-settings:checked, #drawing-master-display-settings:checked,
-        #game-host-enabled-settings:checked, #game-host-display-settings:checked,
-        #writing-master-enabled-settings:checked, #writing-master-display-settings:checked,
-        #character-update-master-enabled-settings:checked, #character-update-master-display-settings:checked,
-        .chatroom-role-item input[type="checkbox"]:checked,
-        .chatroom-novel-item input[type="checkbox"]:checked,
+        #drawing-master-enabled-settings:checked,
+        #game-host-enabled-settings:checked,
+        #writing-master-enabled-settings:checked,
+        #character-update-master-enabled-settings:checked,
+        #private-assistant-enabled-settings:checked,
+
         #novel-bookshelf-page .novel-activation-checkbox:checked {
             border-color: #e0c2a3;
         }
 
-        #drawing-master-enabled-settings:checked::after, #drawing-master-display-settings:checked::after,
-        #game-host-enabled-settings:checked::after, #game-host-display-settings:checked::after,
-        #writing-master-enabled-settings:checked::after, #writing-master-display-settings:checked::after,
-        #character-update-master-enabled-settings:checked::after, #character-update-master-display-settings:checked::after,
-        .chatroom-role-item input[type="checkbox"]:checked::after,
-        .chatroom-novel-item input[type="checkbox"]:checked::after,
+        #drawing-master-enabled-settings:checked::after,
+        #game-host-enabled-settings:checked::after,
+        #writing-master-enabled-settings:checked::after,
+        #character-update-master-enabled-settings:checked::after,
+        #private-assistant-enabled-settings:checked::after,
+
         #novel-bookshelf-page .novel-activation-checkbox:checked::after {
             content: '✔';
             display: block;
@@ -808,7 +909,44 @@
             color: #d99;
             margin-left: 5px;
         }
+         #prompt-preset-list-container {
+            margin-top: 10px;
+         }
+         .prompt-preset-actions {
+             display: flex;
+             gap: 10px;
+             margin-bottom: 10px;
+         }
+         .prompt-preset-actions .settings-menu-item {
+             margin-bottom: 0;
+             width: auto;
+             flex-grow: 1;
+             text-align: center;
+         }
 
+         .chatroom-management-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+         }
+         .chatroom-management-grid .settings-menu-item {
+             margin-bottom: 0;
+         }
+
+        #pending-action-button-container {
+            margin: 0;
+            position: absolute;
+            top: 36px;
+            right: 0px;
+            z-index: 5;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        #pending-action-button-container .std-button {
+            background-color: transparent;
+        }
 
     </style>
 </head>
@@ -821,15 +959,22 @@
         <div id="top-toolbar">
             <div id="role-button" class="std-button">👤</div>
             <div id="rule-button" class="std-button">📜</div>
-             <div style="margin-left: auto; display: flex; align-items: center;">
-                <div id="add-admin-button" class="std-button">📏</div>
-                <div id="run-pause-button" class="std-button">▶</div>
-            </div>
+            <div id="loading-spinner"></div>
+             <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
+                <div style="display: flex; align-items: center;">
+                    <div id="add-admin-button" class="std-button">📏</div>
+                    <div id="run-pause-button" class="std-button">▶</div>
+                </div>
+                <div id="pending-action-button-container" style="margin: 0;"></div>
+             </div>
         </div>
 
         <div id="role-buttons-wrapper">
            <div id="role-buttons-list-container">
            </div>
+        </div>
+
+        <div id="active-role-trigger-list">
         </div>
 
 
@@ -842,12 +987,13 @@
                  </div>
                  <div id="settings-menu" class="settings-section">
                      <div class="settings-menu-item" data-target="api-settings-page">API 设置</div>
+                     <div class="settings-menu-item" data-target="prompt-preset-page">提示词预设</div>
                      <div class="settings-menu-item" data-target="novelai-settings-page">绘图设置</div>
                      <div class="settings-menu-item" data-target="error-log-page">报错日志</div>
-                     <div class="settings-menu-item" data-target="role-settings-page">角色设置</div>
+
                      <div class="settings-menu-item" data-target="chat-room-settings-page">聊天室设置</div>
                      <div class="settings-menu-item" data-target="tool-list-page">工具列表</div>
-                     <div class="settings-menu-item" id="story-mode-menu-item" data-target="story-mode-page">剧情模式</div>
+
                  </div>
              </div>
 
@@ -861,33 +1007,8 @@
                         <label for="api-key-textarea-settings" class="settings-label">谷歌 API 密钥 (每行一个)</label>
                         <textarea id="api-key-textarea-settings" class="settings-textarea"></textarea>
                         <div id="api-key-failure-counts-display" class="settings-group" style="margin-top: 10px;"></div>
-
-                        <label for="system-instruction-settings" class="settings-label">System Instruction</label>
-                        <textarea id="system-instruction-settings" class="settings-textarea"></textarea>
-
-                        <label for="user1-instruction-settings" class="settings-label">User1</label>
-                        <textarea id="user1-instruction-settings" class="settings-textarea"></textarea>
-
-                        <label for="model1-instruction-settings" class="settings-label">Model1</label>
-                        <textarea id="model1-instruction-settings" class="settings-textarea"></textarea>
-
-                        <label for="model2-instruction-settings" class="settings-label">Model2</label>
-                        <textarea id="model2-instruction-settings" class="settings-textarea"></textarea>
-
-                        <label for="user3-instruction-settings" class="settings-label">User3</label>
-                        <textarea id="user3-instruction-settings" class="settings-textarea"></textarea>
-
                     </div>
-                    <div class="settings-group model-settings">
-                        <label for="primary-model-select-settings" class="settings-label">主要模型 (角色/写作/更新)</label>
-                        <select id="primary-model-select-settings" class="settings-select" style="width: 100%;">
-                            <option value="" disabled selected>正在加载模型列表...</option>
-                        </select>
-                        <label for="secondary-model-select-settings" class="settings-label">次要模型 (绘图/主持)</label>
-                        <select id="secondary-model-select-settings" class="settings-select" style="width: 100%;">
-                            <option value="" disabled selected>正在加载模型列表...</option>
-                        </select>
-                    </div>
+
                     <div class="settings-group sending-settings">
                         <label for="temperature-settings" class="settings-label">Temperature</label>
                         <input type="number" id="temperature-settings" class="settings-input" value="1.0" step="0.1">
@@ -910,6 +1031,34 @@
                     </div>
                   </div>
              </div>
+
+             <div id="prompt-preset-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     提示词预设
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <label for="system-instruction-preset-settings" class="settings-label">System Instruction (全局)</label>
+                         <textarea id="system-instruction-preset-settings" class="settings-textarea"></textarea>
+                     </div>
+                     <div class="settings-group">
+                         <label class="settings-label">对话轮次预设</label>
+                         <div class="prompt-preset-actions">
+                             <div id="add-prompt-user-turn-button" class="settings-menu-item">添加 U</div>
+                             <div id="add-prompt-model-turn-button" class="settings-menu-item">添加 M</div>
+                         </div>
+                         <div id="prompt-preset-list-container">
+                         </div>
+                          <div class="prompt-preset-actions" style="margin-top: 15px;">
+                             <div id="export-prompt-presets-button" class="settings-menu-item">导出预设</div>
+                             <input type="file" id="import-prompt-presets-file" style="display: none;" accept=".json">
+                             <div id="import-prompt-presets-button" class="settings-menu-item">导入预设</div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+
 
              <div id="novelai-settings-page" class="setting-page-template" style="flex-direction: column;">
                 <div class="settings-header">
@@ -989,7 +1138,7 @@
                  </div>
                  <div class="settings-section">
                     <div class="settings-group error-log-settings">
-                        <label for="error-log-display" class="settings-label">错误信息</label>
+                        <label for="error-log-display" class="settings-label">错误信息 (仅运行时)</label>
                         <textarea id="error-log-display" class="settings-textarea" readonly></textarea>
                         <div id="clear-error-log-button" class="settings-menu-item">清空错误日志</div>
                         <div id="copy-error-log-button" class="settings-menu-item">复制错误信息</div>
@@ -1001,45 +1150,15 @@
                  </div>
              </div>
 
-             <div id="role-settings-page" class="setting-page-template" style="flex-direction: column;">
-                 <div class="settings-header">
-                     角色设置
-                     <div class="close-button std-button">✕</div>
-                 </div>
-                 <div id="role-settings-menu" class="settings-section">
-                     <div class="settings-menu-item" data-target="common-settings-page">共用设置</div>
-                     <div class="settings-menu-item" data-target="role-list-page">角色名单</div>
-
-                 </div>
-             </div>
-
-             <div id="common-settings-page" class="setting-page-template" style="flex-direction: column;">
-                 <div class="settings-header">
-                     共用设置
-                     <div class="close-button std-button">✕</div>
-                 </div>
-                 <div class="settings-section">
-                    <div class="settings-group common-settings">
-                        <label for="response-schema-json-settings" class="settings-label">Response Schema (JSON) (角色/临时角色)</label>
-                        <textarea id="response-schema-json-settings" class="settings-textarea"></textarea>
-
-                        <label for="response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS) (角色/临时角色)</label>
-                        <textarea id="response-schema-parser-js-settings" class="settings-textarea"></textarea>
-
-                        <label for="user2-instruction-settings" class="settings-label">User2 (角色/临时角色)</label>
-                        <textarea id="user2-instruction-settings" class="settings-textarea"></textarea>
-                    </div>
-                 </div>
-             </div>
 
              <div id="role-list-page" class="setting-page-template" style="flex-direction: column;">
                  <div class="settings-header">
-                     角色名单
+                     聊天室角色
                      <div class="close-button std-button">✕</div>
                  </div>
                   <div class="settings-section">
                     <div class="settings-group role-list">
-                        <div id="add-role-button" class = "settings-menu-item">十</div>
+
                         <div id="role-list-container">
                         </div>
                     </div>
@@ -1084,6 +1203,7 @@
                          <div class="settings-menu-item tool-item" data-target="game-host-page">游戏主持人</div>
                          <div class="settings-menu-item tool-item" data-target="writing-master-page">写作大师</div>
                          <div class="settings-menu-item tool-item" data-target="character-update-master-page">角色更新大师</div>
+                         <div class="settings-menu-item tool-item" data-target="private-assistant-page">私人助理</div>
                      </div>
                  </div>
              </div>
@@ -1108,6 +1228,23 @@
                     <div class="settings-group general-config">
                          <label for="reference-text-length-settings" class="settings-label">参考文本字符数</label>
                          <input type="number" id="reference-text-length-settings" class="settings-input" value="40000" step="1000">
+
+                         <label for="chatroom-model-select-settings" class="settings-label">模型 (角色/临时角色)</label>
+                         <select id="chatroom-model-select-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                         </select>
+
+                         <label for="response-schema-json-settings" class="settings-label">Response Schema (JSON) (角色/临时角色)</label>
+                         <textarea id="response-schema-json-settings" class="settings-textarea"></textarea>
+
+                         <label for="response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS) (角色/临时角色)</label>
+                         <textarea id="response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                         <label for="shared-database-instruction-settings" class="settings-label">共享数据库 (角色/临时角色)</label>
+                         <textarea id="shared-database-instruction-settings" class="settings-textarea"></textarea>
+
+                         <label for="chatroom-main-prompt-settings" class="settings-label">主提示词 (角色/临时角色)</label>
+                         <textarea id="chatroom-main-prompt-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>
@@ -1133,8 +1270,8 @@
                  </div>
                  <div id="chatroom-settings-menu" class="settings-section">
                      <div class="settings-menu-item" data-target="current-chatroom-settings-page">当前聊天室设置</div>
-                     <div class="settings-menu-item" data-target="chatroom-role-page">聊天室角色</div>
-                     <div class="settings-menu-item" data-target="chatroom-novel-page">聊天室小说</div>
+                     <div class="settings-menu-item" data-target="role-list-page">聊天室角色</div>
+                     <div class="settings-menu-item" data-target="story-mode-page">聊天室小说</div>
                  </div>
 
              </div>
@@ -1159,49 +1296,26 @@
                         <label for="public-info-textarea" class="settings-label">公共信息 (当前聊天室)</label>
                         <textarea id="public-info-textarea" class="settings-textarea"></textarea>
 
-                        <div id="export-chatroom-button" class="settings-menu-item" style="margin-top: 15px;">导出此聊天室 (ZIP)</div>
-                        <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip">
-                        <div id="import-chatroom-button" class="settings-menu-item">导入此聊天室 (ZIP)</div>
-                    </div>
-                 </div>
-             </div>
-
-             <div id="chatroom-role-page" class="setting-page-template" style="flex-direction: column;">
-                 <div class="settings-header">
-                     聊天室角色
-                     <div class="close-button std-button">✕</div>
-                 </div>
-                 <div class="settings-section">
-                    <div class="settings-group chatroom-role">
-                        <div id="chatroom-role-list-container">
+                         <div class="chatroom-management-grid">
+                            <div id="rename-chatroom-button" class="settings-menu-item">重命名</div>
+                            <div id="delete-chatroom-button" class="settings-menu-item" style="color: red; border-color: red;">删除</div>
+                            <div id="export-chatroom-button" class="settings-menu-item">导出 (ZIP)</div>
+                            <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip">
+                            <div id="import-chatroom-button" class="settings-menu-item">导入 (ZIP)</div>
                         </div>
                     </div>
                  </div>
              </div>
 
-             <div id="chatroom-novel-page" class="setting-page-template" style="flex-direction: column;">
+
+             <div id="story-mode-page" class="setting-page-template" style="flex-direction: column;">
                  <div class="settings-header">
                      聊天室小说
                      <div class="close-button std-button">✕</div>
                  </div>
-                  <div class="settings-section">
-                    <div class="settings-group chatroom-novel">
-
-                        <div id="chatroom-novel-list-container">
-
-                        </div>
-                    </div>
-                 </div>
-             </div>
-
-             <div id="story-mode-page" class="setting-page-template" style="flex-direction: column;">
-                 <div class="settings-header">
-                     剧情模式
-                     <div class="close-button std-button">✕</div>
-                 </div>
                  <div class="settings-section">
                     <div class="settings-group story-mode-list">
-                        <div id="add-novel-button" class="settings-menu-item">十 添加小说 (从剪贴板)</div>
+
                         <div id="novel-list-container">
                         </div>
                     </div>
@@ -1220,18 +1334,23 @@
                             <label for="drawing-master-enabled-settings">启用</label>
                             <input type="checkbox" id="drawing-master-enabled-settings">
                         </div>
-                        <div class="tool-setting-item">
-                            <label for="drawing-master-display-settings">显示输出</label>
-                            <input type="checkbox" id="drawing-master-display-settings" checked>
-                        </div>
+
+                        <label for="drawing-master-model-settings" class="settings-label">模型</label>
+                        <select id="drawing-master-model-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                        </select>
+
                         <label for="drawing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
                         <textarea id="drawing-master-response-schema-json-settings" class="settings-textarea"></textarea>
 
                         <label for="drawing-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
                         <textarea id="drawing-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
 
-                        <label for="drawing-master-user2-instruction-settings" class="settings-label">User2</label>
-                        <textarea id="drawing-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                        <label for="drawing-master-tool-database-instruction-settings" class="settings-label">数据库</label>
+                        <textarea id="drawing-master-tool-database-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="drawing-master-main-prompt-settings" class="settings-label">主提示词</label>
+                        <textarea id="drawing-master-main-prompt-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>
@@ -1247,18 +1366,23 @@
                             <label for="game-host-enabled-settings">启用</label>
                             <input type="checkbox" id="game-host-enabled-settings">
                         </div>
-                        <div class="tool-setting-item">
-                            <label for="game-host-display-settings">显示输出</label>
-                            <input type="checkbox" id="game-host-display-settings" checked>
-                        </div>
+
+                        <label for="game-host-model-settings" class="settings-label">模型</label>
+                        <select id="game-host-model-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                        </select>
+
                         <label for="game-host-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
                         <textarea id="game-host-response-schema-json-settings" class="settings-textarea"></textarea>
 
                         <label for="game-host-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
                         <textarea id="game-host-response-schema-parser-js-settings" class="settings-textarea"></textarea>
 
-                        <label for="game-host-user2-instruction-settings" class="settings-label">User2</label>
-                        <textarea id="game-host-user2-instruction-settings" class="settings-textarea"></textarea>
+                        <label for="game-host-tool-database-instruction-settings" class="settings-label">数据库</label>
+                        <textarea id="game-host-tool-database-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="game-host-main-prompt-settings" class="settings-label">主提示词</label>
+                        <textarea id="game-host-main-prompt-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>
@@ -1274,18 +1398,23 @@
                             <label for="writing-master-enabled-settings">启用</label>
                             <input type="checkbox" id="writing-master-enabled-settings">
                         </div>
-                        <div class="tool-setting-item">
-                            <label for="writing-master-display-settings">显示输出</label>
-                            <input type="checkbox" id="writing-master-display-settings" checked>
-                        </div>
+
+                        <label for="writing-master-model-settings" class="settings-label">模型</label>
+                        <select id="writing-master-model-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                        </select>
+
                         <label for="writing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
                         <textarea id="writing-master-response-schema-json-settings" class="settings-textarea"></textarea>
 
                         <label for="writing-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
                         <textarea id="writing-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
 
-                        <label for="writing-master-user2-instruction-settings" class="settings-label">User2</label>
-                        <textarea id="writing-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                        <label for="writing-master-tool-database-instruction-settings" class="settings-label">数据库</label>
+                        <textarea id="writing-master-tool-database-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="writing-master-main-prompt-settings" class="settings-label">主提示词</label>
+                        <textarea id="writing-master-main-prompt-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>
@@ -1301,18 +1430,55 @@
                             <label for="character-update-master-enabled-settings">启用</label>
                             <input type="checkbox" id="character-update-master-enabled-settings">
                         </div>
-                        <div class="tool-setting-item">
-                            <label for="character-update-master-display-settings">显示输出</label>
-                            <input type="checkbox" id="character-update-master-display-settings" checked>
-                        </div>
+
+                         <label for="character-update-master-model-settings" class="settings-label">模型</label>
+                         <select id="character-update-master-model-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                         </select>
+
                         <label for="character-update-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
                         <textarea id="character-update-master-response-schema-json-settings" class="settings-textarea"></textarea>
 
                         <label for="character-update-master-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
                         <textarea id="character-update-master-response-schema-parser-js-settings" class="settings-textarea"></textarea>
 
-                        <label for="character-update-master-user2-instruction-settings" class="settings-label">User2</label>
-                        <textarea id="character-update-master-user2-instruction-settings" class="settings-textarea"></textarea>
+                        <label for="character-update-master-tool-database-instruction-settings" class="settings-label">数据库</label>
+                        <textarea id="character-update-master-tool-database-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="character-update-master-main-prompt-settings" class="settings-label">主提示词</label>
+                        <textarea id="character-update-master-main-prompt-settings" class="settings-textarea"></textarea>
+                    </div>
+                 </div>
+             </div>
+
+             <div id="private-assistant-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     私人助理
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                    <div class="settings-group god-settings">
+                        <div class="tool-setting-item">
+                            <label for="private-assistant-enabled-settings">启用</label>
+                            <input type="checkbox" id="private-assistant-enabled-settings">
+                        </div>
+
+                         <label for="private-assistant-model-settings" class="settings-label">模型</label>
+                         <select id="private-assistant-model-settings" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>正在加载模型列表...</option>
+                         </select>
+
+                        <label for="private-assistant-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
+                        <textarea id="private-assistant-response-schema-json-settings" class="settings-textarea"></textarea>
+
+                        <label for="private-assistant-response-schema-parser-js-settings" class="settings-label">Response Schema Parser (JS)</label>
+                        <textarea id="private-assistant-response-schema-parser-js-settings" class="settings-textarea"></textarea>
+
+                        <label for="private-assistant-tool-database-instruction-settings" class="settings-label">数据库</label>
+                        <textarea id="private-assistant-tool-database-instruction-settings" class="settings-textarea"></textarea>
+
+                        <label for="private-assistant-main-prompt-settings" class="settings-label">主提示词</label>
+                        <textarea id="private-assistant-main-prompt-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>

@@ -16,57 +16,84 @@ const uiSettingsModule = {
         }
     },
 
-    showSection: (sectionId) => {
+    showSection: async (sectionId) => {
         uiSettingsModule.hideAllSettingPages();
         const sectionElement = document.getElementById(sectionId);
-        if (sectionElement) {
-            sectionElement.classList.add('active');
-            stateModule.activeSettingPage = sectionId;
+        if (!sectionElement) {
+            uiSettingsModule.showSection('settings-main-page');
+            stateModule.pageStack = ['settings-main-page'];
+            return;
+        }
 
-            if (sectionId !== 'settings-main-page') {
-                 if (stateModule.pageStack[stateModule.pageStack.length - 1] !== sectionId) {
-                    stateModule.pageStack.push(sectionId);
-                 }
-            } else {
-                 stateModule.pageStack = ['settings-main-page'];
+
+        let requiresChatroomData = [
+            'role-list-page', 'story-mode-page', 'current-chatroom-settings-page', 'chat-room-detail-page'
+        ].includes(sectionId);
+
+        let needsRefresh = false;
+        if (requiresChatroomData && !stateModule.currentChatroomDetails && stateModule.config.activeChatRoomName) {
+             _logAndDisplayError("Chatroom details not loaded, attempting to fetch...", "showSection");
+             await apiModule.fetchChatroomDetails(stateModule.config.activeChatRoomName);
+             needsRefresh = true;
+        } else if (requiresChatroomData && stateModule.currentChatroomDetails && stateModule.config.activeChatRoomName !== stateModule.currentChatroomDetails.config.name) {
+             _logAndDisplayError("Active chatroom name mismatch, fetching details...", "showSection");
+             await apiModule.fetchChatroomDetails(stateModule.config.activeChatRoomName);
+             needsRefresh = true;
+        }
+
+        if (requiresChatroomData && !stateModule.currentChatroomDetails) {
+             _logAndDisplayError("Cannot show chatroom-specific section: No active chatroom or details failed to load.", "showSection");
+
+             uiSettingsModule.showSection('chat-room-directory-page');
+             return;
+        }
+
+
+        sectionElement.classList.add('active');
+        stateModule.activeSettingPage = sectionId;
+
+        if (sectionId !== 'settings-main-page') {
+            if (stateModule.pageStack[stateModule.pageStack.length - 1] !== sectionId) {
+                stateModule.pageStack.push(sectionId);
             }
-
-            if (sectionId === 'chatroom-novel-page' && stateModule.currentChatRoom) {
-                const room = stateModule.config.chatRooms.find(r => r.name === stateModule.currentChatRoom);
-                if (room) uiSettingsModule.updateChatroomNovelPage(room);
-            } else if (sectionId === 'chatroom-role-page' && stateModule.currentChatRoom) {
-                 const room = stateModule.config.chatRooms.find(r => r.name === stateModule.currentChatRoom);
-                 if (room) uiSettingsModule.updateChatroomRolePage(room);
-            } else if (sectionId === 'role-list-page') {
-                uiSettingsModule.updateRoleList();
-            } else if (sectionId === 'chat-room-directory-page') {
-                uiSettingsModule.updateChatroomList();
-            } else if (sectionId === 'story-mode-page') {
-                uiSettingsModule.updateNovelList();
-            } else if (sectionId === 'current-chatroom-settings-page') {
-                uiSettingsModule.updateWorldInfoDisplay();
-                 if (typeof uiChatModule !== 'undefined') {
-                     uiChatModule.updateChatroomHistoryDisplay();
-                 }
-                 uiSettingsModule.loadRoleplayRulesSetting();
-                 uiSettingsModule.loadPublicInfoSetting();
-            } else if (sectionId === 'general-config-page') {
-                 uiSettingsModule.loadReferenceTextLengthSetting();
-            } else if (sectionId.endsWith('-master-page')) {
-                 const toolName = sectionId.replace('-page', '');
-                 const camelCaseToolName = toolName.replace(/-(\w)/g, (match, p1) => p1.toUpperCase());
-                 uiSettingsModule.loadGodSettings(camelCaseToolName);
-            } else if (sectionId === 'novelai-settings-page') {
-                uiSettingsModule.loadNovelAiSettings();
-                uiSettingsModule.updateLastNaiPromptDisplay(stateModule.lastNaiPrompt);
-            } else if (sectionId === 'api-settings-page') {
-                 uiSettingsModule.loadApiKeysSetting();
-                 uiSettingsModule.updateApiKeyFailureCountsDisplay();
-            }
-
         } else {
-             uiSettingsModule.showSection('settings-main-page');
-             stateModule.pageStack = ['settings-main-page'];
+            stateModule.pageStack = ['settings-main-page'];
+        }
+
+
+        if (sectionId === 'role-list-page') {
+            uiSettingsModule.updateChatroomRolePage();
+        } else if (sectionId === 'story-mode-page') {
+            uiSettingsModule.updateChatroomNovelPage();
+        } else if (sectionId === 'chat-room-directory-page') {
+            uiSettingsModule.updateChatroomList();
+        } else if (sectionId === 'current-chatroom-settings-page') {
+            uiSettingsModule.updateWorldInfoDisplay();
+            if (typeof uiChatModule !== 'undefined') {
+                uiChatModule.updateChatroomHistoryDisplay();
+            }
+            uiSettingsModule.loadRoleplayRulesSetting();
+            uiSettingsModule.loadPublicInfoSetting();
+        } else if (sectionId === 'general-config-page') {
+            uiSettingsModule.loadReferenceTextLengthSetting();
+            uiSettingsModule.loadChatroomModelSetting();
+            uiSettingsModule.loadSettingValue('responseSchemaJson');
+            uiSettingsModule.loadSettingValue('responseSchemaParserJs');
+            uiSettingsModule.loadSettingValue('sharedDatabaseInstruction');
+            uiSettingsModule.loadChatroomMainPromptSetting();
+        } else if (sectionId.endsWith('-master-page')) {
+            const toolName = sectionId.replace('-page', '');
+            const camelCaseToolName = toolName.replace(/-(\w)/g, (match, p1) => p1.toUpperCase());
+            uiSettingsModule.loadGodSettings(camelCaseToolName);
+        } else if (sectionId === 'novelai-settings-page') {
+            uiSettingsModule.loadNovelAiSettings();
+            uiSettingsModule.updateLastNaiPromptDisplay(stateModule.lastNaiPrompt);
+        } else if (sectionId === 'api-settings-page') {
+            uiSettingsModule.loadApiKeysSetting();
+            uiSettingsModule.updateApiKeyFailureCountsDisplay();
+        } else if (sectionId === 'prompt-preset-page') {
+            uiSettingsModule.loadPromptPresetSettings();
+            uiSettingsModule.renderPromptPresetsList();
         }
     },
 
@@ -86,15 +113,6 @@ const uiSettingsModule = {
                  const index = stateModule.pageStack.indexOf(sectionId);
                  if (index > -1) {
                      stateModule.pageStack.splice(index, 1);
-                 }
-                 const currentPageId = stateModule.pageStack[stateModule.pageStack.length - 1];
-                 if (currentPageId) {
-                     const currentPageElement = document.getElementById(currentPageId);
-                     if (currentPageElement && !currentPageElement.classList.contains('active')) {
-                         currentPageElement.classList.add('active');
-                         stateModule.activeSettingPage = currentPageId;
-                     }
-                     return;
                  }
             }
 
@@ -132,7 +150,7 @@ const uiSettingsModule = {
         displayElement.innerHTML = '';
 
         if (currentKeys.length === 0) {
-            displayElement.innerHTML = '<div>无 API 密钥</div>';
+            displayElement.innerHTML = '<div>No API Keys</div>';
             return;
         }
 
@@ -141,10 +159,11 @@ const uiSettingsModule = {
             const keyDiv = document.createElement('div');
             const keyPrefixSpan = document.createElement('span');
             keyPrefixSpan.className = 'key-prefix';
-            keyPrefixSpan.textContent = key.substring(0, 8) + '...:';
+            const displayKey = key.length > 10 ? `...${key.slice(-10)}:` : `${key}:`;
+            keyPrefixSpan.textContent = displayKey;
             const countSpan = document.createElement('span');
             countSpan.className = 'fail-count';
-            countSpan.textContent = `${count} 次失败`;
+            countSpan.textContent = `${count} fails`;
 
             keyDiv.appendChild(keyPrefixSpan);
             keyDiv.appendChild(countSpan);
@@ -152,77 +171,30 @@ const uiSettingsModule = {
         });
     },
 
-    savePrimaryModelSetting: () => {
-        const selectedModel = elementsModule.primaryModelSelectSettings.value;
-        if (selectedModel) {
-            stateModule.config.primaryModel = selectedModel;
-            if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
-            }
-        }
-    },
-
-    saveSecondaryModelSetting: () => {
-        const selectedModel = elementsModule.secondaryModelSelectSettings.value;
-        if (selectedModel) {
-            stateModule.config.secondaryModel = selectedModel;
-            if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
-            }
-        }
-    },
-
-    setPrimaryModel: (modelName) => {
-        if (elementsModule.primaryModelSelectSettings) {
-            elementsModule.primaryModelSelectSettings.value = modelName;
-        }
-        stateModule.config.primaryModel = modelName;
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-            mainModule.triggerDebouncedSave();
-        }
-    },
-
-    setSecondaryModel: (modelName) => {
-        if (elementsModule.secondaryModelSelectSettings) {
-            elementsModule.secondaryModelSelectSettings.value = modelName;
-        }
-        stateModule.config.secondaryModel = modelName;
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-            mainModule.triggerDebouncedSave();
-        }
-    },
-
     loadSettingValue: (settingKey) => {
-        const element = elementsModule[`${settingKey}Settings`];
+        let elementIdSuffix = 'Settings';
+        const element = elementsModule[`${settingKey}${elementIdSuffix}`];
+
         if (element) {
-             if (settingKey === 'primaryModel' || settingKey === 'secondaryModel') {
-                 const modelValue = stateModule.config[settingKey] || '';
-                 if (element.options.length <= 1 && element.options[0]?.disabled) {
-                      stateModule.config[settingKey] = modelValue;
-                 } else {
-                     element.value = modelValue;
-                     if (!element.value && element.options.length > 0) {
-                         element.selectedIndex = 0;
-                         stateModule.config[settingKey] = element.value;
-                     }
-                 }
-            } else if (settingKey === 'referenceTextLength') {
+            if (settingKey === 'referenceTextLength') {
                  element.value = stateModule.config.referenceTextLength || defaultConfig.referenceTextLength;
+             } else if (['responseSchemaJson', 'responseSchemaParserJs', 'sharedDatabaseInstruction', 'mainPrompt'].includes(settingKey)) {
+                 element.value = stateModule.config[settingKey] || '';
              } else if (settingKey === 'novelaiApiKey') {
                  element.value = apiKeyManager.getNaiApiKey();
-             } else if (settingKey !== 'apiKeys' && settingKey !== 'currentApiKeyIndex') {
-                 element.value = stateModule.config[settingKey] || '';
+             } else if (stateModule.config.hasOwnProperty(settingKey)) {
+                  element.value = stateModule.config[settingKey] || '';
              }
         }
     },
 
-    _createRoleListItem: (roleName) => {
+    _createChatroomRoleListItem: (roleName, roleState, isTemporary) => {
         const roleItem = document.createElement('div');
         roleItem.className = 'role-item';
         roleItem.dataset.roleName = roleName;
 
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = roleName;
+        nameSpan.textContent = roleName + (isTemporary ? " (临时)" : "");
         nameSpan.addEventListener('click', () => {
             uiSettingsModule.showRoleDetailPage(roleName);
         });
@@ -230,20 +202,22 @@ const uiSettingsModule = {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'item-actions';
 
-        const renameButton = document.createElement('div');
-        renameButton.className = 'std-button item-rename';
-        renameButton.textContent = '✎';
-        renameButton.style.width = '28px';
-        renameButton.style.height = '28px';
+        if (!isTemporary && roleName !== '管理员') {
+            const renameButton = document.createElement('div');
+            renameButton.className = 'std-button item-rename';
+            renameButton.textContent = '✎';
+            renameButton.style.width = '28px';
+            renameButton.style.height = '28px';
 
-        const deleteButton = document.createElement('div');
-        deleteButton.className = 'std-button item-delete';
-        deleteButton.textContent = '✕';
-        deleteButton.style.width = '28px';
-        deleteButton.style.height = '28px';
+            const deleteButton = document.createElement('div');
+            deleteButton.className = 'std-button item-delete';
+            deleteButton.textContent = '✕';
+            deleteButton.style.width = '28px';
+            deleteButton.style.height = '28px';
 
-        actionsDiv.appendChild(renameButton);
-        actionsDiv.appendChild(deleteButton);
+            actionsDiv.appendChild(renameButton);
+            actionsDiv.appendChild(deleteButton);
+        }
 
         roleItem.appendChild(nameSpan);
         roleItem.appendChild(actionsDiv);
@@ -251,198 +225,272 @@ const uiSettingsModule = {
         return roleItem;
     },
 
-    updateRoleList: () => {
-        const fragment = document.createDocumentFragment();
-        const sortedRoles = [...stateModule.config.roles].sort();
-        sortedRoles.forEach(roleName => {
-            fragment.appendChild(uiSettingsModule._createRoleListItem(roleName));
-        });
-        elementsModule.roleListContainer.innerHTML = '';
-        elementsModule.roleListContainer.appendChild(fragment);
-    },
+    updateChatroomRolePage: () => {
+        const container = elementsModule.roleListContainer;
+        const chatroomDetails = stateModule.currentChatroomDetails;
 
-    showRoleDetailPage: async (roleName) => {
-        if (!stateModule.config.roles.includes(roleName)) {
-            uiSettingsModule.showSection('role-list-page');
-            _logAndDisplayError(`角色 "${roleName}" 不存在。`, 'showRoleDetailPage');
+        if (!container) return;
+        if (!chatroomDetails || !chatroomDetails.config) {
+            container.innerHTML = '<p style="text-align: center;">请先选择一个聊天室。</p>';
             return;
         }
-        stateModule.currentRole = roleName;
-        elementsModule.roleDetailHeaderTitle.textContent = `角色详情 - ${roleName}`;
+        container.innerHTML = '';
 
-        const roleData = await roleDataManager.getRoleData(roleName);
-        if (roleData) {
-            uiSettingsModule.loadRoleSettings(roleData);
-            uiSettingsModule.showSection('role-detail-page');
+        const addRoleButton = document.createElement('div');
+        addRoleButton.id = 'add-chatroom-role-button';
+        addRoleButton.className = 'settings-menu-item';
+        addRoleButton.textContent = '十 添加角色';
+        addRoleButton.addEventListener('click', () => uiSettingsModule.addChatroomRole());
+        container.appendChild(addRoleButton);
+
+        const roleStates = chatroomDetails.config.roleStates || {};
+        const permanentRoles = new Set(chatroomDetails.roles.map(r => r.name));
+        const allRoleNames = Object.keys(roleStates);
+
+        const sortedRoleNames = allRoleNames.sort((a, b) => {
+            const isTempA = !permanentRoles.has(a);
+            const isTempB = !permanentRoles.has(b);
+            if (isTempA && !isTempB) return -1;
+            if (!isTempA && isTempB) return 1;
+            if (a === "管理员") return -1;
+            if (b === "管理员") return 1;
+            return a.localeCompare(b);
+        });
+
+        if(sortedRoleNames.length === 0){
+             const noRolesMsg = document.createElement('p');
+             noRolesMsg.textContent = '暂无角色。';
+             noRolesMsg.style.textAlign = 'center';
+             container.appendChild(noRolesMsg);
         } else {
-            _logAndDisplayError(`无法加载角色 "${roleName}" 的数据。`, 'showRoleDetailPage');
-            elementsModule.roleInstructionTextarea.value = '';
-            elementsModule.roleMemoryTextarea.value = '';
-            elementsModule.roleDrawingTemplateSettings.value = '';
-            elementsModule.roleStateTextarea.value = '[状态未获取]';
-            uiSettingsModule.showSection('role-detail-page');
+            const frag = document.createDocumentFragment();
+            sortedRoleNames.forEach(roleName => {
+                const isTemporary = !permanentRoles.has(roleName);
+                frag.appendChild(uiSettingsModule._createChatroomRoleListItem(roleName, roleStates[roleName], isTemporary));
+            });
+            container.appendChild(frag);
         }
     },
 
-    loadRoleSettings: (roleData) => {
-        if (!roleData) return;
-        elementsModule.roleInstructionTextarea.value = roleData.setting || '';
-        elementsModule.roleMemoryTextarea.value = roleData.memory || '';
-        elementsModule.roleDrawingTemplateSettings.value = roleData.drawingTemplate || '';
-        const roleState = stateModule.chatContextCache?.roleStates?.[roleData.name] || '[状态未获取]';
-        elementsModule.roleStateTextarea.value = roleState;
+    showRoleDetailPage: (roleName) => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails || !chatroomDetails.config || !chatroomDetails.config.roleStates || !(roleName in chatroomDetails.config.roleStates)) {
+             _logAndDisplayError(`无法显示角色详情：未找到角色 "${roleName}" 或聊天室数据。`, 'showRoleDetailPage');
+             uiSettingsModule.showSection('role-list-page');
+             return;
+        }
+
+        stateModule.currentRole = roleName;
+        const roleData = chatroomDetails.roles.find(r => r.name === roleName);
+        const isTemporary = !roleData;
+
+        elementsModule.roleDetailHeaderTitle.textContent = `角色详情 - ${roleName}` + (isTemporary ? " (临时)" : "");
+        uiSettingsModule.loadRoleSettings(roleName, roleData, isTemporary);
+        uiSettingsModule.showSection('role-detail-page');
     },
 
-    saveRoleSettings: async (roleName) => {
-        if (!stateModule.currentRole || stateModule.currentRole !== roleName) return;
-        const roleData = {
+    loadRoleSettings: (roleName, roleData, isTemporary) => {
+        elementsModule.roleInstructionTextarea.value = roleData?.setting || (isTemporary ? '[临时角色无设定]' : '');
+        elementsModule.roleMemoryTextarea.value = roleData?.memory || (isTemporary ? '[临时角色无记忆]' : '');
+        elementsModule.roleDrawingTemplateSettings.value = roleData?.drawingTemplate || (isTemporary ? '[临时角色无模板]' : '');
+
+        const detailedState = stateModule.currentChatroomDetails?.config?.roleDetailedStates?.[roleName] || '';
+        elementsModule.roleStateTextarea.value = detailedState;
+        elementsModule.roleStateTextarea.readOnly = true;
+
+        const isReadOnly = isTemporary || roleName === "管理员";
+        [elementsModule.roleInstructionTextarea, elementsModule.roleMemoryTextarea, elementsModule.roleDrawingTemplateSettings].forEach(el => {
+            el.readOnly = isReadOnly;
+            el.style.cursor = isReadOnly ? 'not-allowed' : 'auto';
+            el.style.opacity = isReadOnly ? 0.7 : 1;
+        });
+
+        if (elementsModule.exportRoleButton) elementsModule.exportRoleButton.style.display = isReadOnly ? 'none' : 'block';
+        if (elementsModule.importRoleButton) elementsModule.importRoleButton.style.display = 'block';
+    },
+
+    saveRoleSettings: async () => {
+        const roleName = stateModule.currentRole;
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails || !roleName) return;
+
+        const roleData = chatroomDetails.roles.find(r => r.name === roleName);
+        const isTemporary = !roleData;
+
+        if (isTemporary || roleName === "管理员") return;
+
+        const updatedRoleData = {
             name: roleName,
             setting: elementsModule.roleInstructionTextarea.value,
             memory: elementsModule.roleMemoryTextarea.value,
-            drawingTemplate: elementsModule.roleDrawingTemplateSettings.value
+            drawingTemplate: elementsModule.roleDrawingTemplateSettings.value,
         };
-        await roleDataManager.saveRoleData(roleName, roleData);
-        updateChatContextCache();
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-            mainModule.triggerDebouncedSave();
+
+        const success = await apiModule.updateRole(chatroomDetails.config.name, roleName, updatedRoleData);
+        if (success) {
+
+            const roleIndex = chatroomDetails.roles.findIndex(r => r.name === roleName);
+            if (roleIndex > -1) {
+                 Object.assign(chatroomDetails.roles[roleIndex], updatedRoleData);
+            } else {
+                 await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
+            }
+            updateChatContextCache();
+        } else {
+            _logAndDisplayError(`Failed to save settings for role ${roleName}`, 'saveRoleSettings');
+            alert(`保存角色 ${roleName} 设置失败`);
+
+             await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
+             uiSettingsModule.loadRoleSettings(roleName, chatroomDetails.roles.find(r => r.name === roleName), false);
         }
     },
 
-    deleteRole: async (roleName) => {
-        if (confirm(`确定要删除角色 ${roleName} 吗? 这将从所有聊天室和配置中移除该角色，并删除其数据文件。`)) {
-            const deletedFromFileSystem = await roleDataManager.deleteRole(roleName);
-            if (!deletedFromFileSystem) {
-                 _logAndDisplayError(`删除角色文件 ${roleName}.json 失败，操作中止。`, 'deleteRole');
-                 return;
-            }
+    deleteChatroomRole: async (roleName) => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails || roleName === "管理员") return;
 
-            stateModule.config.roles = stateModule.config.roles.filter(role => role !== roleName);
-            delete stateModule.config.roleStates[roleName];
+        const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
+        let proceedToDelete = false;
 
-            stateModule.config.chatRooms.forEach(chatroom => {
-                if (Array.isArray(chatroom.roles)) {
-                    chatroom.roles = chatroom.roles.filter(role => role !== roleName);
+        if (isPermanent) {
+
+            proceedToDelete = true;
+        } else {
+
+            return;
+        }
+
+        if (proceedToDelete) {
+            let success = false;
+            if (isPermanent) {
+                success = await apiModule.deleteRole(chatroomDetails.config.name, roleName);
+            } else {
+
+                delete chatroomDetails.config.roleStates[roleName];
+                if (chatroomDetails.config.roleDetailedStates) {
+                    delete chatroomDetails.config.roleDetailedStates[roleName];
                 }
-            });
-
-             stateModule.currentChatHistoryData = stateModule.currentChatHistoryData.filter(msg => msg.roleName !== roleName);
-             if(stateModule.config.activeChatRoomName) {
-                 await uiChatModule.saveChatHistoryToServer();
-             }
-
-            uiSettingsModule.updateRoleList();
-            if (typeof uiChatModule !== 'undefined' && uiChatModule.updateRoleButtonsList) {
-                uiChatModule.updateRoleButtonsList();
+                success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, {
+                    roleStates: chatroomDetails.config.roleStates,
+                    roleDetailedStates: chatroomDetails.config.roleDetailedStates || {}
+                });
             }
-            if (stateModule.currentRole === roleName) {
-                stateModule.currentRole = null;
-                uiSettingsModule.closeCurrentSection('role-detail-page');
-            }
-            await updateChatContextCache();
-            if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
+
+            if (success) {
+                await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
+                uiSettingsModule.updateChatroomRolePage();
+                if (typeof uiChatModule !== 'undefined' && uiChatModule.updateRoleButtonsList) {
+                    uiChatModule.updateRoleButtonsList();
+                }
+                if (stateModule.currentRole === roleName) {
+                    stateModule.currentRole = null;
+                    uiSettingsModule.closeCurrentSection('role-detail-page');
+                }
+                updateChatContextCache();
+                stateModule.currentChatHistoryData = stateModule.currentChatHistoryData.filter(msg => msg.roleName !== roleName);
+                if (stateModule.config.activeChatRoomName) {
+                    uiChatModule.saveChatHistoryToServer();
+                }
+            } else {
+                _logAndDisplayError(`Failed to delete role ${roleName}`, 'deleteChatroomRole');
+                alert(`删除角色 ${roleName} 失败`);
             }
         }
     },
 
-    renameRole: async (oldName) => {
+
+    renameChatroomRole: async (oldName) => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) return;
+        const roleData = chatroomDetails.roles.find(r => r.name === oldName);
+        const isTemporary = !roleData;
+
+        if (isTemporary || oldName === "管理员") return;
+
         const newName = prompt(`输入角色 "${oldName}" 的新名称:`, oldName);
         if (!newName || newName.trim() === "" || newName === oldName) {
             return;
         }
-        if (stateModule.config.roles.includes(newName) || stateModule.config.temporaryRoles.includes(newName)) {
-            _logAndDisplayError(`名称 "${newName}" 已存在 (作为角色或临时角色)。`, 'renameRole');
+        const trimmedNewName = newName.trim();
+        const nameExists = Object.keys(chatroomDetails.config.roleStates || {}).includes(trimmedNewName);
+
+        if (nameExists) {
+            _logAndDisplayError(`名称 "${trimmedNewName}" 已在此聊天室存在。`, 'renameChatroomRole');
             return;
         }
 
-        const index = stateModule.config.roles.indexOf(oldName);
-        if (index === -1) {
-            _logAndDisplayError(`无法找到要重命名的角色: ${oldName}`, 'renameRole');
-            return;
-        }
+        const updatedRoleData = { ...roleData, name: trimmedNewName };
+        const success = await apiModule.updateRole(chatroomDetails.config.name, oldName, updatedRoleData);
 
-        const renamedInFileSystem = await roleDataManager.renameRole(oldName, newName);
-        if (!renamedInFileSystem) {
-             _logAndDisplayError(`重命名角色文件失败，操作中止。`, 'renameRole');
-             return;
-        }
+        if (success) {
 
-        stateModule.config.roles[index] = newName;
+            await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
 
-        if (stateModule.config.roleStates.hasOwnProperty(oldName)) {
-            stateModule.config.roleStates[newName] = stateModule.config.roleStates[oldName];
-            delete stateModule.config.roleStates[oldName];
-        } else {
-            stateModule.config.roleStates[newName] = uiChatModule.ROLE_STATE_DEFAULT;
-        }
+            stateModule.currentChatHistoryData.forEach(msg => {
+                if (msg.roleName === oldName) msg.roleName = trimmedNewName;
+                if (msg.targetRoleName === oldName) msg.targetRoleName = trimmedNewName;
+            });
+            if (stateModule.config.activeChatRoomName) {
+                 uiChatModule.saveChatHistoryToServer();
+            }
 
-        stateModule.config.chatRooms.forEach(room => {
-            if (Array.isArray(room.roles)) {
-                const roleIndex = room.roles.indexOf(oldName);
-                if (roleIndex > -1) {
-                    room.roles[roleIndex] = newName;
+            if (stateModule.currentRole === oldName) {
+                stateModule.currentRole = trimmedNewName;
+                if (document.getElementById('role-detail-page').classList.contains('active')) {
+                    elementsModule.roleDetailHeaderTitle.textContent = `角色详情 - ${trimmedNewName}`;
+                    uiSettingsModule.loadRoleSettings(trimmedNewName, updatedRoleData, false);
                 }
             }
-        });
 
-        stateModule.currentChatHistoryData.forEach(msg => {
-            if (msg.roleName === oldName) msg.roleName = newName;
-            if (msg.targetRoleName === oldName) msg.targetRoleName = newName;
-        });
-        if (stateModule.config.activeChatRoomName) {
-             await uiChatModule.saveChatHistoryToServer();
-        }
-
-        if (stateModule.currentRole === oldName) {
-            stateModule.currentRole = newName;
-            if (document.getElementById('role-detail-page').classList.contains('active')) {
-                 elementsModule.roleDetailHeaderTitle.textContent = `角色详情 - ${newName}`;
-                 const roleData = await roleDataManager.getRoleData(newName);
-                 if(roleData) uiSettingsModule.loadRoleSettings(roleData);
+            uiSettingsModule.updateChatroomRolePage();
+            if (typeof uiChatModule !== 'undefined') {
+                 uiChatModule.updateRoleButtonsList();
+                 if (stateModule.config.activeChatRoomName === chatroomDetails.config.name) {
+                     uiChatModule.loadChatHistory(chatroomDetails.config.name);
+                 }
             }
-        }
-
-        uiSettingsModule.updateRoleList();
-        if (typeof uiChatModule !== 'undefined') {
-             uiChatModule.updateRoleButtonsList();
-             if (stateModule.config.activeChatRoomName) {
-                 await uiChatModule.loadChatHistory(stateModule.config.activeChatRoomName);
-             }
-        }
-        await updateChatContextCache();
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-            mainModule.triggerDebouncedSave();
+            updateChatContextCache();
+        } else {
+             _logAndDisplayError(`Failed to rename role ${oldName} to ${trimmedNewName}`, 'renameChatroomRole');
+             alert(`重命名角色失败`);
         }
     },
 
-    addRole: async () => {
-        const newRole = prompt("请输入新角色名称:");
-        if (newRole && newRole.trim() !== "" && !stateModule.config.roles.includes(newRole) && !stateModule.config.temporaryRoles.includes(newRole)) {
-            const initialData = { name: newRole, setting: "", memory: "", drawingTemplate: "" };
-            const saved = await roleDataManager.saveRoleData(newRole, initialData);
-            if (saved) {
-                stateModule.config.roles.push(newRole);
-                stateModule.config.roleStates[newRole] = uiChatModule.ROLE_STATE_DEFAULT;
-                uiSettingsModule.updateRoleList();
-                 stateModule.config.chatRooms.forEach(room => {
-                     if (Array.isArray(room.roles)) {
-                          if(!room.roles.includes(newRole)) room.roles.push(newRole);
-                     } else {
-                         room.roles = [...stateModule.config.temporaryRoles, newRole];
-                     }
-                 });
-                 if (typeof uiChatModule !== 'undefined') {
-                    uiChatModule.updateRoleButtonsList();
-                 }
-                 await updateChatContextCache();
-                 if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                     mainModule.triggerDebouncedSave();
-                 }
-            } else {
-                 _logAndDisplayError(`创建角色文件 ${newRole}.json 失败。`, 'addRole');
+    addChatroomRole: async () => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) return;
+
+        const newRoleName = prompt("请输入新角色名称:");
+        if (newRoleName && newRoleName.trim() !== "") {
+            const trimmedName = newRoleName.trim();
+            const nameExists = Object.keys(chatroomDetails.config.roleStates || {}).includes(trimmedName);
+            if(nameExists) {
+                 _logAndDisplayError(`角色名称 "${trimmedName}" 已存在于当前聊天室。`, 'addChatroomRole');
+                 return;
             }
-        } else if (newRole) {
-            _logAndDisplayError(`角色名称 "${newRole}" 无效或已存在。`, 'addRole');
+
+            const newRoleData = {
+                name: trimmedName,
+                setting: "",
+                memory: "",
+                drawingTemplate: ""
+            };
+
+            const success = await apiModule.createRole(chatroomDetails.config.name, newRoleData);
+            if (success) {
+
+                 await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
+                 uiSettingsModule.updateChatroomRolePage();
+                 if (typeof uiChatModule !== 'undefined') {
+                     uiChatModule.updateRoleButtonsList();
+                 }
+                 updateChatContextCache();
+            } else {
+
+                 alert(`添加角色失败`);
+            }
+        } else if (newRoleName) {
+            _logAndDisplayError(`角色名称 "${newRoleName}" 无效。`, 'addChatroomRole');
         }
     },
 
@@ -471,19 +519,21 @@ const uiSettingsModule = {
              } else {
                  stateModule.config.referenceTextLength = defaultConfig.referenceTextLength;
                  elementsModule.referenceTextLengthSettings.value = stateModule.config.referenceTextLength;
-                 _logAndDisplayError("请输入有效的正整数作为字符数。已重置为默认值。", "saveReferenceTextLengthSetting");
+                 _logAndDisplayError("Please enter a valid positive integer for character count. Reset to default.", "saveReferenceTextLengthSetting");
              }
         }
     },
 
     loadNovelAiSettings: () => {
-        uiSettingsModule.loadSettingValue('novelaiApiKey');
         const keys = [
             "novelaiModel", "novelaiArtistChain",
             "novelaiDefaultPositivePrompt", "novelaiDefaultNegativePrompt",
             "novelaiWidth", "novelaiHeight", "novelaiSteps", "novelaiScale",
             "novelaiCfgRescale", "novelaiSampler", "novelaiNoiseSchedule", "novelaiSeed"
         ];
+        if (elementsModule.novelaiApiKeySettings) {
+            elementsModule.novelaiApiKeySettings.value = apiKeyManager.getNaiApiKey();
+        }
         keys.forEach(key => {
             const elementKey = `${key}Settings`;
             const element = elementsModule[elementKey];
@@ -527,323 +577,307 @@ const uiSettingsModule = {
          }
     },
 
-    _createChatroomListItem: (room) => {
+    _createChatroomListItem: (roomName) => {
         const item = document.createElement('div');
         item.className = 'chatroom-item';
-        item.dataset.roomName = room.name;
+        item.dataset.roomName = roomName;
 
         const radio = document.createElement('input');
         radio.type = 'radio';
         radio.name = 'activeChatroom';
-        radio.value = room.name;
-        radio.id = `chatroom-${room.name}`;
-        if (room.name === stateModule.config.activeChatRoomName) radio.checked = true;
+        radio.value = roomName;
+        radio.id = `chatroom-${roomName}`;
+        if (roomName === stateModule.config.activeChatRoomName) radio.checked = true;
         radio.addEventListener('change', () => {
             if (radio.checked) {
-                if (typeof uiChatModule !== 'undefined' && uiChatModule.saveChatHistoryToServer) {
-                    uiChatModule.saveChatHistoryToServer();
-                }
-                uiSettingsModule.switchActiveChatroom(room.name);
+                uiSettingsModule.switchActiveChatroom(roomName);
             }
         });
 
         const label = document.createElement('label');
-        label.textContent = room.name;
-        label.setAttribute('for', `chatroom-${room.name}`);
+        label.textContent = roomName;
+        label.setAttribute('for', `chatroom-${roomName}`);
          label.addEventListener('click', (e) => {
              if (!radio.checked) {
-                  if (typeof uiChatModule !== 'undefined' && uiChatModule.saveChatHistoryToServer) {
-                      uiChatModule.saveChatHistoryToServer();
-                  }
                   radio.checked = true;
-                  uiSettingsModule.switchActiveChatroom(room.name);
+                  uiSettingsModule.switchActiveChatroom(roomName);
              }
-             uiSettingsModule.showChatroomDetailPage(room.name);
+             uiSettingsModule.showChatroomDetailPage(roomName);
          });
-
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'item-actions';
-
-        const renameButton = document.createElement('div');
-        renameButton.className = 'std-button item-rename';
-        renameButton.textContent = '✎';
-        renameButton.style.width = '28px';
-        renameButton.style.height = '28px';
-
-        const deleteButton = document.createElement('div');
-        deleteButton.className = 'std-button item-delete';
-        deleteButton.textContent = '✕';
-        deleteButton.style.width = '28px';
-        deleteButton.style.height = '28px';
-
-        actionsDiv.appendChild(renameButton);
-        actionsDiv.appendChild(deleteButton);
 
         item.appendChild(radio);
         item.appendChild(label);
-        item.appendChild(actionsDiv);
+
         return item;
     },
 
     updateChatroomList: () => {
         const frag = document.createDocumentFragment();
-        const rooms = [...stateModule.config.chatRooms].sort((a, b) => a.name.localeCompare(b.name));
-        rooms.forEach(room => {
-            if (!room || !room.name) return;
-            frag.appendChild(uiSettingsModule._createChatroomListItem(room));
+        const rooms = stateModule.config.chatRoomOrder || [];
+        rooms.forEach(roomName => {
+            frag.appendChild(uiSettingsModule._createChatroomListItem(roomName));
         });
         elementsModule.chatroomListContainer.innerHTML = '';
         elementsModule.chatroomListContainer.appendChild(frag);
     },
 
-    switchActiveChatroom: (name) => {
+    switchActiveChatroom: async (name) => {
+        if (stateModule.config.activeChatRoomName === name && stateModule.currentChatroomDetails) {
+            return;
+        }
+
+        if (typeof uiChatModule !== 'undefined' && uiChatModule.saveChatHistoryToServer) {
+             if(stateModule.config.activeChatRoomName) {
+                 await uiChatModule.saveChatHistoryToServer();
+             }
+        }
+
         stateModule.config.activeChatRoomName = name;
-        const room = stateModule.config.chatRooms.find(r => r.name === name);
-        const backgroundPath = room?.backgroundImagePath;
+        stateModule.currentChatroomDetails = null;
+        if (typeof mainModule !== 'undefined') mainModule.triggerDebouncedSave();
 
-        if (typeof uiChatModule !== 'undefined') {
-            uiChatModule.loadChatHistory(name);
-            uiChatModule.updateRoleButtonsList();
-            uiChatModule.updateChatroomHistoryDisplay();
-        }
-        const radio = document.getElementById(`chatroom-${name}`);
-        if (radio && !radio.checked) radio.checked = true;
 
-        updateChatContextCache();
-        uiSettingsModule.updateWorldInfoDisplay();
+        if (elementsModule.chatArea) elementsModule.chatArea.innerHTML = '<p style="text-align: center;">Loading...</p>';
+        if (elementsModule.roleButtonsListContainer) elementsModule.roleButtonsListContainer.innerHTML = '';
+        if (elementsModule.chatContainer) elementsModule.chatContainer.style.backgroundImage = '';
 
-        stateModule.currentNovelId = null;
-        if (elementsModule.novelContentDisplay) {
-             elementsModule.novelContentDisplay.innerHTML = '<p style="text-align: center; padding-top: 20px;">请在书目(📚)中选择小说</p>';
-             elementsModule.novelContentDisplay.scrollTop = 0;
-             elementsModule.novelContentDisplay.removeAttribute('data-novel-id');
-        }
 
-        if(stateModule.isNovelInterfaceVisible) {
-            if (stateModule.activeNovelPage === 'novel-bookshelf-page') {
-                uiSettingsModule.novelUI_updateBookshelfPage();
+        await apiModule.fetchChatroomDetails(name);
+
+
+        if (stateModule.currentChatroomDetails) {
+            if (typeof uiChatModule !== 'undefined') {
+                uiChatModule.loadChatHistory(name);
+                uiChatModule.updateRoleButtonsList();
+                uiChatModule.updateChatroomHistoryDisplay();
             }
-            if (stateModule.activeNovelPage === 'novel-toc-page' && elementsModule.novelTocListContainer) {
-                 elementsModule.novelTocListContainer.innerHTML = '';
+            const radio = document.getElementById(`chatroom-${name}`);
+            if (radio && !radio.checked) radio.checked = true;
+
+            if (document.getElementById('general-config-page').classList.contains('active')) {
+                uiSettingsModule.loadChatroomModelSetting();
+                uiSettingsModule.loadSettingValue('responseSchemaJson');
+                uiSettingsModule.loadSettingValue('responseSchemaParserJs');
+                uiSettingsModule.loadSettingValue('sharedDatabaseInstruction');
+                uiSettingsModule.loadChatroomMainPromptSetting();
             }
-        }
-        if (elementsModule.roleplayRulesTextarea) {
-            uiSettingsModule.loadRoleplayRulesSetting();
-        }
-        if (elementsModule.publicInfoTextarea) {
-            uiSettingsModule.loadPublicInfoSetting();
-        }
-        if (elementsModule.chatContainer) {
-            elementsModule.chatContainer.style.backgroundImage = backgroundPath ? `url(${backgroundPath}?t=${Date.now()})` : '';
-        }
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-           mainModule.triggerDebouncedSave();
+            if (document.getElementById('role-list-page').classList.contains('active')) {
+                uiSettingsModule.updateChatroomRolePage();
+            }
+            if (document.getElementById('story-mode-page').classList.contains('active')) {
+                uiSettingsModule.updateChatroomNovelPage();
+            }
+            if (document.getElementById('current-chatroom-settings-page').classList.contains('active')) {
+                 uiSettingsModule.loadRoleplayRulesSetting();
+                 uiSettingsModule.loadPublicInfoSetting();
+            }
+
+            stateModule.currentNovelId = null;
+            if (elementsModule.novelContentDisplay) {
+                 elementsModule.novelContentDisplay.innerHTML = '<p style="text-align: center; padding-top: 20px;">请在书目(📚)中选择小说</p>';
+                 elementsModule.novelContentDisplay.scrollTop = 0;
+                 elementsModule.novelContentDisplay.removeAttribute('data-novel-id');
+            }
+            if(stateModule.isNovelInterfaceVisible) {
+                if (stateModule.activeNovelPage === 'novel-bookshelf-page') {
+                    uiSettingsModule.novelUI_updateBookshelfPage();
+                }
+                if (stateModule.activeNovelPage === 'novel-toc-page' && elementsModule.novelTocListContainer) {
+                     elementsModule.novelTocListContainer.innerHTML = '';
+                }
+            }
+
+             const backgroundFilename = stateModule.currentChatroomDetails.config.backgroundImageFilename;
+             if (backgroundFilename && elementsModule.chatContainer) {
+                 const bgUrl = `/chatrooms/${encodeURIComponent(name)}/${encodeURIComponent(backgroundFilename)}?t=${Date.now()}`;
+                 elementsModule.chatContainer.style.backgroundImage = `url('${bgUrl}')`;
+             }
+
+        } else {
+
+             if (typeof uiChatModule !== 'undefined') {
+                 uiChatModule.clearChatArea();
+                 uiChatModule.updateRoleButtonsList();
+             }
+
         }
     },
 
-    showChatroomDetailPage: (name) => {
-        if (!stateModule.config.chatRooms.some(r => r.name === name)) {
-            uiSettingsModule.showSection('chat-room-directory-page');
-            _logAndDisplayError(`聊天室 "${name}" 不存在。`, 'showChatroomDetailPage');
-            return;
-        }
+    showChatroomDetailPage: async (name) => {
+         if (!stateModule.currentChatroomDetails || stateModule.currentChatroomDetails.config.name !== name) {
+             await apiModule.fetchChatroomDetails(name);
+         }
+
+         if (!stateModule.currentChatroomDetails) {
+             uiSettingsModule.showSection('chat-room-directory-page');
+             _logAndDisplayError(`Chatroom "${name}" details could not be loaded.`, 'showChatroomDetailPage');
+             return;
+         }
         stateModule.currentChatRoom = name;
         elementsModule.chatroomDetailHeaderTitle.textContent = `聊天室详情 - ${name}`;
-        uiSettingsModule.loadChatroomDetails(name);
+
         uiSettingsModule.showSection('chat-room-detail-page');
     },
 
-    addChatroom: () => {
-         if (typeof apiModule !== 'undefined' && apiModule.addChatroom) {
-             apiModule.addChatroom();
-         }
-    },
+    addChatroom: async () => {
+        const name = prompt("请输入新聊天室名称:");
+        if (!name || name.trim() === "") return;
+        const trimmedName = name.trim();
 
-    loadChatroomDetails: function(name) {
-        const room = stateModule.config.chatRooms.find(r => r.name === name);
-        if (!room) return;
+        const newName = await apiModule.addChatroom(trimmedName);
+        if (newName) {
+            uiSettingsModule.updateChatroomList();
+            uiSettingsModule.switchActiveChatroom(newName);
 
-        if (document.getElementById('chatroom-role-page').classList.contains('active')) {
-            uiSettingsModule.updateChatroomRolePage(room);
-        }
-        if (document.getElementById('chatroom-novel-page').classList.contains('active')) {
-             uiSettingsModule.updateChatroomNovelPage(room);
-        }
-        if (document.getElementById('current-chatroom-settings-page').classList.contains('active')) {
-             if (typeof uiChatModule !== 'undefined' && uiChatModule.updateChatroomHistoryDisplay) {
-                 uiChatModule.updateChatroomHistoryDisplay();
-             }
-             uiSettingsModule.updateWorldInfoDisplay();
-             uiSettingsModule.loadRoleplayRulesSetting();
-             uiSettingsModule.loadPublicInfoSetting();
-        }
-    },
-
-    updateChatroomRolePage: function(room) {
-        const frag = document.createDocumentFragment();
-
-        const availableRoles = [...stateModule.config.roles].sort();
-        const availableTemporaryRoles = [...stateModule.config.temporaryRoles].sort();
-
-        const allAvailableSorted = [...availableRoles, ...availableTemporaryRoles].sort((a, b) => {
-            const aIsTemp = availableTemporaryRoles.includes(a);
-            const bIsTemp = availableTemporaryRoles.includes(b);
-            if (aIsTemp && !bIsTemp) return 1;
-            if (!aIsTemp && bIsTemp) return -1;
-             if (a === "管理员") return -1;
-             if (b === "管理员") return 1;
-            return a.localeCompare(b);
-        });
-
-        elementsModule.chatroomRoleListContainer.innerHTML = '';
-
-        if(allAvailableSorted.length === 0){
-             const noRolesMsg = document.createElement('p');
-             noRolesMsg.textContent = '暂无可用角色或临时角色。';
-             noRolesMsg.style.textAlign = 'center';
-             frag.appendChild(noRolesMsg);
         } else {
-            allAvailableSorted.forEach(name => {
-                const isTemporary = availableTemporaryRoles.includes(name);
-                const item = document.createElement('div');
-                item.className = 'chatroom-role-item';
-                const label = document.createElement('label');
-                label.textContent = name + (isTemporary ? " (临时)" : "");
-                label.htmlFor = `role-checkbox-${room.name}-${name}`;
-                label.style.flexGrow = '1';
-
-                const check = document.createElement('input');
-                check.type = 'checkbox';
-                check.value = name;
-                check.id = `role-checkbox-${room.name}-${name}`;
-                const roomRoles = room && Array.isArray(room.roles) ? room.roles : [];
-                check.checked = roomRoles.includes(name);
-                if (isTemporary) {
-                    check.disabled = true;
-                    check.style.cursor = 'not-allowed';
-                    label.style.cursor = 'not-allowed';
-                    label.style.opacity = 0.6;
-                    check.checked = true;
-                } else {
-                    check.addEventListener('change', async () => {
-                        uiSettingsModule.updateChatroomRoles(room.name, name, check.checked);
-                        if (typeof uiChatModule !== 'undefined' && uiChatModule.updateRoleButtonsList) {
-                            uiChatModule.updateRoleButtonsList();
-                        }
-                        await updateChatContextCache();
-                        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                           mainModule.triggerDebouncedSave();
-                        }
-                    });
-
-                    label.addEventListener('click', (e) => {
-                         e.preventDefault();
-                         check.checked = !check.checked;
-                         check.dispatchEvent(new Event('change'));
-                    });
-                }
-
-                item.appendChild(label);
-                item.appendChild(check);
-                frag.appendChild(item);
-            });
-        }
-        elementsModule.chatroomRoleListContainer.appendChild(frag);
-    },
-
-    updateChatroomRoles: function(roomName, roleName, isChecked) {
-        const room = stateModule.config.chatRooms.find(r => r.name === roomName);
-        if (room) {
-            if (!Array.isArray(room.roles)) room.roles = [...stateModule.config.temporaryRoles];
-            const idx = room.roles.indexOf(roleName);
-            if (isChecked && idx === -1) room.roles.push(roleName);
-            else if (!isChecked && idx > -1 && !stateModule.config.temporaryRoles.includes(roleName)) {
-                 room.roles.splice(idx, 1);
-            }
-
-            if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
-            }
+             alert(`Failed to create chatroom '${trimmedName}'. Check console for errors.`);
         }
     },
 
-    renameChatroom: (oldName) => {
-        if (typeof apiModule !== 'undefined' && apiModule.renameChatroom) {
-            apiModule.renameChatroom(oldName);
+
+    handleRenameChatroom: async () => {
+        const oldName = stateModule.currentChatRoom;
+        if (!oldName) return;
+        const newName = prompt(`输入聊天室 "${oldName}" 的新名称:`, oldName);
+        if (!newName || newName.trim() === "" || newName === oldName) return;
+        const trimmedNewName = newName.trim();
+
+        const success = await apiModule.renameChatroom(oldName, trimmedNewName);
+        if (success) {
+             uiSettingsModule.updateChatroomList();
+
+             if (stateModule.config.activeChatRoomName === trimmedNewName) {
+                await uiSettingsModule.switchActiveChatroom(trimmedNewName);
+             }
+              if (document.getElementById('chat-room-detail-page')?.classList.contains('active')) {
+                   elementsModule.chatroomDetailHeaderTitle.textContent = `聊天室详情 - ${trimmedNewName}`;
+              }
+
+        } else {
+             alert(`Failed to rename chatroom. Check console for errors.`);
         }
     },
 
-    deleteChatroom: function(name) {
-         if (typeof apiModule !== 'undefined' && apiModule.deleteChatroom) {
-             apiModule.deleteChatroom(name);
+    handleDeleteChatroom: async () => {
+         const nameToDelete = stateModule.currentChatRoom;
+         if (!nameToDelete) return;
+
+         const success = await apiModule.deleteChatroom(nameToDelete);
+         if (success) {
+              uiSettingsModule.updateChatroomList();
+              if (stateModule.config.activeChatRoomName === null) {
+
+                 if (typeof uiChatModule !== 'undefined') {
+                     uiChatModule.clearChatArea();
+                     uiChatModule.updateRoleButtonsList();
+                 }
+                 stateModule.currentChatroomDetails = null;
+                 updateChatContextCache();
+                 if (elementsModule.chatContainer) elementsModule.chatContainer.style.backgroundImage = '';
+              } else {
+                 await uiSettingsModule.switchActiveChatroom(stateModule.config.activeChatRoomName);
+              }
+              uiSettingsModule.closeCurrentSection('chat-room-detail-page');
+
+         } else {
+              alert(`Failed to delete chatroom '${nameToDelete}'. Check console.`);
          }
+
     },
 
     clearCurrentChatroomHistory: async () => {
         const activeChatroomName = stateModule.config.activeChatRoomName;
-        if (!activeChatroomName) {
+        if (!activeChatroomName || !stateModule.currentChatroomDetails) {
              return;
         }
-        if (confirm(`确定要清空聊天室 "${activeChatroomName}" 的消息记录吗？此操作不可恢复。\n警告：这将同时删除所有用户定义的临时角色！\n注意：扮演规则和公共信息不会被删除。`)) {
-             if (typeof uiChatModule !== 'undefined') {
-                 uiChatModule.clearChatArea();
-             }
 
-             try {
-                 const response = await fetch(`/history/${encodeURIComponent(activeChatroomName)}`, {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify([])
-                 });
-                 if (!response.ok) {
-                     throw new Error(`Failed to clear history file: ${response.status}`);
+         if (typeof uiChatModule !== 'undefined') {
+             uiChatModule.clearChatArea();
+         }
+
+         try {
+             const response = await fetch(`/history/${encodeURIComponent(activeChatroomName)}`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify([])
+             });
+             if (!response.ok) {
+                 throw new Error(`Failed to clear history file: ${response.status}`);
+             }
+         } catch (error) {
+             _logAndDisplayError(`清空历史记录文件失败: ${error.message}`, 'clearCurrentChatroomHistory');
+         }
+
+         let rolesUpdated = false;
+         const currentStates = stateModule.currentChatroomDetails.config.roleStates || {};
+         const permanentRoles = new Set(stateModule.currentChatroomDetails.roles.map(r => r.name));
+         const newStates = {};
+         const newDetailedStates = { ...(stateModule.currentChatroomDetails.config.roleDetailedStates || {}) };
+
+         for (const roleName in currentStates) {
+             if (roleName === "管理员" || permanentRoles.has(roleName)) {
+                 newStates[roleName] = currentStates[roleName];
+             } else {
+                  rolesUpdated = true;
+                  delete newDetailedStates[roleName];
+             }
+         }
+
+         let detailedStatesCleared = false;
+         for (const roleName in newStates) {
+             if (roleName !== "管理员" && permanentRoles.has(roleName)) {
+                 if (newDetailedStates[roleName] !== undefined && newDetailedStates[roleName] !== "") {
+                     newDetailedStates[roleName] = "";
+                     detailedStatesCleared = true;
                  }
-             } catch (error) {
-                 _logAndDisplayError(`清空历史记录文件失败: ${error.message}`, 'clearCurrentChatroomHistory');
              }
+         }
 
-             const userDefinedTemporaryRoles = stateModule.config.temporaryRoles.filter(r => r !== "管理员");
-             if(userDefinedTemporaryRoles.length > 0) {
-                 stateModule.config.temporaryRoles = ["管理员"];
-                 userDefinedTemporaryRoles.forEach(roleName => {
-                     delete stateModule.config.roleStates[roleName];
-                 });
-
-                 stateModule.config.chatRooms.forEach(room => {
-                      if (Array.isArray(room.roles)) {
-                          room.roles = room.roles.filter(r => !userDefinedTemporaryRoles.includes(r));
-                      }
-                 });
-                 if (typeof uiChatModule !== 'undefined') {
-                    uiChatModule.updateRoleButtonsList();
+         if (rolesUpdated || detailedStatesCleared ) {
+              const updateSuccess = await apiModule.updateChatroomConfig(activeChatroomName, { roleStates: newStates, roleDetailedStates: newDetailedStates });
+              if (updateSuccess) {
+                 stateModule.currentChatroomDetails.config.roleStates = newStates;
+                 stateModule.currentChatroomDetails.config.roleDetailedStates = newDetailedStates;
+                 if (typeof uiChatModule !== 'undefined') uiChatModule.updateRoleButtonsList();
+                 uiSettingsModule.updateChatroomRolePage();
+                 if (stateModule.currentRole && permanentRoles.has(stateModule.currentRole) && stateModule.currentRole !== "管理员") {
+                    if (document.getElementById('role-detail-page')?.classList.contains('active')) {
+                         uiSettingsModule.loadRoleSettings(stateModule.currentRole, stateModule.currentChatroomDetails.roles.find(r=>r.name===stateModule.currentRole), false);
+                    }
                  }
-             }
+              } else {
+                  _logAndDisplayError("Failed to save updated role states after clearing history.", 'clearCurrentChatroomHistory');
+              }
+         }
 
-             if (typeof uiChatModule !== 'undefined') {
-                 uiChatModule.updateChatroomHistoryDisplay();
-
-             }
-              stateModule.chatContextCache = null;
-              await updateChatContextCache();
-              uiSettingsModule.updateWorldInfoDisplay();
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
-             }
-
-        }
+         if (typeof uiChatModule !== 'undefined') {
+             uiChatModule.updateChatroomHistoryDisplay();
+         }
+          await updateChatContextCache();
+          uiSettingsModule.updateWorldInfoDisplay();
     },
 
     loadGodSettings: (godName) => {
-        const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'user2Instruction', 'enabled', 'display'];
+        const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'toolDatabaseInstruction', 'enabled', 'model', 'mainPrompt'];
+        const toolConfig = stateModule.config.toolSettings[godName];
+
         settings.forEach(type => {
             const camelCaseType = type.charAt(0).toUpperCase() + type.slice(1);
-            const elId = `${godName}${camelCaseType}Settings`;
+            let elementIdSuffix = 'Settings';
+            if (type === 'toolDatabaseInstruction') {
+                 elementIdSuffix = 'ToolDatabaseInstructionSettings';
+            } else {
+                 elementIdSuffix = `${camelCaseType}Settings`;
+            }
+            const elId = `${godName}${elementIdSuffix}`;
             const el = elementsModule[elId];
+
             if (el) {
-                const toolConfig = stateModule.config.toolSettings[godName];
                 const val = toolConfig ? toolConfig[type] : undefined;
                 if (el.type === 'checkbox') {
-                    el.checked = val ?? (type === 'display');
+                    el.checked = val ?? false;
+                } else if (el.tagName === 'SELECT') {
+                     el.value = val || '';
                 } else {
                     el.value = val || '';
                 }
@@ -851,20 +885,26 @@ const uiSettingsModule = {
         });
     },
 
+
     saveGodSettings: (godName) => {
         if (!stateModule.config.toolSettings[godName]) {
             stateModule.config.toolSettings[godName] = {};
         }
-        const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'user2Instruction', 'enabled', 'display'];
+        const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'toolDatabaseInstruction', 'enabled', 'model', 'mainPrompt'];
         settings.forEach(type => {
             const camelCaseType = type.charAt(0).toUpperCase() + type.slice(1);
-            const elId = `${godName}${camelCaseType}Settings`;
+             let elementIdSuffix = 'Settings';
+             if (type === 'toolDatabaseInstruction') {
+                  elementIdSuffix = 'ToolDatabaseInstructionSettings';
+             } else {
+                  elementIdSuffix = `${camelCaseType}Settings`;
+             }
+            const elId = `${godName}${elementIdSuffix}`;
             const el = elementsModule[elId];
             if (el) {
                 stateModule.config.toolSettings[godName][type] = (el.type === 'checkbox') ? el.checked : el.value;
             }
         });
-        updateChatContextCache();
         if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
             mainModule.triggerDebouncedSave();
         }
@@ -872,56 +912,40 @@ const uiSettingsModule = {
 
     displayErrorLog: (errorMessages) => {
          if (Array.isArray(errorMessages)) {
-             if(elementsModule.errorLogDisplay) {
-                 elementsModule.errorLogDisplay.value = errorMessages.join('\n--------------------\n');
-                 elementsModule.errorLogDisplay.scrollTop = elementsModule.errorLogDisplay.scrollHeight;
-             }
+
          } else if (elementsModule.errorLogDisplay) {
-              elementsModule.errorLogDisplay.value = "错误日志格式无效。";
+
          }
     },
 
     clearErrorLogDisplay: () => {
-        stateModule.config.errorLogs = [];
+
         if (elementsModule.errorLogDisplay) {
-            elementsModule.errorLogDisplay.value = '';
+
         }
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-           mainModule.triggerDebouncedSave();
-        }
+
     },
 
     copyErrorLog: () => {
-        const errorLogText = elementsModule.errorLogDisplay.value;
-        if (navigator.clipboard && errorLogText) {
-            navigator.clipboard.writeText(errorLogText).then(() => {
 
-            }).catch(err => {
-                _logAndDisplayError('无法复制错误日志到剪贴板: ' + err, 'copyErrorLog');
-            });
-        } else if (!errorLogText) {
-
-        } else {
-             _logAndDisplayError('浏览器不支持剪贴板 API 或日志为空', 'copyErrorLog');
-        }
     },
 
     clearAllConfiguration: async () => {
-         if (confirm("【！！高危警告！！】\n\n您确定要清除所有配置、历史记录、角色、小说和图片吗？\n\n此操作将完全重置应用程序，所有数据将丢失且无法恢复！\n\n请再次确认是否要执行此操作？")) {
-             try {
-                 const response = await fetch('/clear-all-config', { method: 'POST' });
-                 const result = await response.json();
-                 if (!response.ok) {
-                     throw new Error(result.error || `HTTP error! status: ${response.status}`);
-                 }
-                 alert("所有配置已清除！应用程序将重新加载。");
 
-                 location.reload();
-             } catch (error) {
-                 _logAndDisplayError(`清除全部配置失败: ${error.message}`, 'clearAllConfiguration');
-                 alert(`清除全部配置失败: ${error.message}`);
+         try {
+             const response = await fetch('/clear-all-config', { method: 'POST' });
+             const result = await response.json();
+             if (!response.ok) {
+                 throw new Error(result.error || `HTTP error! status: ${response.status}`);
              }
+             alert("所有配置已清除！应用程序将重新加载。");
+
+             location.reload();
+         } catch (error) {
+             _logAndDisplayError(`清除全部配置失败: ${error.message}`, 'clearAllConfiguration');
+             alert(`清除全部配置失败: ${error.message}`);
          }
+
     },
 
     exportConfiguration: () => {
@@ -961,7 +985,7 @@ const uiSettingsModule = {
               alert(result.message || "配置导入成功！");
 
               await configModule.loadConfig();
-              roleDataManager.clearCache();
+
               initializationModule.initializeConfig();
 
          } catch (error) {
@@ -972,145 +996,141 @@ const uiSettingsModule = {
          }
     },
 
-    addNovel: async () => {
+    addChatroomNovel: async () => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) {
+            _logAndDisplayError("请先选择一个聊天室。", 'addChatroomNovel');
+            return;
+        }
+        const roomName = chatroomDetails.config.name;
+
         const name = prompt("请输入新小说名称:");
-        if (!name || name.trim() === "") {
-             return;
+        if (!name || name.trim() === "") return;
+        const trimmedName = name.trim();
+
+        const nameExists = chatroomDetails.novels.some(n => n.name === trimmedName);
+        if (nameExists) {
+            _logAndDisplayError(`小说名称 "${trimmedName}" 在当前聊天室已存在。`, 'addChatroomNovel');
+            return;
         }
 
-        if (stateModule.config.novels.some(n => n.name === name)) {
-            _logAndDisplayError(`小说名称 "${name}" 已存在。`, 'addNovel');
-            return;
-        }
-
-        const text = prompt(`请在此粘贴小说《${name}》的内容:`);
-        if (text === null) {
-            return;
-        }
-        if (!text) {
-            _logAndDisplayError("小说内容不能为空。", 'addNovel');
-            return;
-        }
+        const text = prompt(`请在此粘贴小说《${trimmedName}》的内容:`);
+        if (text === null) return;
+        if (!text) { _logAndDisplayError("小说内容不能为空。", 'addChatroomNovel'); return; }
 
         try {
-             const newNovelMeta = await apiModule.saveNovel(name, text);
-
-             stateModule.config.novels.push({
-                 id: newNovelMeta.id,
-                 name: newNovelMeta.name,
-                 filename: newNovelMeta.filename
-             });
-             uiSettingsModule.updateNovelList();
-
-             if (document.getElementById('chatroom-novel-page').classList.contains('active') && stateModule.currentChatRoom) {
-                const room = stateModule.config.chatRooms.find(r => r.name === stateModule.currentChatRoom);
-                if (room) uiSettingsModule.updateChatroomNovelPage(room);
+            const processResponse = await fetch('/process-novel-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: text })
+            });
+             if (!processResponse.ok) {
+                 const errorData = await processResponse.json().catch(() => ({ error: `HTTP error! status: ${processResponse.status}` }));
+                 throw new Error(errorData.error || `HTTP error! status: ${processResponse.status}`);
              }
-             if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page') {
-                 uiSettingsModule.novelUI_updateBookshelfPage();
-             }
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
+            const processedData = await processResponse.json();
+
+            const newNovel = {
+                id: `novel-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                name: trimmedName,
+                segments: processedData.segments,
+                toc: processedData.toc
+            };
+
+             const createSuccess = await apiModule.createNovel(roomName, newNovel);
+             if (createSuccess) {
+                  await apiModule.fetchChatroomDetails(roomName);
+                  uiSettingsModule.updateChatroomNovelPage();
+                  if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page') {
+                      uiSettingsModule.novelUI_updateBookshelfPage();
+                  }
+
+             } else {
+                  alert(`添加小说文件失败，请检查控制台。`);
              }
         } catch (error) {
-             _logAndDisplayError(`添加小说失败: ${error.message}`, 'addNovel');
-        }
+             _logAndDisplayError(`添加小说失败: ${error.message}`, 'addChatroomNovel');
 
+        }
     },
 
-    renameNovel: (novelId, currentName) => {
+    renameChatroomNovel: async (novelId, currentName) => {
+         const chatroomDetails = stateModule.currentChatroomDetails;
+         if (!chatroomDetails) return;
+         const roomName = chatroomDetails.config.name;
+
+         const novelIndex = chatroomDetails.novels.findIndex(n => n.id === novelId);
+         if (novelIndex === -1) {
+             _logAndDisplayError(`无法找到要重命名的小说，ID: ${novelId}`, 'renameChatroomNovel');
+             return;
+         }
+         const novelData = chatroomDetails.novels[novelIndex];
+
          const newName = prompt(`输入小说 "${currentName}" 的新名称:`, currentName);
-         if (!newName || newName.trim() === "" || newName === currentName) {
+         if (!newName || newName.trim() === "" || newName === currentName) return;
+         const trimmedNewName = newName.trim();
+
+         const nameExists = chatroomDetails.novels.some(n => n.name === trimmedNewName && n.id !== novelId);
+         if (nameExists) {
+             _logAndDisplayError(`小说名称 "${trimmedNewName}" 在当前聊天室已存在。`, 'renameChatroomNovel');
              return;
          }
-         if (stateModule.config.novels.some(n => n.name === newName && n.id !== novelId)) {
-             _logAndDisplayError(`小说名称 "${newName}" 已存在。`, 'renameNovel');
-             return;
-         }
 
-         const novel = stateModule.config.novels.find(n => n.id === novelId);
-         if (novel) {
-             novel.name = newName;
+         const updatedNovelData = { ...novelData, name: trimmedNewName };
+         const success = await apiModule.updateNovel(roomName, novelId, updatedNovelData);
 
-             uiSettingsModule.updateNovelList();
-
-             if (document.getElementById('chatroom-novel-page').classList.contains('active') && stateModule.currentChatRoom) {
-                 const room = stateModule.config.chatRooms.find(r => r.name === stateModule.currentChatRoom);
-                 if (room) uiSettingsModule.updateChatroomNovelPage(room);
-             }
-
+         if (success) {
+             await apiModule.fetchChatroomDetails(roomName);
+             uiSettingsModule.updateChatroomNovelPage();
              if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page') {
                  uiSettingsModule.novelUI_updateBookshelfPage();
              }
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                 mainModule.triggerDebouncedSave();
-             }
+
          } else {
-             _logAndDisplayError(`无法找到要重命名的小说，ID: ${novelId}`, 'renameNovel');
+              alert(`重命名小说失败，请检查控制台。`);
          }
      },
 
-    deleteNovel: async (novelId, novelName) => {
-        if (confirm(`确定要删除小说 "${novelName}" 吗？这将同时删除小说文件，无法恢复。`)) {
+    deleteChatroomNovel: async (novelId, novelName) => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) return;
+        const roomName = chatroomDetails.config.name;
 
-            const novelIndex = stateModule.config.novels.findIndex(n => n.id === novelId);
-            if (novelIndex === -1) {
-                _logAndDisplayError("未在配置中找到该小说，无法删除。", "deleteNovel");
-                return;
-            }
-
-            try {
-                 await apiModule.deleteNovelFile(novelId);
-            } catch (error) {
-                _logAndDisplayError(`删除小说文件失败: ${error.message}`, 'deleteNovel');
-                return;
-            }
-
-            stateModule.config.novels.splice(novelIndex, 1);
-            delete stateModule.config.novelCurrentSegmentIds[novelId];
-            delete stateModule.novelContentCache[novelId];
-            delete stateModule.currentTocIndexByNovel[novelId];
-            if (elementsModule.novelContentDisplay?.dataset.novelId === novelId) {
-                elementsModule.novelContentDisplay.removeAttribute('data-novel-id');
-            }
-
-            stateModule.config.chatRooms.forEach(room => {
-                if (Array.isArray(room.associatedNovelIds)) {
-                     room.associatedNovelIds = room.associatedNovelIds.filter(id => id !== novelId);
-                 }
-                 if (stateModule.config.activeNovelIdsInChatroom[room.name]) {
-                     stateModule.config.activeNovelIdsInChatroom[room.name] = stateModule.config.activeNovelIdsInChatroom[room.name].filter(id => id !== novelId);
-                 }
-             });
-
-            if (stateModule.currentNovelId === novelId) {
-                stateModule.currentNovelId = null;
-                stateModule.config.lastViewedNovelId = null;
-                if (elementsModule.novelContentDisplay) {
-                    elementsModule.novelContentDisplay.innerHTML = '<p style="text-align: center; padding-top: 20px;">请在书目(📚)中选择小说</p>';
-                    elementsModule.novelContentDisplay.scrollTop = 0;
-                    elementsModule.novelContentDisplay.removeAttribute('data-novel-id');
-                }
-            }
-
-            uiSettingsModule.updateNovelList();
-
-            if (document.getElementById('chatroom-novel-page').classList.contains('active') && stateModule.currentChatRoom) {
-                 const room = stateModule.config.chatRooms.find(r => r.name === stateModule.currentChatRoom);
-                 if (room) uiSettingsModule.updateChatroomNovelPage(room);
-             }
-
-             if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page') {
-                 uiSettingsModule.novelUI_updateBookshelfPage();
-             }
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                 mainModule.triggerDebouncedSave();
-             }
-
+        const novelIndex = chatroomDetails.novels.findIndex(n => n.id === novelId);
+        if (novelIndex === -1) {
+             _logAndDisplayError(`未在当前聊天室找到小说 "${novelName}"，无法删除。`, "deleteChatroomNovel");
+             return;
         }
+
+
+         const success = await apiModule.deleteNovel(roomName, novelId);
+         if (success) {
+
+              await apiModule.fetchChatroomDetails(roomName);
+
+              if (stateModule.currentNovelId === novelId) {
+                  stateModule.currentNovelId = null;
+                  stateModule.config.lastViewedNovelId = null;
+                  if (elementsModule.novelContentDisplay) {
+                      elementsModule.novelContentDisplay.innerHTML = '<p style="text-align: center; padding-top: 20px;">请在书目(📚)中选择小说</p>';
+                      elementsModule.novelContentDisplay.scrollTop = 0;
+                      elementsModule.novelContentDisplay.removeAttribute('data-novel-id');
+                  }
+                  if (typeof mainModule !== 'undefined') mainModule.triggerDebouncedSave();
+              }
+
+              uiSettingsModule.updateChatroomNovelPage();
+              if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page') {
+                  uiSettingsModule.novelUI_updateBookshelfPage();
+              }
+
+         } else {
+              alert(`删除小说失败，请检查控制台。`);
+         }
+
     },
 
-    _createNovelListItem: (novel) => {
+    _createChatroomNovelListItem: (novel) => {
         const item = document.createElement('div');
         item.className = 'novel-item';
         item.dataset.novelId = novel.id;
@@ -1143,93 +1163,43 @@ const uiSettingsModule = {
         return item;
     },
 
-    updateNovelList: () => {
-        const fragment = document.createDocumentFragment();
-        const sortedNovels = [...stateModule.config.novels].sort((a, b) => a.name.localeCompare(b.name));
-        sortedNovels.forEach(novel => {
-            if(novel && novel.id && novel.name && novel.filename) {
-               fragment.appendChild(uiSettingsModule._createNovelListItem(novel));
-            }
-        });
-        elementsModule.novelListContainer.innerHTML = '';
-        elementsModule.novelListContainer.appendChild(fragment);
-    },
+    updateChatroomNovelPage: () => {
+        const container = elementsModule.novelListContainer;
+        const chatroomDetails = stateModule.currentChatroomDetails;
 
-    updateChatroomNovelPage: (room) => {
-        const frag = document.createDocumentFragment();
-        const novels = [...stateModule.config.novels].sort((a, b) => a.name.localeCompare(b.name));
-        const associatedIds = new Set(room.associatedNovelIds || []);
+        if (!container) return;
+        if (!chatroomDetails) {
+            container.innerHTML = '<p style="text-align: center;">请先选择一个聊天室。</p>';
+            return;
+        }
+        container.innerHTML = '';
 
-        elementsModule.chatroomNovelListContainer.innerHTML = '';
+        const addNovelButton = document.createElement('div');
+        addNovelButton.id = 'add-chatroom-novel-button';
+        addNovelButton.className = 'settings-menu-item';
+        addNovelButton.textContent = '十 添加小说 (从剪贴板)';
+        addNovelButton.addEventListener('click', uiSettingsModule.addChatroomNovel);
+        container.appendChild(addNovelButton);
 
-        if (novels.length === 0) {
+        const novels = chatroomDetails.novels || [];
+        const sortedNovels = [...novels].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        if (sortedNovels.length === 0) {
             const noNovelsMsg = document.createElement('p');
-            noNovelsMsg.textContent = '暂无可用小说。请先在“剧情模式”中添加小说。';
+            noNovelsMsg.textContent = '此聊天室暂无小说。';
             noNovelsMsg.style.textAlign = 'center';
-            frag.appendChild(noNovelsMsg);
+            container.appendChild(noNovelsMsg);
         } else {
-            novels.forEach(novel => {
-                 if(!novel || !novel.id || !novel.name || !novel.filename) return;
-                 const item = document.createElement('div');
-                 item.className = 'chatroom-novel-item';
-
-                 const label = document.createElement('label');
-                 label.textContent = novel.name;
-                 label.htmlFor = `novel-checkbox-${room.name}-${novel.id}`;
-
-                 const check = document.createElement('input');
-                 check.type = 'checkbox';
-                 check.value = novel.id;
-                 check.id = `novel-checkbox-${room.name}-${novel.id}`;
-                 check.checked = associatedIds.has(novel.id);
-
-                 check.addEventListener('change', () => {
-                     uiSettingsModule.updateChatroomNovels(room.name, novel.id, check.checked);
-                 });
-
-                 label.addEventListener('click', (e) => {
-                      e.preventDefault();
-                      check.checked = !check.checked;
-                      check.dispatchEvent(new Event('change'));
-                 });
-
-                 item.appendChild(label);
-                 item.appendChild(check);
-                 frag.appendChild(item);
+            const fragment = document.createDocumentFragment();
+            sortedNovels.forEach(novel => {
+                if(novel && novel.id && novel.name) {
+                   fragment.appendChild(uiSettingsModule._createChatroomNovelListItem(novel));
+                }
             });
-        }
-        elementsModule.chatroomNovelListContainer.appendChild(frag);
-    },
-
-    updateChatroomNovels: (roomName, novelId, isChecked) => {
-        const room = stateModule.config.chatRooms.find(r => r.name === roomName);
-        if (room) {
-            if (!Array.isArray(room.associatedNovelIds)) {
-                room.associatedNovelIds = [];
-            }
-            const index = room.associatedNovelIds.indexOf(novelId);
-            if (isChecked && index === -1) {
-                room.associatedNovelIds.push(novelId);
-            } else if (!isChecked && index > -1) {
-                room.associatedNovelIds.splice(index, 1);
-
-                if (stateModule.config.activeNovelIdsInChatroom[roomName]) {
-                     const activeIndex = stateModule.config.activeNovelIdsInChatroom[roomName].indexOf(novelId);
-                     if (activeIndex > -1) {
-                         stateModule.config.activeNovelIdsInChatroom[roomName].splice(activeIndex, 1);
-                     }
-                 }
-            }
-
-             if (stateModule.isNovelInterfaceVisible && stateModule.activeNovelPage === 'novel-bookshelf-page' && stateModule.config.activeChatRoomName === roomName) {
-                 uiSettingsModule.novelUI_updateBookshelfPage();
-             }
-             updateChatContextCache();
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                 mainModule.triggerDebouncedSave();
-             }
+            container.appendChild(fragment);
         }
     },
+
 
     novelUI_toggleNovelInterface: () => {
         stateModule.isNovelInterfaceVisible = !stateModule.isNovelInterfaceVisible;
@@ -1245,12 +1215,12 @@ const uiSettingsModule = {
 
             const displayArea = elementsModule.novelContentDisplay;
             const currentlyDisplayedNovelId = displayArea?.dataset.novelId;
+            const currentChatroomDetails = stateModule.currentChatroomDetails;
 
             if (stateModule.currentNovelId && currentlyDisplayedNovelId === stateModule.currentNovelId) {
 
-            } else if (stateModule.currentNovelId) {
-                 const activeRoom = stateModule.config.chatRooms.find(r => r.name === stateModule.config.activeChatRoomName);
-                 const isAssociated = activeRoom?.associatedNovelIds?.includes(stateModule.currentNovelId);
+            } else if (stateModule.currentNovelId && currentChatroomDetails) {
+                 const isAssociated = currentChatroomDetails.novels?.some(n => n.id === stateModule.currentNovelId);
                  if (isAssociated) {
                      uiSettingsModule.novelUI_loadAndDisplayNovelContent(stateModule.currentNovelId);
                  } else {
@@ -1333,33 +1303,34 @@ const uiSettingsModule = {
         if (!container) return;
         container.innerHTML = '';
 
-        const currentChatroomName = stateModule.config.activeChatRoomName;
-        if (!currentChatroomName) {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+
+        if (!chatroomDetails || !chatroomDetails.config) {
             container.innerHTML = '<p style="text-align: center;">请先选择一个聊天室</p>';
             return;
         }
+        const currentChatroomName = chatroomDetails.config.name;
+        const associatedNovels = chatroomDetails.novels || [];
 
-        const room = stateModule.config.chatRooms.find(r => r.name === currentChatroomName);
-        if (!room || !Array.isArray(room.associatedNovelIds) || room.associatedNovelIds.length === 0) {
-            container.innerHTML = '<p style="text-align: center;">当前聊天室未关联小说<br>(请在 设置 -> 聊天室设置 -> 聊天室详情 -> 聊天室小说 中关联)</p>';
+        if (associatedNovels.length === 0) {
+            container.innerHTML = '<p style="text-align: center;">当前聊天室无小说<br>(请在 设置 -> 聊天室设置 -> 聊天室详情 -> 聊天室小说 中添加)</p>';
             return;
         }
 
-        const activeIdsInRoom = new Set(stateModule.config.activeNovelIdsInChatroom[currentChatroomName] || []);
+        const activeIdsInRoom = new Set(chatroomDetails.config.activeNovelIds || []);
         const fragment = document.createDocumentFragment();
 
-        const associatedNovels = room.associatedNovelIds
-            .map(id => stateModule.config.novels.find(n => n.id === id))
+        const sortedNovels = [...associatedNovels]
             .filter(Boolean)
-            .sort((a, b) => a.name.localeCompare(b.name));
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        if (associatedNovels.length === 0) {
+        if (sortedNovels.length === 0) {
              container.innerHTML = '<p style="text-align: center;">关联的小说似乎已被删除</p>';
              return;
         }
 
-        associatedNovels.forEach(novel => {
-             if (!novel || !novel.id || !novel.name || !novel.filename) return;
+        sortedNovels.forEach(novel => {
+             if (!novel || !novel.id || !novel.name || !novel.segments || !novel.toc) return;
             const item = document.createElement('div');
             item.className = 'novel-bookshelf-item';
             item.dataset.novelId = novel.id;
@@ -1416,64 +1387,47 @@ const uiSettingsModule = {
     },
 
     novelUI_handleNovelActivation: (novelId, isChecked) => {
-        const currentChatroomName = stateModule.config.activeChatRoomName;
-        if (!currentChatroomName) return;
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails || !chatroomDetails.config) return;
 
-        if (!stateModule.config.activeNovelIdsInChatroom[currentChatroomName]) {
-            stateModule.config.activeNovelIdsInChatroom[currentChatroomName] = [];
-        }
-
-        const activeIds = stateModule.config.activeNovelIdsInChatroom[currentChatroomName];
+        let activeIds = chatroomDetails.config.activeNovelIds || [];
         const index = activeIds.indexOf(novelId);
 
         if (isChecked && index === -1) {
             activeIds.push(novelId);
         } else if (!isChecked && index > -1) {
             activeIds.splice(index, 1);
+        } else {
+             return;
         }
 
+        chatroomDetails.config.activeNovelIds = activeIds;
+        apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
         updateChatContextCache();
-        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-           mainModule.triggerDebouncedSave();
-        }
     },
 
-    novelUI_loadAndDisplayNovelContent: async (novelId) => {
+    novelUI_loadAndDisplayNovelContent: (novelId) => {
         const displayArea = elementsModule.novelContentDisplay;
         if (!displayArea || stateModule.isNovelLoading) return;
 
-        const novelMeta = stateModule.config.novels.find(n => n.id === novelId);
-        if (!novelMeta || !novelMeta.filename) {
-            displayArea.innerHTML = '';
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) {
+             _logAndDisplayError("无法加载小说：未找到激活聊天室数据。", 'novelUI_loadAndDisplayNovelContent');
+             return;
+        }
+
+        const novelData = chatroomDetails.novels.find(n => n.id === novelId);
+        if (!novelData || !novelData.segments || !novelData.toc) {
+            displayArea.innerHTML = '<p style="text-align: center; color: red;">无法加载小说数据</p>';
             displayArea.removeAttribute('data-novel-id');
             stateModule.currentNovelId = null;
             stateModule.config.lastViewedNovelId = null;
-            _logAndDisplayError("无法找到小说元数据或文件名", 'novelUI_loadAndDisplayNovelContent');
+            _logAndDisplayError(`无法找到小说数据 ID: ${novelId}`, 'novelUI_loadAndDisplayNovelContent');
             return;
         }
 
         stateModule.isNovelLoading = true;
         displayArea.innerHTML = '<p style="text-align: center; padding-top: 20px;">正在加载...</p>';
-
-        let novelData = stateModule.novelContentCache[novelId];
-        if (!novelData || !novelData.segments || !novelData.toc) {
-             try {
-                novelData = await apiModule.fetchNovelStructuredContent(novelMeta.filename);
-                if (!novelData || !Array.isArray(novelData.segments) || !Array.isArray(novelData.toc)) {
-                    throw new Error("API 返回的结构化数据无效。");
-                }
-                stateModule.novelContentCache[novelId] = novelData;
-             } catch (error) {
-                 delete stateModule.novelContentCache[novelId];
-                 stateModule.currentNovelId = null;
-                 stateModule.config.lastViewedNovelId = null;
-                 stateModule.isNovelLoading = false;
-                 _logAndDisplayError(`加载小说内容失败: ${error.message}`, 'novelUI_loadAndDisplayNovelContent');
-                 displayArea.innerHTML = `<p style="text-align: center; color: red;">加载失败</p>`;
-                 displayArea.removeAttribute('data-novel-id');
-                 return;
-             }
-        }
 
         const fragment = document.createDocumentFragment();
         const tocMap = new Map();
@@ -1511,7 +1465,7 @@ const uiSettingsModule = {
         displayArea.dataset.novelId = novelId;
 
         setTimeout(() => {
-            const savedSegmentId = stateModule.config.novelCurrentSegmentIds[novelId];
+            const savedSegmentId = chatroomDetails.config.novelCurrentSegmentIds?.[novelId];
             let targetElement = null;
             if (savedSegmentId !== undefined) {
                  targetElement = displayArea.querySelector(`.novel-segment[data-segment-id="${savedSegmentId}"]`);
@@ -1523,11 +1477,12 @@ const uiSettingsModule = {
                  targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
             } else {
                  displayArea.scrollTop = 0;
-                 stateModule.config.novelCurrentSegmentIds[novelId] = 0;
-                 stateModule.currentTocIndexByNovel[novelId] = 0;
-                 if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                    mainModule.triggerDebouncedSave();
+                 if (chatroomDetails.config.novelCurrentSegmentIds) {
+                      chatroomDetails.config.novelCurrentSegmentIds[novelId] = 0;
+                      apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
                  }
+                 stateModule.currentTocIndexByNovel[novelId] = 0;
+
             }
         }, 50);
         stateModule.isNovelLoading = false;
@@ -1537,28 +1492,20 @@ const uiSettingsModule = {
     novelUI_updateTocPage: () => {
         const container = elementsModule.novelTocListContainer;
         const novelId = stateModule.currentNovelId;
-        if (!container || !novelId) {
-            if(container) container.innerHTML = '<p style="text-align: center;">请先在书目中选择一本小说</p>';
+        const chatroomDetails = stateModule.currentChatroomDetails;
+
+        if (!container) return;
+        if (!chatroomDetails || !novelId) {
+            container.innerHTML = '<p style="text-align: center;">请先在书目中选择一本小说</p>';
             return;
         }
 
         container.innerHTML = '';
-        const novelData = stateModule.novelContentCache[novelId];
+        const novelData = chatroomDetails.novels.find(n => n.id === novelId);
 
         if (!novelData || !novelData.toc || novelData.toc.length === 0) {
-             if (!stateModule.isNovelLoading && !novelData) {
-                 container.innerHTML = '<p style="text-align: center;">正在加载小说数据...</p>';
-                 uiSettingsModule.novelUI_loadAndDisplayNovelContent(novelId).then(() => {
-                      setTimeout(uiSettingsModule.novelUI_updateTocPage, 100);
-                 }).catch(e => {
-                      if(container) container.innerHTML = '<p style="text-align: center; color: red;">加载失败</p>';
-                 });
-             } else if (novelData && (!novelData.toc || novelData.toc.length === 0)){
-                  container.innerHTML = '<p style="text-align: center;">未找到章节信息</p>';
-             } else {
-                  container.innerHTML = '<p style="text-align: center;">内容加载中，请稍候...</p>';
-             }
-            return;
+             container.innerHTML = '<p style="text-align: center;">未找到章节信息</p>';
+             return;
         }
 
         const fragment = document.createDocumentFragment();
@@ -1592,7 +1539,8 @@ const uiSettingsModule = {
     novelUI_handleTocJump: (event) => {
         const targetSegmentId = event.currentTarget.dataset.targetSegmentId;
         const novelId = stateModule.currentNovelId;
-        if (targetSegmentId === undefined || !novelId) return;
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (targetSegmentId === undefined || !novelId || !chatroomDetails) return;
 
         const displayArea = elementsModule.novelContentDisplay;
         let targetElement = displayArea.querySelector(`.novel-chapter-marker[data-segment-id="${targetSegmentId}"]`);
@@ -1602,14 +1550,16 @@ const uiSettingsModule = {
 
         if (targetElement && displayArea) {
              targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-             stateModule.config.novelCurrentSegmentIds[novelId] = parseInt(targetSegmentId, 10);
-             const tocIndex = stateModule.novelContentCache[novelId]?.toc.findIndex(item => item.segmentId === parseInt(targetSegmentId, 10));
+             if (chatroomDetails.config.novelCurrentSegmentIds) {
+                  chatroomDetails.config.novelCurrentSegmentIds[novelId] = parseInt(targetSegmentId, 10);
+                  apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
+             }
+             const novelData = chatroomDetails.novels.find(n => n.id === novelId);
+             const tocIndex = novelData?.toc.findIndex(item => item.segmentId === parseInt(targetSegmentId, 10));
              if (tocIndex !== undefined && tocIndex !== -1) {
                  stateModule.currentTocIndexByNovel[novelId] = tocIndex;
              }
-             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                mainModule.triggerDebouncedSave();
-             }
+
         }
 
         uiSettingsModule.novelUI_closeCurrentNovelSection('novel-toc-page');
@@ -1621,8 +1571,9 @@ const uiSettingsModule = {
          stateModule.scrollUpdateTimer = setTimeout(() => {
              const currentNovelId = stateModule.currentNovelId;
              const displayArea = elementsModule.novelContentDisplay;
+             const chatroomDetails = stateModule.currentChatroomDetails;
 
-             if (currentNovelId && displayArea && displayArea.dataset.novelId === currentNovelId && stateModule.isNovelInterfaceVisible && !stateModule.activeNovelPage && stateModule.config.novelCurrentSegmentIds) {
+             if (currentNovelId && displayArea && chatroomDetails && chatroomDetails.config && chatroomDetails.config.novelCurrentSegmentIds && displayArea.dataset.novelId === currentNovelId && stateModule.isNovelInterfaceVisible && !stateModule.activeNovelPage) {
 
                  let topSegmentId = 0;
                  const segments = displayArea.querySelectorAll('.novel-segment, .novel-chapter-marker[data-segment-id]');
@@ -1641,14 +1592,12 @@ const uiSettingsModule = {
                  }
                  if (isNaN(topSegmentId)) topSegmentId = 0;
 
-                 if(stateModule.config.novelCurrentSegmentIds[currentNovelId] !== topSegmentId) {
-                    stateModule.config.novelCurrentSegmentIds[currentNovelId] = topSegmentId;
-                    if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                        mainModule.triggerDebouncedSave();
-                    }
+                 if(chatroomDetails.config.novelCurrentSegmentIds[currentNovelId] !== topSegmentId) {
+                    chatroomDetails.config.novelCurrentSegmentIds[currentNovelId] = topSegmentId;
+                    apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
                  }
 
-                 const novelData = stateModule.novelContentCache[currentNovelId];
+                 const novelData = chatroomDetails.novels.find(n => n.id === currentNovelId);
                  let currentTocIndex = 0;
                  if (novelData && novelData.toc && novelData.toc.length > 0) {
                     let foundTocIndex = -1;
@@ -1680,20 +1629,18 @@ const uiSettingsModule = {
         URL.revokeObjectURL(url);
     },
 
-    exportRole: async () => {
+    exportRole: () => {
         const roleName = stateModule.currentRole;
-        if (!roleName) {
-            _logAndDisplayError("没有当前选定的角色可导出。", 'exportRole');
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!roleName || !chatroomDetails) {
+            _logAndDisplayError("没有当前选定的角色或聊天室可导出。", 'exportRole');
             return;
         }
-        if (!stateModule.config.roles.includes(roleName)) {
-            _logAndDisplayError(`角色 "${roleName}" 不存在于配置中。`, 'exportRole');
-            return;
-        }
+        const roleData = chatroomDetails.roles.find(r => r.name === roleName);
+        const isTemporary = !roleData;
 
-        const roleData = await roleDataManager.getRoleData(roleName);
-        if (!roleData) {
-            _logAndDisplayError(`无法获取角色 "${roleName}" 的数据进行导出。`, 'exportRole');
+        if (isTemporary || roleName === "管理员") {
+            _logAndDisplayError(`无法导出角色 "${roleName}" (临时角色或管理员)。`, 'exportRole');
             return;
         }
 
@@ -1707,6 +1654,13 @@ const uiSettingsModule = {
     handleImportRoleFile: (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails) {
+            _logAndDisplayError("请先选择一个聊天室来导入角色。", 'handleImportRoleFile');
+            event.target.value = null;
+            return;
+        }
+        const roomName = chatroomDetails.config.name;
 
         const reader = new FileReader();
         reader.onload = async function(e) {
@@ -1727,9 +1681,10 @@ const uiSettingsModule = {
 
             let importName = importedRoleData.name;
             let finalName = importName;
+            const existingNames = Object.keys(chatroomDetails.config.roleStates || {});
 
-            while (stateModule.config.roles.includes(finalName) || stateModule.config.temporaryRoles.includes(finalName)) {
-                finalName = prompt(`名称 "${finalName}" 已存在。请输入新的角色名称：`, `${importName}_imported`);
+            while (existingNames.includes(finalName)) {
+                finalName = prompt(`名称 "${finalName}" 在此聊天室已存在。请输入新的角色名称：`, `${importName}_imported`);
                 if (!finalName || finalName.trim() === "") {
                     event.target.value = null;
                     return;
@@ -1737,39 +1692,26 @@ const uiSettingsModule = {
                 finalName = finalName.trim();
             }
 
-            const dataToSave = {
+            const newRole = {
                 name: finalName,
                 setting: importedRoleData.setting || '',
                 memory: importedRoleData.memory || '',
-                drawingTemplate: importedRoleData.drawingTemplate || ''
+                drawingTemplate: importedRoleData.drawingTemplate || '',
             };
 
-            const saved = await roleDataManager.saveRoleData(finalName, dataToSave);
-            if (saved) {
-                stateModule.config.roles.push(finalName);
-                stateModule.config.roleStates[finalName] = uiChatModule.ROLE_STATE_DEFAULT;
+            const success = await apiModule.createRole(roomName, newRole);
+            if(success) {
+                 await apiModule.fetchChatroomDetails(roomName);
+                 uiSettingsModule.updateChatroomRolePage();
+                 if (typeof uiChatModule !== 'undefined') {
+                     uiChatModule.updateRoleButtonsList();
+                 }
+                 updateChatContextCache();
 
-                stateModule.config.chatRooms.forEach(room => {
-                    if (Array.isArray(room.roles) && !room.roles.includes(finalName)) {
-                        room.roles.push(finalName);
-                    }
-                });
-
-                uiSettingsModule.updateRoleList();
-                if (typeof uiChatModule !== 'undefined') {
-                    uiChatModule.updateRoleButtonsList();
-                }
-                await updateChatContextCache();
-                if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                   mainModule.triggerDebouncedSave();
-                }
-
-                if (document.getElementById('role-detail-page').classList.contains('active') && stateModule.currentRole === importName) {
-                    uiSettingsModule.showRoleDetailPage(finalName);
-                }
             } else {
-                 _logAndDisplayError(`保存导入的角色数据失败: ${finalName}`, 'handleImportRoleFile');
+                 alert(`Failed to import role '${finalName}'.`);
             }
+
             event.target.value = null;
         };
         reader.onerror = function(e) {
@@ -1780,12 +1722,12 @@ const uiSettingsModule = {
     },
 
     exportChatroom: () => {
-         const roomName = stateModule.currentChatRoom;
+         const roomName = stateModule.config.activeChatRoomName;
          if (!roomName) {
              _logAndDisplayError("没有当前选定的聊天室可导出。", 'exportChatroom');
              return;
          }
-         window.location.href = '/export-chatroom-zip/' + encodeURIComponent(roomName);
+          window.location.href = '/export-chatroom-zip/' + encodeURIComponent(roomName);
     },
 
     importChatroom: () => {
@@ -1816,9 +1758,15 @@ const uiSettingsModule = {
 
               alert(result.message || "聊天室导入成功！");
 
+
               await configModule.loadConfig();
-              roleDataManager.clearCache();
+
               initializationModule.initializeConfig();
+              uiSettingsModule.updateChatroomList();
+              if (stateModule.config.activeChatRoomName) {
+                  await uiSettingsModule.switchActiveChatroom(stateModule.config.activeChatRoomName);
+              }
+
 
          } catch (error) {
               _logAndDisplayError(`导入聊天室失败: ${error.message}`, 'handleImportChatroomFile');
@@ -1829,12 +1777,11 @@ const uiSettingsModule = {
     },
 
     loadRoleplayRulesSetting: () => {
-        const activeRoomName = stateModule.config.activeChatRoomName;
         const textarea = elementsModule.roleplayRulesTextarea;
         if (textarea) {
-            if (activeRoomName) {
-                 const room = stateModule.config.chatRooms.find(r => r.name === activeRoomName);
-                 textarea.value = room?.roleplayRules || "";
+            const details = stateModule.currentChatroomDetails;
+            if (details && details.config) {
+                 textarea.value = details.config.roleplayRules || "";
                  textarea.disabled = false;
             } else {
                  textarea.value = "";
@@ -1844,27 +1791,24 @@ const uiSettingsModule = {
     },
 
     saveRoleplayRulesSetting: () => {
-        const activeRoomName = stateModule.config.activeChatRoomName;
         const textarea = elementsModule.roleplayRulesTextarea;
-        if (activeRoomName && textarea) {
-             const room = stateModule.config.chatRooms.find(r => r.name === activeRoomName);
-             if (room) {
-                 room.roleplayRules = textarea.value;
-                 updateChatContextCache();
-                 if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                    mainModule.triggerDebouncedSave();
-                 }
+        const details = stateModule.currentChatroomDetails;
+        if (details && details.config && textarea) {
+             const newValue = textarea.value;
+             if (details.config.roleplayRules !== newValue) {
+                details.config.roleplayRules = newValue;
+                apiModule.triggerDebouncedChatroomConfigSave(details.config.name);
+                updateChatContextCache();
              }
         }
     },
 
     loadPublicInfoSetting: () => {
-        const activeRoomName = stateModule.config.activeChatRoomName;
         const textarea = elementsModule.publicInfoTextarea;
         if (textarea) {
-            if (activeRoomName) {
-                const room = stateModule.config.chatRooms.find(r => r.name === activeRoomName);
-                textarea.value = room?.publicInfo || "";
+             const details = stateModule.currentChatroomDetails;
+            if (details && details.config) {
+                textarea.value = details.config.publicInfo || "";
                 textarea.disabled = false;
             } else {
                 textarea.value = "";
@@ -1874,18 +1818,207 @@ const uiSettingsModule = {
     },
 
     savePublicInfoSetting: () => {
-        const activeRoomName = stateModule.config.activeChatRoomName;
         const textarea = elementsModule.publicInfoTextarea;
-        if (activeRoomName && textarea) {
-            const room = stateModule.config.chatRooms.find(r => r.name === activeRoomName);
-            if (room) {
-                room.publicInfo = textarea.value;
+        const details = stateModule.currentChatroomDetails;
+        if (details && details.config && textarea) {
+            const newValue = textarea.value;
+            if (details.config.publicInfo !== newValue) {
+                details.config.publicInfo = newValue;
+                apiModule.triggerDebouncedChatroomConfigSave(details.config.name);
                 updateChatContextCache();
-                if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-                    mainModule.triggerDebouncedSave();
-                }
             }
         }
+    },
+
+    loadPromptPresetSettings: () => {
+        if (elementsModule.systemInstructionPresetSettings) {
+            elementsModule.systemInstructionPresetSettings.value = stateModule.config.systemInstruction || '';
+        }
+
+    },
+
+    savePromptPresetSetting: (key) => {
+         let element = null;
+         if (key === 'systemInstruction') {
+              element = elementsModule.systemInstructionPresetSettings;
+         }
+         if (element) {
+              stateModule.config[key] = element.value;
+              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                 mainModule.triggerDebouncedSave();
+              }
+         }
+    },
+
+    renderPromptPresetsList: () => {
+        const container = elementsModule.promptPresetListContainer;
+        if (!container) return;
+        container.innerHTML = '';
+        const turns = stateModule.config.promptPresetTurns || [];
+
+        turns.forEach((turn, index) => {
+            const item = document.createElement('div');
+            item.className = 'prompt-preset-item';
+            item.dataset.index = index;
+
+            const roleLabel = document.createElement('span');
+            roleLabel.className = 'preset-role-label';
+            roleLabel.textContent = turn.role === 'user' ? 'U' : 'M';
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'preset-instruction-textarea';
+            textarea.value = turn.instruction || '';
+            textarea.addEventListener('input', () => uiSettingsModule.updatePromptPresetTurn(index, textarea.value));
+            textarea.addEventListener('change', () => uiSettingsModule.updatePromptPresetTurn(index, textarea.value));
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'item-actions';
+
+            const upButton = document.createElement('div');
+            upButton.className = 'std-button preset-move-up';
+            upButton.textContent = '↑';
+            upButton.disabled = index === 0;
+            if (index === 0) upButton.style.opacity = '0.5';
+            upButton.addEventListener('click', () => uiSettingsModule.movePromptPresetTurn(index, -1));
+
+            const downButton = document.createElement('div');
+            downButton.className = 'std-button preset-move-down';
+            downButton.textContent = '↓';
+            downButton.disabled = index === turns.length - 1;
+            if (index === turns.length - 1) downButton.style.opacity = '0.5';
+            downButton.addEventListener('click', () => uiSettingsModule.movePromptPresetTurn(index, 1));
+
+            const deleteButton = document.createElement('div');
+            deleteButton.className = 'std-button preset-delete';
+            deleteButton.textContent = '✕';
+            deleteButton.addEventListener('click', () => uiSettingsModule.deletePromptPresetTurn(index));
+
+            actionsDiv.appendChild(upButton);
+            actionsDiv.appendChild(downButton);
+            actionsDiv.appendChild(deleteButton);
+
+            item.appendChild(roleLabel);
+            item.appendChild(textarea);
+            item.appendChild(actionsDiv);
+            container.appendChild(item);
+        });
+    },
+
+    addPromptPresetTurn: (role) => {
+        if (!stateModule.config.promptPresetTurns) {
+             stateModule.config.promptPresetTurns = [];
+        }
+        stateModule.config.promptPresetTurns.push({ role: role, instruction: "" });
+        uiSettingsModule.renderPromptPresetsList();
+        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+            mainModule.triggerDebouncedSave();
+        }
+    },
+
+    updatePromptPresetTurn: (index, instruction) => {
+        if (stateModule.config.promptPresetTurns && stateModule.config.promptPresetTurns[index]) {
+             stateModule.config.promptPresetTurns[index].instruction = instruction;
+             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                 mainModule.triggerDebouncedSave();
+             }
+        }
+    },
+
+    movePromptPresetTurn: (index, direction) => {
+        const turns = stateModule.config.promptPresetTurns;
+        if (!turns || index < 0 || index >= turns.length) return;
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= turns.length) return;
+
+        const itemToMove = turns.splice(index, 1)[0];
+        turns.splice(newIndex, 0, itemToMove);
+
+        uiSettingsModule.renderPromptPresetsList();
+        if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+            mainModule.triggerDebouncedSave();
+        }
+    },
+
+    deletePromptPresetTurn: (index) => {
+         if (stateModule.config.promptPresetTurns && stateModule.config.promptPresetTurns[index]) {
+             stateModule.config.promptPresetTurns.splice(index, 1);
+             uiSettingsModule.renderPromptPresetsList();
+             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                 mainModule.triggerDebouncedSave();
+             }
+         }
+    },
+
+    handleImportPromptPresets: (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            apiModule.importPromptPresets(file);
+        }
+        event.target.value = null;
+    },
+
+    loadChatroomModelSetting: () => {
+         const selectElement = elementsModule.chatroomModelSelectSettings;
+         if (selectElement) {
+             selectElement.value = stateModule.config.model || '';
+         }
+    },
+
+    saveChatroomModelSetting: () => {
+         const selectElement = elementsModule.chatroomModelSelectSettings;
+         if (selectElement) {
+              stateModule.config.model = selectElement.value;
+              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                  mainModule.triggerDebouncedSave();
+              }
+         }
+    },
+
+    saveChatroomCommonSetting: (key) => {
+         const element = elementsModule[`${key}Settings`];
+         if (element) {
+              stateModule.config[key] = element.value;
+              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                 mainModule.triggerDebouncedSave();
+              }
+         }
+    },
+
+    loadChatroomMainPromptSetting: () => {
+        const element = elementsModule.chatroomMainPromptSettings;
+        if (element) {
+             element.value = stateModule.config.mainPrompt || '';
+        }
+    },
+
+    saveChatroomMainPromptSetting: () => {
+         const element = elementsModule.chatroomMainPromptSettings;
+         if (element) {
+              stateModule.config.mainPrompt = element.value;
+              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                  mainModule.triggerDebouncedSave();
+              }
+         }
+    },
+
+    saveToolModelSetting: (toolName) => {
+        const selectElement = elementsModule[`${toolName}ModelSettings`];
+        if (selectElement && stateModule.config.toolSettings[toolName]) {
+             stateModule.config.toolSettings[toolName].model = selectElement.value;
+             if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                  mainModule.triggerDebouncedSave();
+             }
+        }
+    },
+
+    saveToolMainPromptSetting: (toolName) => {
+         const textareaElement = elementsModule[`${toolName}MainPromptSettings`];
+         if (textareaElement && stateModule.config.toolSettings[toolName]) {
+              stateModule.config.toolSettings[toolName].mainPrompt = textareaElement.value;
+              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
+                  mainModule.triggerDebouncedSave();
+              }
+         }
     },
 
 };
