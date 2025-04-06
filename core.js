@@ -22,7 +22,7 @@ const defaultConfig = {
     isRunPaused: true,
     isRoleListVisible: false,
     lastViewedNovelId: null,
-    referenceTextLength: 10000,
+    originalNovelLength: 10000,
     novelaiModel: "nai-diffusion-3",
     novelaiArtistChain: "",
     novelaiDefaultPositivePrompt: "",
@@ -36,6 +36,57 @@ const defaultConfig = {
     novelaiNoiseSchedule: "native",
     novelaiSeed: 0,
     systemInstruction: ""
+};
+
+const defaultChatroomOverrideSettings = {
+    general: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        sharedDatabaseInstruction: "",
+        mainPrompt: ""
+    },
+    drawingMaster: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        toolDatabaseInstruction: "",
+        mainPrompt: ""
+    },
+    gameHost: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        toolDatabaseInstruction: "",
+        mainPrompt: ""
+    },
+    writingMaster: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        toolDatabaseInstruction: "",
+        mainPrompt: ""
+    },
+    characterUpdateMaster: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        toolDatabaseInstruction: "",
+        mainPrompt: ""
+    },
+    privateAssistant: {
+        enabled: false,
+        model: "",
+        responseSchemaJson: "",
+        responseSchemaParserJs: "",
+        toolDatabaseInstruction: "",
+        mainPrompt: ""
+    }
 };
 
 const stateModule = {
@@ -71,16 +122,18 @@ const stateModule = {
     isCooldownActive: false,
     cooldownTimer: null,
 };
-
 const API_KEYS_STORAGE_KEY = 'geminiChatApiKeys';
 const NAI_API_KEY_STORAGE_KEY = 'geminiChatNaiApiKey';
-const API_KEY_INDEX_STORAGE_KEY = 'geminiChatApiKeyIndex';
 const API_KEY_FAILURES_STORAGE_KEY = 'geminiChatApiKeyFailures';
 const MAX_RETRIES = 5;
 const REQUEST_TIMEOUT_MS = 60000;
 
-
 const apiKeyManager = {
+    _allKeys: [],
+    _activeKeys: [],
+    _silentKeys: [],
+    _silentCapacity: 0,
+
     _getLocalStorageItem: (key) => {
         try {
             return localStorage.getItem(key);
@@ -97,18 +150,15 @@ const apiKeyManager = {
         }
     },
     getApiKeys: () => {
-        const keysJson = apiKeyManager._getLocalStorageItem(API_KEYS_STORAGE_KEY);
-        try {
-            const keys = keysJson ? JSON.parse(keysJson) : [];
-            return Array.isArray(keys) ? keys : [];
-        } catch (e) {
-            return [];
-        }
+        return [...apiKeyManager._allKeys];
     },
     setApiKeys: (keys) => {
         if (!Array.isArray(keys)) return;
+        apiKeyManager._allKeys = [...keys];
+        apiKeyManager._activeKeys = [...keys];
+        apiKeyManager._silentKeys = [];
+        apiKeyManager._silentCapacity = Math.floor(keys.length / 2);
         apiKeyManager._setLocalStorageItem(API_KEYS_STORAGE_KEY, JSON.stringify(keys));
-        apiKeyManager.setCurrentApiKeyIndex(0);
 
         const currentFailures = apiKeyManager._getApiKeyFailures();
         const newFailures = {};
@@ -117,14 +167,16 @@ const apiKeyManager = {
         });
         apiKeyManager._setApiKeyFailures(newFailures);
     },
-    getCurrentApiKeyIndex: () => {
-        const index = parseInt(apiKeyManager._getLocalStorageItem(API_KEY_INDEX_STORAGE_KEY), 10);
-        return !isNaN(index) && index >= 0 ? index : 0;
-    },
-    setCurrentApiKeyIndex: (index) => {
-        if (!isNaN(index) && index >= 0) {
-            apiKeyManager._setLocalStorageItem(API_KEY_INDEX_STORAGE_KEY, String(index));
+    loadApiKeysFromStorage: () => {
+        const keysJson = apiKeyManager._getLocalStorageItem(API_KEYS_STORAGE_KEY);
+        let keys = [];
+        try {
+            keys = keysJson ? JSON.parse(keysJson) : [];
+            if (!Array.isArray(keys)) keys = [];
+        } catch (e) {
+            keys = [];
         }
+        apiKeyManager.setApiKeys(keys);
     },
     getNaiApiKey: () => {
         return apiKeyManager._getLocalStorageItem(NAI_API_KEY_STORAGE_KEY) || '';
@@ -132,16 +184,55 @@ const apiKeyManager = {
     setNaiApiKey: (key) => {
         apiKeyManager._setLocalStorageItem(NAI_API_KEY_STORAGE_KEY, key || '');
     },
-    getNextApiKey: () => {
-        const keys = apiKeyManager.getApiKeys();
-        if (keys.length === 0) {
-            throw new Error("No API keys entered in settings.");
+    selectApiKey: () => {
+        if (apiKeyManager._activeKeys.length === 0) {
+            if (apiKeyManager._silentKeys.length === 0) {
+                throw new Error("No API keys available in active or silent pool.");
+            }
+            apiKeyManager._activeKeys = apiKeyManager._silentKeys.map(item => item.key);
+            apiKeyManager._silentKeys = [];
         }
-        const currentIndex = apiKeyManager.getCurrentApiKeyIndex();
-        const nextIndex = (currentIndex % keys.length);
-        const apiKey = keys[nextIndex];
-        apiKeyManager.setCurrentApiKeyIndex(nextIndex + 1);
-        return apiKey;
+
+        const failures = apiKeyManager._getApiKeyFailures();
+        let minFailures = Infinity;
+        let candidates = [];
+
+        apiKeyManager._activeKeys.forEach(key => {
+            const failCount = failures[key] || 0;
+            if (failCount < minFailures) {
+                minFailures = failCount;
+                candidates = [key];
+            } else if (failCount === minFailures) {
+                candidates.push(key);
+            }
+        });
+
+        if (candidates.length === 0) {
+             if (apiKeyManager._activeKeys.length > 0) {
+                 candidates = [...apiKeyManager._activeKeys];
+             } else {
+                 throw new Error("Could not select a candidate API key.");
+             }
+        }
+
+        const randomIndex = Math.floor(Math.random() * candidates.length);
+        return candidates[randomIndex];
+    },
+    markApiKeyUsed: (usedKey) => {
+        const activeIndex = apiKeyManager._activeKeys.indexOf(usedKey);
+        if (activeIndex !== -1) {
+            apiKeyManager._activeKeys.splice(activeIndex, 1);
+        }
+
+        apiKeyManager._silentKeys = apiKeyManager._silentKeys.filter(item => item.key !== usedKey);
+        apiKeyManager._silentKeys.push({ key: usedKey, timestamp: Date.now() });
+
+        while (apiKeyManager._silentKeys.length > apiKeyManager._silentCapacity) {
+            const oldestEntry = apiKeyManager._silentKeys.shift();
+            if (oldestEntry) {
+                 apiKeyManager._activeKeys.push(oldestEntry.key);
+            }
+        }
     },
     _getApiKeyFailures: () => {
         const failuresJson = apiKeyManager._getLocalStorageItem(API_KEY_FAILURES_STORAGE_KEY);
@@ -170,49 +261,29 @@ const apiKeyManager = {
         return apiKeyManager._getApiKeyFailures();
     }
 };
-
 const _logAndDisplayError = (message, source = 'UnknownSource', lineno = 'N/A', colno = 'N/A', errorObj = null) => {
     const timestamp = new Date().toLocaleString();
     let fullMessage = `[${source} @ ${timestamp}] ${message}`;
     if (lineno !== 'N/A') fullMessage += ` (Line: ${lineno}, Col: ${colno})`;
+    console.error(fullMessage, errorObj);
 
-    let stack = errorObj?.stack;
-    if (!stack && errorObj instanceof Error) {
-        stack = errorObj.toString();
-    }
-
-    console.error(`--- ERROR START ---`);
-    console.error(`Message: ${message}`);
-    console.error(`Source: ${source}`);
-    console.error(`Line: ${lineno}, Column: ${colno}`);
-    if (stack) {
-        console.error(`Stack: ${stack}`);
-        if (!fullMessage.includes(stack.split('\n')[0])) {
-             fullMessage += `\nStack: ${stack}`;
-        }
-    } else {
-        console.error(`Stack: Not Available`);
-    }
-    console.error(`--- ERROR END ---`);
-
-
-    if (typeof uiSettingsModule !== 'undefined' && uiSettingsModule.displayErrorLog) {
-
+    if (typeof elementsModule !== 'undefined' && elementsModule.errorLogDisplay) {
+        const currentLog = elementsModule.errorLogDisplay.value;
+        const separator = currentLog ? '\n------------------------------\n' : '';
+        elementsModule.errorLogDisplay.value += separator + fullMessage;
+        elementsModule.errorLogDisplay.scrollTop = elementsModule.errorLogDisplay.scrollHeight;
     }
 };
-
 
 window.onerror = (message, source, lineno, colno, error) => {
     _logAndDisplayError(message, source, lineno, colno, error);
     return true;
 };
-
 window.addEventListener('unhandledrejection', function(event) {
     const reason = event.reason;
     let message = 'Unhandled Promise Rejection';
     let source = 'Promise';
     let errorObj = reason;
-
     if (reason instanceof Error) {
         message = reason.message;
         source = reason.stack ? reason.stack.split('\n')[1] || source : source;
@@ -224,16 +295,13 @@ window.addEventListener('unhandledrejection', function(event) {
     _logAndDisplayError(message, source, 'N/A', 'N/A', errorObj);
 });
 
-
 const configModule = {
     autoSaveConfig: () => {
         const configToSave = { ...stateModule.config };
         delete configToSave.isRunPaused;
-
         delete configToSave.errorLogs;
         delete configToSave.availableChatrooms;
         delete configToSave.currentChatroomDetails;
-
 
         fetch('/autosave-config', {
             method: 'POST',
@@ -247,7 +315,6 @@ const configModule = {
              _logAndDisplayError(`Auto-save failed: ${error.message}`, 'autoSaveConfig');
          });
     },
-
     loadConfig: async () => {
         let loadedConfig;
         try {
@@ -265,18 +332,16 @@ const configModule = {
              loadedConfig = JSON.parse(JSON.stringify(defaultConfig));
         }
 
-
         Object.keys(defaultConfig).forEach(key => {
              if (!(key in loadedConfig)) {
                  loadedConfig[key] = JSON.parse(JSON.stringify(defaultConfig[key]));
              }
         });
 
-
         Object.assign(stateModule.config, loadedConfig);
+        apiKeyManager.loadApiKeysFromStorage();
         stateModule.config.isRunPaused = true;
         stateModule.currentChatroomDetails = null;
-
         if (stateModule.config.activeChatRoomName) {
              await apiModule.fetchChatroomDetails(stateModule.config.activeChatRoomName);
         } else {
@@ -285,7 +350,6 @@ const configModule = {
     }
 };
 
-
 const toolNameMap = {
     drawingMaster: "绘图大师",
     gameHost: "游戏主持人",
@@ -293,24 +357,19 @@ const toolNameMap = {
     characterUpdateMaster: "角色更新大师",
     privateAssistant: "私人助理"
 };
-
 function _formatObjectToCustomString(obj, indentLevel = 0) {
     let result = '';
     const indent = '  '.repeat(indentLevel);
-
     if (obj === null || obj === undefined) return 'null';
     if (typeof obj !== 'object') return String(obj);
-
     if (Array.isArray(obj)) {
         return '[Internal Error: Array passed directly]';
     }
-
     const keys = Object.keys(obj);
     keys.forEach((key) => {
         const value = obj[key];
         if (result !== '') result += '\n';
         result += `${indent}${key}`;
-
         if (Array.isArray(value)) {
             if (value.length > 0) {
                 if (value.every(item => typeof item !== 'object' || item === null)) {
@@ -335,56 +394,42 @@ function _formatObjectToCustomString(obj, indentLevel = 0) {
             result += `: ${value}`;
         }
     });
-
     return result;
 }
 
-
-function getNovelReferenceTextForPayload() {
+function getOriginalNovelTextForPayload() {
     const chatroomDetails = stateModule.currentChatroomDetails;
     if (!chatroomDetails || !chatroomDetails.config) return "[无激活聊天室数据]";
-
     const activeNovelIds = chatroomDetails.config.activeNovelIds || [];
     const novelDefs = chatroomDetails.novels || [];
     const novelCurrentSegmentIds = chatroomDetails.config.novelCurrentSegmentIds || {};
-
     if (activeNovelIds.length === 0) return "[当前聊天室无激活小说]";
-
-    const totalTargetChars = stateModule.config.referenceTextLength || defaultConfig.referenceTextLength;
+    const totalTargetChars = stateModule.config.originalNovelLength || defaultConfig.originalNovelLength;
     const perNovelChars = activeNovelIds.length > 0 ? Math.floor(totalTargetChars / activeNovelIds.length) : 0;
     if (perNovelChars <= 0) return "[字符分配不足]";
-
     const textSnippets = [];
     let missingContentNovels = [];
-
     for (const novelId of activeNovelIds) {
         const novelData = novelDefs.find(n => n.id === novelId);
         const novelName = novelData?.name || `小说 ${novelId.substring(0, 4)}`;
-
         if (!novelData || !novelData.segments || novelData.segments.length === 0) {
             missingContentNovels.push(novelName);
             continue;
         }
-
         const segments = novelData.segments;
         const numSegments = segments.length;
         let currentSegmentId = parseInt(novelCurrentSegmentIds[novelId], 10);
         if (isNaN(currentSegmentId) || currentSegmentId < 0 || currentSegmentId >= numSegments) {
             currentSegmentId = 0;
         }
-
         let charsCollected = 0;
         let currentSnippetSegments = [];
-
         const avgSegmentLength = segments.reduce((sum, seg) => sum + (seg.content ? seg.content.length : 0), 0) / numSegments || 200;
         const targetSegmentCount = Math.max(1, Math.ceil(perNovelChars / avgSegmentLength));
-
         const segmentsBefore = Math.floor(targetSegmentCount / 5);
         const segmentsAfter = targetSegmentCount - segmentsBefore -1;
-
         let startIdx = Math.max(0, currentSegmentId - segmentsBefore);
         let endIdx = Math.min(numSegments - 1, currentSegmentId + segmentsAfter);
-
         for (let i = startIdx; i <= endIdx; i++) {
              const segment = segments[i];
              if (segment && segment.content) {
@@ -392,7 +437,6 @@ function getNovelReferenceTextForPayload() {
                  charsCollected += segment.content.length;
              }
         }
-
         while (charsCollected < perNovelChars && (startIdx > 0 || endIdx < numSegments - 1)) {
              let added = false;
              if (startIdx > 0) {
@@ -415,69 +459,62 @@ function getNovelReferenceTextForPayload() {
              }
              if (!added) break;
         }
-
         let snippetText = currentSnippetSegments.join('\n');
-
         if (snippetText) {
              textSnippets.push(`--- ${novelName} (片段开始) ---\n${snippetText}\n--- ${novelName} (片段结束) ---`);
         }
     }
-
     if (missingContentNovels.length > 0) {
         const missingWarning = `\n\n[警告：以下激活小说内容未加载，无法包含：${missingContentNovels.join(', ')}]`;
         return textSnippets.join('\n\n') + missingWarning;
     } else if (textSnippets.length === 0) {
-         return "[无法生成小说参考文本，请检查激活状态和内容加载情况]";
+         return "[无法生成小说原著小说，请检查激活状态和内容加载情况]";
     }
-
     return textSnippets.join('\n\n');
 }
-
 const placeholderModule = {
-
     _replacePlaceholdersInString: (text, context, excludePlaceholders = []) => {
         if (typeof text !== 'string') return text;
+
+        const localExcludePlaceholders = [...excludePlaceholders];
+        if (context?.currentRoleNameForPayload === 'drawingMaster') {
+            if (!localExcludePlaceholders.includes('{{原著小说}}')) {
+                localExcludePlaceholders.push('{{原著小说}}');
+            }
+        }
 
         function wrapWithTag(tagName, content) {
             const safeContent = content || '';
             return `<${tagName}>\n${tagName}:\n${safeContent}\n</${tagName}>`;
         }
-
         const cachedContext = context?.cachedContext;
         if (!cachedContext) return text;
 
-
-        let novelReferenceText = "[参考文本未生成]";
-        if (!excludePlaceholders.includes('{{参考文本}}') && text.includes('{{参考文本}}')) {
-            novelReferenceText = getNovelReferenceTextForPayload();
+        let novelOriginalNovel = "[原著小说未生成]";
+        if (!localExcludePlaceholders.includes('{{原著小说}}') && text.includes('{{原著小说}}')) {
+            novelOriginalNovel = getOriginalNovelTextForPayload();
         }
-
         let rawMainPromptText = context.mainPrompt || '[主提示词为空]';
-
         let processedMainPromptText = rawMainPromptText;
-        if (!excludePlaceholders.includes('{{主提示词}}') && text.includes('{{主提示词}}')) {
+        if (!localExcludePlaceholders.includes('{{主提示词}}') && text.includes('{{主提示词}}')) {
             processedMainPromptText = placeholderModule._replacePlaceholdersInString(
                 rawMainPromptText,
                 context,
-                [...excludePlaceholders, '{{数据库}}', '{{主提示词}}']
+                [...localExcludePlaceholders, '{{数据库}}', '{{主提示词}}']
             );
         }
-
 
         let roleplayRuleText = stateModule.currentChatroomDetails?.config?.roleplayRules || '[扮演规则为空]';
         let publicInfoText = stateModule.currentChatroomDetails?.config?.publicInfo || '[公共信息为空]';
         let latestMessageContentText = cachedContext?.latestMessageContent || '[无最新消息]';
-
         let roleSettingValue = '[未设定]';
         let roleMemoryValue = '[未设定]';
         let currentRoleDetailedStateValue = '[无详细状态]';
         let roleNameValue = context.currentRoleNameForPayload || '[未知角色]';
-
         const isCharacterUpdater = context.roleType === 'tool' && context.currentRoleNameForPayload === 'characterUpdateMaster';
         const targetRoleName = context.targetRoleNameForTool;
         const targetRoleData = context.targetRoleData;
         const currentRoleData = context.roleData;
-
         if (isCharacterUpdater) {
             roleNameValue = toolNameMap['characterUpdateMaster'];
             if (targetRoleName && targetRoleData) {
@@ -507,19 +544,16 @@ const placeholderModule = {
                  roleMemoryValue = '[临时角色无记忆]';
             }
         }
-
         let rawFormattedHistory = cachedContext?.formattedHistory || '';
         const rawNonSilentRoleSettingsValue = cachedContext?.nonSilentRoleSettingsValue;
         const joinedSettings = rawNonSilentRoleSettingsValue ? rawNonSilentRoleSettingsValue.split('\n\n').join('\n---\n') : '[无激活角色设定]';
         const rawNonSilentRoleDetailedStatesValue = cachedContext?.nonSilentRoleDetailedStatesValue;
         const joinedDetailedStates = rawNonSilentRoleDetailedStatesValue ? rawNonSilentRoleDetailedStatesValue.split('\n\n').join('\n---\n') : '[无激活角色详细状态]';
-
-        const wrappedReferenceText = wrapWithTag('ReferenceText', novelReferenceText);
+        const wrappedOriginalNovel = wrapWithTag('OriginalNovel', novelOriginalNovel);
         const wrappedRoleplayRule = wrapWithTag('RoleplayRules', roleplayRuleText);
         const wrappedPublicInfo = wrapWithTag('PublicInfo', publicInfoText);
         const wrappedMainPrompt = wrapWithTag('MainPrompt', processedMainPromptText);
         const wrappedLatestMessage = wrapWithTag('LatestMessage', latestMessageContentText);
-
 
         const replacements = {
             '{{角色名称}}': roleNameValue,
@@ -533,18 +567,16 @@ const placeholderModule = {
             '{{角色设定集}}': wrapWithTag('CharacterSettingsCollection', joinedSettings),
             '{{角色状态集}}': wrapWithTag('CharacterStatesCollection', joinedDetailedStates),
             '{{世界信息}}': wrapWithTag('WorldInfo', cachedContext?.worldInfo || '[世界信息未获取]'),
-            '{{参考文本}}': wrappedReferenceText,
+            '{{原著小说}}': wrappedOriginalNovel,
             '{{扮演规则}}': wrappedRoleplayRule,
             '{{公共信息}}': wrappedPublicInfo,
             '{{主提示词}}': wrappedMainPrompt,
         };
 
-
         let replacedString = text;
         for (const placeholder in replacements) {
-             if (excludePlaceholders.includes(placeholder)) continue;
+             if (localExcludePlaceholders.includes(placeholder)) continue;
              if (placeholder === '{{数据库}}') continue;
-
             const replacementValue = replacements[placeholder];
              const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
             replacedString = replacedString.replace(regex, replacementValue);
@@ -552,15 +584,12 @@ const placeholderModule = {
         return replacedString;
     },
 
-
     replacePlaceholders: async (payload, context) => {
         if (!context || !context.cachedContext) {
             _logAndDisplayError("Placeholder replacement error: Context or cachedContext is missing.", "replacePlaceholders");
             return payload;
         }
-
         const databaseInstruction = context.databaseInstruction || "";
-
 
         const resolvedDatabaseContent = placeholderModule._replacePlaceholdersInString(
             databaseInstruction,
@@ -568,22 +597,18 @@ const placeholderModule = {
             ['{{数据库}}', '{{主提示词}}']
         );
 
-
         let finalDatabaseReplacement = "";
         if (resolvedDatabaseContent && resolvedDatabaseContent.trim() !== "") {
             finalDatabaseReplacement = `<Database>\n${resolvedDatabaseContent}\n</Database>`;
         }
 
-
         function recursiveReplace(obj) {
             if (typeof obj === 'string') {
                 let replacedString = obj;
-
                 if (replacedString.includes('{{数据库}}')) {
                      const dbRegex = new RegExp('{{数据库}}'.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
                      replacedString = replacedString.replace(dbRegex, finalDatabaseReplacement);
                 }
-
 
                 replacedString = placeholderModule._replacePlaceholdersInString(
                     replacedString,
@@ -591,7 +616,6 @@ const placeholderModule = {
                     ['{{数据库}}']
                 );
                 return replacedString;
-
             } else if (typeof obj === 'object' && obj !== null) {
                 if (Array.isArray(obj)) {
                     return obj.map(item => recursiveReplace(item));
@@ -607,13 +631,10 @@ const placeholderModule = {
             }
             return obj;
         }
-
         const finalPayload = recursiveReplace(payload);
-
         return finalPayload;
     }
 };
-
 
 async function updateChatContextCache() {
     const newCache = {
@@ -627,133 +648,144 @@ async function updateChatContextCache() {
         formattedHistory: '',
         latestMessageContent: '[无消息记录]',
     };
-
     const chatroomDetails = stateModule.currentChatroomDetails;
     if (!chatroomDetails || !chatroomDetails.config || !chatroomDetails.roles) {
         stateModule.chatContextCache = newCache;
         if (typeof uiSettingsModule !== 'undefined') uiSettingsModule.updateWorldInfoDisplay();
         return;
     }
-
     const roomConfig = chatroomDetails.config;
     const allRolesInRoom = chatroomDetails.roles;
     const roleStatesConfig = roomConfig.roleStates || {};
     const roleDetailedStatesConfig = roomConfig.roleDetailedStates || {};
-
     for (const roleName in roleStatesConfig) {
         newCache.roleStates[roleName] = roleStatesConfig[roleName] || uiChatModule.ROLE_STATE_DEFAULT;
     }
     for (const roleName in roleDetailedStatesConfig) {
         newCache.roleDetailedStates[roleName] = roleDetailedStatesConfig[roleName] || "";
     }
-
     const currentHistory = stateModule.currentChatHistoryData;
     if (!currentHistory || currentHistory.length === 0) {
         stateModule.chatContextCache = newCache;
         if (typeof uiSettingsModule !== 'undefined') uiSettingsModule.updateWorldInfoDisplay();
         return;
     }
-
     const historyLines = [];
     let latestGameHostMessageData = null;
     let lastActorFound = false;
-
     let lastMessageProcessedForCache = false;
-
     for (let i = currentHistory.length - 1; i >= 0; i--) {
         const messageObject = currentHistory[i];
         const { id, roleName, roleType, sourceType, speechActionText, rawJson, parsedResult } = messageObject;
-
-        if (!lastMessageProcessedForCache && speechActionText && speechActionText.trim() !== '' && speechActionText !== "[Generating Image]") {
-            newCache.latestMessageContent = speechActionText;
+        let displayContent = speechActionText || '';
+        if (roleName === 'characterUpdateMaster' && parsedResult?.formattedUpdate) {
+             displayContent = parsedResult.formattedUpdate;
+        } else if (roleName === 'privateAssistant' && parsedResult?.responseContent) {
+             displayContent = `私人助理：\n${parsedResult.responseContent}`;
+        } else if ((roleType === 'role' || roleType === 'temporary_role') && parsedResult?.formattedText) {
+             displayContent = parsedResult.formattedText;
+        }
+        if (!lastMessageProcessedForCache && displayContent && displayContent.trim() !== '' && displayContent !== "[Generating Image]" && displayContent !== "[图片绘制]") {
+            newCache.latestMessageContent = displayContent;
             lastMessageProcessedForCache = true;
         }
-
         if (!lastActorFound && (roleType === 'role' || roleType === 'temporary_role')) {
             newCache.lastActor = roleName;
             lastActorFound = true;
         }
-
         if (roleType === 'role' || roleType === 'temporary_role') {
-            const trimmedText = (speechActionText || '').trim();
-            if (trimmedText && speechActionText !== "[Generating Image]") {
+             const trimmedText = (displayContent || '').trim();
+            if (trimmedText && trimmedText !== "[Generating Image]" && trimmedText !== "[图片绘制]") {
                 historyLines.unshift(`${roleName}：\n${trimmedText}`);
             }
+        } else if (roleType === 'tool' && roleName === 'privateAssistant' && parsedResult?.responseContent) {
+             const trimmedText = (displayContent || '').trim();
+             if (trimmedText) {
+                  historyLines.unshift(trimmedText);
+             }
         }
-
         if (roleName === 'gameHost' && sourceType === 'ai') {
-            const jsonData = parsedResult;
-
-            if (jsonData && typeof jsonData === 'object') {
+            if (parsedResult && !messageObject.parserError && parsedResult.processedSceneContext && parsedResult.processedCharacterInfo) {
                 if (!latestGameHostMessageData) {
-                    latestGameHostMessageData = jsonData;
-                    if (jsonData.sceneContext) {
-                        newCache.worldInfo = _formatObjectToCustomString(jsonData.sceneContext || {});
-                    } else {
-                        newCache.worldInfo = "[场景信息未提供]";
-                    }
-                }
+                     latestGameHostMessageData = parsedResult;
+                     let sceneText = '';
+                     const sceneContext = parsedResult.processedSceneContext;
+                     if (sceneContext.timeItems && sceneContext.timeItems.length > 0) {
+                         sceneText += `Time: ${sceneContext.timeItems.join(', ')}\n`;
+                     } else {
+                         sceneText += `Time: [Not specified]\n`;
+                     }
+                     if (sceneContext.locationItems && sceneContext.locationItems.length > 0) {
+                         sceneText += `Location: ${sceneContext.locationItems.join(', ')}\n`;
+                     } else {
+                         sceneText += `Location: [Not specified]\n`;
+                     }
+                     if (sceneContext.characterPositionItems && sceneContext.characterPositionItems.length > 0) {
+                         sceneText += `Positions:\n  ${sceneContext.characterPositionItems.join('\n  ')}\n`;
+                     }
+                     if (sceneContext.otherSceneInfoItems && sceneContext.otherSceneInfoItems.length > 0) {
+                         sceneText += `Other: ${sceneContext.otherSceneInfoItems.join(', ')}`;
+                     }
+                     newCache.worldInfo = sceneText.trim();
+                 }
+                 const charName = parsedResult.processedCharacterInfo.characterName;
+                 if (charName) {
+                      let charDetailText = '';
+                      const charInfo = parsedResult.processedCharacterInfo;
 
-                if (jsonData.updatedCharacterInfo) {
-                    const charName = jsonData.updatedCharacterInfo.characterName;
-                    if (charName) {
-                         newCache.roleDetailedStates[charName] = _formatObjectToCustomString(jsonData.updatedCharacterInfo || {});
-                         if (!(charName in newCache.roleStates)) {
-                              newCache.roleStates[charName] = uiChatModule.ROLE_STATE_DEFAULT;
-                         }
-                    }
-                }
+                      const formatItemsToText = (items) => Array.isArray(items) ? items.join(', ') : (items || '无');
+                      charDetailText += `Demeanor: ${formatItemsToText(charInfo.demeanorItems)}\n`;
+                      charDetailText += `Outerwear: ${formatItemsToText(charInfo.outerwearItems)}\n`;
+                      charDetailText += `Underwear: ${formatItemsToText(charInfo.underwearItems)}\n`;
+                      charDetailText += `Accessories: ${formatItemsToText(charInfo.accessories)}\n`;
+                      charDetailText += `Short Status: ${formatItemsToText(charInfo.shortTermStatusItems)}\n`;
+                      charDetailText += `Long Status: ${formatItemsToText(charInfo.longTermStatusItems)}\n`;
+                      charDetailText += `Pose: ${formatItemsToText(charInfo.actionPoseItems)}\n`;
+                      charDetailText += `Action: ${formatItemsToText(charInfo.currentActionItems)}\n`;
+                      charDetailText += `Other Status: ${formatItemsToText(charInfo.otherCharacterStatusItems)}`;
 
-                 if (jsonData.actionOutcome?.statement) {
-                      const statement = jsonData.actionOutcome.statement;
-                      if (statement && typeof statement === 'string' && statement.trim() !== '') {
-                         historyLines.unshift(`[结果]: ${statement.trim()}`);
+                      newCache.roleDetailedStates[charName] = charDetailText.trim();
+                      if (!(charName in newCache.roleStates)) {
+                           newCache.roleStates[charName] = uiChatModule.ROLE_STATE_DEFAULT;
                       }
                  }
             } else if (messageObject.parserError && !latestGameHostMessageData) {
-                 newCache.worldInfo = `[游戏主持人响应解析错误: ${messageObject.parserError}]`;
+                newCache.worldInfo = `[游戏主持人响应解析错误: ${messageObject.parserError}]`;
             } else if (!latestGameHostMessageData) {
                  newCache.worldInfo = `[游戏主持人响应 ${id} 的解析结果无效]`;
             }
-        } else if (roleName === 'characterUpdateMaster' && sourceType === 'ai' && parsedResult && !messageObject.parserError) {
-            const targetRoleName = messageObject.targetRoleName;
-            const characterName = parsedResult.updatedCharacterMemory?.characterName || parsedResult.updatedCharacterSettings?.characterName;
-            if (targetRoleName && targetRoleName === characterName) {
-                 newCache.roleDetailedStates[targetRoleName] = uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-            } else if (characterName) {
-                 newCache.roleDetailedStates[characterName] = uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-            }
+        } else if (roleName === 'characterUpdateMaster' && sourceType === 'ai' && parsedResult?.formattedUpdate && !messageObject.parserError) {
+             const targetRoleName = messageObject.targetRoleName;
+             const characterNameMatch = parsedResult.formattedUpdate.match(/--- 更新后记忆 \((.*?)\) ---/);
+             const characterName = characterNameMatch ? characterNameMatch[1] : null;
+             if (targetRoleName && characterName && targetRoleName === characterName) {
+                  newCache.roleDetailedStates[targetRoleName] = parsedResult.formattedUpdate;
+             } else if (characterName) {
+                  newCache.roleDetailedStates[characterName] = parsedResult.formattedUpdate;
+             }
         }
     }
 
-
     newCache.formattedHistory = historyLines.join('\n');
-
 
     const nonSilentRoleNames = Object.entries(newCache.roleStates)
         .filter(([name, state]) => [uiChatModule.ROLE_STATE_ACTIVE, uiChatModule.ROLE_STATE_USER_CONTROL].includes(state || uiChatModule.ROLE_STATE_DEFAULT))
         .map(([name, state]) => name);
-
     newCache.nonSilentRolesValue = nonSilentRoleNames.join(',') || '[无激活角色]';
-
     newCache.nonSilentRoleSettingsValue = nonSilentRoleNames.map(rName => {
         const roleData = allRolesInRoom.find(r => r.name === rName);
         return roleData?.setting || `[${rName} 设定未获取或为临时角色]`;
     }).join('\n\n') || '[无激活角色设定]';
-
     newCache.nonSilentRoleDetailedStatesValue = nonSilentRoleNames.map(rName =>
          newCache.roleDetailedStates[rName] || `[${rName} 无详细状态]`
     ).join('\n\n') || '[无激活角色详细状态]';
-
 
     stateModule.chatContextCache = newCache;
     if (typeof uiSettingsModule !== 'undefined') uiSettingsModule.updateWorldInfoDisplay();
 }
 
-
 const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTool = null) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-
     let modelToUse = '';
     let specificResponseSchema = null;
     let specificResponseSchemaParserJs = '';
@@ -761,7 +793,6 @@ const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTo
     let mainPrompt = '';
     let roleData = null;
     let targetRoleData = null;
-
 
     if (!stateModule.chatContextCache) {
         await updateChatContextCache();
@@ -771,28 +802,39 @@ const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTo
         }
     }
 
+    const overrideSettings = chatroomDetails?.config?.overrideSettings;
+    let useOverride = false;
+    let overrideSection = null;
+    let sectionType = null;
 
     if (roleType === 'role' || roleType === 'temporary_role') {
-        if (!chatroomDetails) {
-            throw new Error("无法准备角色 API 请求：无激活聊天室数据。");
+        sectionType = 'general';
+        if (overrideSettings && overrideSettings.general && overrideSettings.general.enabled) {
+            useOverride = true;
+            overrideSection = overrideSettings.general;
         }
-
-        roleData = chatroomDetails.roles.find(r => r.name === roleName);
-
         modelToUse = stateModule.config.model;
-        if (!modelToUse) { throw new Error("请在通用配置中选择一个模型。"); }
         databaseInstruction = stateModule.config.sharedDatabaseInstruction || '';
         specificResponseSchema = stateModule.config.responseSchemaJson || null;
         specificResponseSchemaParserJs = stateModule.config.responseSchemaParserJs || '';
         mainPrompt = stateModule.config.mainPrompt || '';
 
+        if (chatroomDetails) {
+            roleData = chatroomDetails.roles.find(r => r.name === roleName);
+        }
     } else if (roleType === 'tool') {
+        sectionType = roleName;
         const toolSettings = stateModule.config.toolSettings[roleName];
         if (!toolSettings || !toolSettings.enabled) {
             return null;
         }
+
+        if (overrideSettings && overrideSettings[roleName] && overrideSettings[roleName].enabled) {
+            useOverride = true;
+            overrideSection = overrideSettings[roleName];
+        }
+
         modelToUse = toolSettings.model;
-        if (!modelToUse) { throw new Error(`请在工具 ${toolNameMap[roleName]} 的设置中选择一个模型。`); }
         databaseInstruction = toolSettings.toolDatabaseInstruction || '';
         specificResponseSchema = toolSettings.responseSchemaJson || null;
         specificResponseSchemaParserJs = toolSettings.responseSchemaParserJs || '';
@@ -806,13 +848,24 @@ const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTo
              targetRoleData = chatroomDetails.roles.find(r => r.name === targetRoleNameForTool);
              if (!targetRoleData) {
                  _logAndDisplayError(`无法找到工具 ${roleName} 的目标角色 ${targetRoleNameForTool} 的定义数据。`, '_prepareRoleOrToolContext');
-
              }
         }
     } else {
         throw new Error(`未知的 roleType: ${roleType} for ${roleName}`);
     }
 
+    if (useOverride && overrideSection) {
+        modelToUse = overrideSection.model || modelToUse;
+        specificResponseSchema = overrideSection.responseSchemaJson || specificResponseSchema;
+        specificResponseSchemaParserJs = overrideSection.responseSchemaParserJs || specificResponseSchemaParserJs;
+        databaseInstruction = overrideSection.toolDatabaseInstruction || overrideSection.sharedDatabaseInstruction || databaseInstruction;
+        mainPrompt = overrideSection.mainPrompt || mainPrompt;
+    }
+
+    if (!modelToUse) {
+         const sourceMsg = useOverride ? `聊天室覆盖配置 (${sectionType})` : (roleType === 'tool' ? `工具 ${toolNameMap[roleName]}` : '通用配置');
+         throw new Error(`请在 ${sourceMsg} 中选择一个模型。`);
+    }
 
     const context = {
         modelName: modelToUse,
@@ -834,7 +887,6 @@ const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTo
         targetRoleData: targetRoleData,
         cachedContext: stateModule.chatContextCache
     };
-
     return context;
 };
 
@@ -856,10 +908,8 @@ const _buildApiPayload = async (context) => {
         ]
     };
 
-
     const systemInstructionText = context.systemInstruction || '';
     basePayload.systemInstruction = systemInstructionText;
-
 
     if (context.responseSchema) {
         let schemaObj = context.responseSchema;
@@ -871,22 +921,18 @@ const _buildApiPayload = async (context) => {
         }
     }
 
-
     basePayload.contents = (context.promptPresetTurns || []).map(turn => ({
          role: turn.role,
          parts: [{ text: turn.instruction || "" }]
     }));
-
     if (context.targetRoleNameForTool) {
         basePayload.targetRoleNameForTool = context.targetRoleNameForTool;
     }
-
 
     const finalPayload = await placeholderModule.replacePlaceholders(
         basePayload,
         context
     );
-
 
     if (finalPayload.systemInstruction && typeof finalPayload.systemInstruction === 'string') {
          finalPayload.systemInstruction = {"parts": [{"text": finalPayload.systemInstruction}]};
@@ -894,27 +940,21 @@ const _buildApiPayload = async (context) => {
          delete finalPayload.systemInstruction;
     }
 
-
     if (!finalPayload.contents || finalPayload.contents.length === 0) {
          finalPayload.contents = [{ role: "user", parts: [{ text: "Continue" }] }];
     }
-
     return finalPayload;
-
 };
-
 
 const _performApiCall = async (apiKey, payload, roleName, targetRoleNameForTool = null, timeoutMs = REQUEST_TIMEOUT_MS) => {
     const requestPayload = { ...payload, apiKey: apiKey };
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
     let result = null;
-
     stateModule.activeProxyRequestsCount++;
     if (stateModule.activeProxyRequestsCount === 1 && typeof uiChatModule !== 'undefined') {
         uiChatModule.showLoadingSpinner();
     }
-
     try {
         const response = await fetch('/ai-proxy', {
             method: 'POST',
@@ -922,9 +962,7 @@ const _performApiCall = async (apiKey, payload, roleName, targetRoleNameForTool 
             body: JSON.stringify(requestPayload),
             signal: abortController.signal
         });
-
         clearTimeout(timeoutId);
-
         if (!response.ok) {
             const errorText = await response.text();
             let detail = errorText;
@@ -937,7 +975,6 @@ const _performApiCall = async (apiKey, payload, roleName, targetRoleNameForTool 
             const data = await response.json();
             result = { success: true, data: data };
         }
-
     } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
@@ -953,13 +990,12 @@ const _performApiCall = async (apiKey, payload, roleName, targetRoleNameForTool 
     }
     return result;
 };
-
 const apiModule = {
-
     _sendGeminiRequestWithRetry: async (roleName, roleType, targetRoleNameForTool = null) => {
         let lastError = null;
         let context = null;
         let finalPayload = null;
+        let apiKeyUsed = null;
 
         try {
             context = await _prepareRoleOrToolContext(roleName, roleType, targetRoleNameForTool);
@@ -969,43 +1005,40 @@ const apiModule = {
                 }
                 throw new Error(`Could not prepare context for ${roleName} (maybe disabled or misconfigured)`);
             }
-
             finalPayload = await _buildApiPayload(context);
             if (!finalPayload) {
                 throw new Error("Failed to build final API Payload.");
             }
-
         } catch (e) {
             _logAndDisplayError(`Error preparing context or payload for ${roleName}: ${e.message}`, '_sendGeminiRequestWithRetry');
             return;
         }
 
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-
             if (stateModule.config.isRunPaused && (context.roleType === 'role' || context.roleType === 'temporary_role')) {
                 lastError = new Error(`Request aborted for role '${roleName}' (Attempt ${attempt}/${MAX_RETRIES}) due to pause state`);
                 _logAndDisplayError(`Retry aborted for role '${roleName}' (Attempt ${attempt}/${MAX_RETRIES}) because run is paused.`, '_sendGeminiRequestWithRetry');
                 break;
             }
 
-
-            let apiKey;
             try {
-                apiKey = apiKeyManager.getNextApiKey();
+                apiKeyUsed = apiKeyManager.selectApiKey();
             } catch(e) {
                 lastError = e;
                 break;
             }
-            if (!apiKey) {
-                 lastError = new Error("Failed to get an API key.");
+
+            if (!apiKeyUsed) {
+                 lastError = new Error("Failed to select an API key.");
                  break;
             }
 
-            const result = await _performApiCall(apiKey, finalPayload, roleName, targetRoleNameForTool);
+            const result = await _performApiCall(apiKeyUsed, finalPayload, roleName, targetRoleNameForTool);
+            apiKeyManager.markApiKeyUsed(apiKeyUsed);
 
             if (!result.success) {
                 lastError = new Error(`${result.errorType}: ${result.detail}`);
-                apiKeyManager.incrementApiKeyFailure(apiKey);
+                apiKeyManager.incrementApiKeyFailure(apiKeyUsed);
                 if (typeof uiChatModule !== 'undefined' && uiChatModule.showRetryIndicator) {
                      uiChatModule.showRetryIndicator();
                 }
@@ -1014,103 +1047,74 @@ const apiModule = {
 
             if (!result.data || typeof result.data.text_content !== 'string') {
                 lastError = new Error('API response missing text_content');
-                apiKeyManager.incrementApiKeyFailure(apiKey);
+                apiKeyManager.incrementApiKeyFailure(apiKeyUsed);
                 if (typeof uiChatModule !== 'undefined' && uiChatModule.showRetryIndicator) {
                      uiChatModule.showRetryIndicator();
                 }
                  if (attempt === MAX_RETRIES) break; else continue;
             }
 
-            const { parsedResult, parserError } = uiChatModule._parseAIResponse(result.data.text_content, roleName, roleType);
-
+            const { parsedResult, parserError } = uiChatModule._parseAIResponse(result.data.text_content, roleName, roleType, context.responseSchemaParserJs);
              if (parserError && (roleName === 'privateAssistant' || roleName === 'characterUpdateMaster')) {
                  lastError = new Error(`Parsing error (Attempt ${attempt}/${MAX_RETRIES}): ${parserError}`);
-                 apiKeyManager.incrementApiKeyFailure(apiKey);
+                 apiKeyManager.incrementApiKeyFailure(apiKeyUsed);
                  if (typeof uiChatModule !== 'undefined' && uiChatModule.showRetryIndicator) {
                       uiChatModule.showRetryIndicator();
                  }
                  if (attempt === MAX_RETRIES) break; else continue;
              } else if (parserError) {
                  lastError = new Error(`Parsing error (Attempt ${attempt}/${MAX_RETRIES}): ${parserError}`);
-
              }
-
 
             if (!parserError || (roleName !== 'privateAssistant' && roleName !== 'characterUpdateMaster')) {
                  if (typeof uiChatModule !== 'undefined' && uiChatModule.displayAIResponse) {
-                     uiChatModule.displayAIResponse(result.data, roleName, targetRoleNameForTool);
+                 uiChatModule.displayAIResponse(result.data, roleName, targetRoleNameForTool);
                  } else {
-                      console.warn("uiChatModule.displayAIResponse not available to display successful response.");
                  }
                  return;
             }
         }
 
-
         _logAndDisplayError(`Gemini request ultimately failed (Role: ${roleName}): ${lastError?.message || 'Unknown error'}`, '_sendGeminiRequestWithRetry');
     },
-
     _prepareNovelAiPayload: async (parsedDrawingMasterData, rawJsonText) => {
-         if (!parsedDrawingMasterData || typeof parsedDrawingMasterData !== 'object' || !parsedDrawingMasterData.generalTags || !parsedDrawingMasterData.characterTagSets) {
-             throw new Error("Invalid Drawing Master data, cannot prepare NAI Payload.");
+         if (!parsedDrawingMasterData || typeof parsedDrawingMasterData !== 'object' || !parsedDrawingMasterData.generalTagsString || !parsedDrawingMasterData.characterTags) {
+             throw new Error("Invalid Drawing Master data (new format), cannot prepare NAI Payload.");
          }
-
          const naiApiKey = apiKeyManager.getNaiApiKey();
          if (!naiApiKey) {
              throw new Error("NovelAI API Key is not set.");
          }
-
-         const generalTags = parsedDrawingMasterData.generalTags;
-         const characterTagSets = parsedDrawingMasterData.characterTagSets || [];
+         const generalTagsString = parsedDrawingMasterData.generalTagsString || "";
+         const characterTagSets = parsedDrawingMasterData.characterTags || [];
          const numCharacters = characterTagSets.length;
-
          let promptParts = [];
-
          let generalPromptPart = [];
          if (stateModule.config.novelaiDefaultPositivePrompt) generalPromptPart.push(stateModule.config.novelaiDefaultPositivePrompt);
          if (numCharacters > 0) generalPromptPart.push(`${numCharacters}character${numCharacters > 1 ? 's' : ''}`);
          if (stateModule.config.novelaiArtistChain) generalPromptPart.push(stateModule.config.novelaiArtistChain);
-         if (generalTags.background && generalTags.background !== '0') generalPromptPart.push(generalTags.background);
-         if (generalTags.time && generalTags.time !== '0') generalPromptPart.push(generalTags.time);
-         if (generalTags.nsfw && generalTags.nsfw !== '0') generalPromptPart.push(generalTags.nsfw);
-
-         promptParts.push(generalPromptPart.join(', ').trim());
-
+         if (generalTagsString) generalPromptPart.push(generalTagsString);
+         promptParts.push(generalPromptPart.filter(p=>p).join(', ').trim());
          let mainDrawingPromptContentForDisplay = "";
-
          const chatroomDetails = stateModule.currentChatroomDetails;
          if (!chatroomDetails) { throw new Error("Cannot get current chatroom details."); }
-
          const characterPromises = characterTagSets.map(async charSet => {
              let charPromptPart = [];
              const charName = charSet.characterName;
              const roleData = chatroomDetails.roles.find(r => r.name === charName);
              const drawingTemplate = roleData?.drawingTemplate || '';
-
-             if (charSet.subject && charSet.subject !== '0') charPromptPart.push(charSet.subject);
              if (drawingTemplate) charPromptPart.push(drawingTemplate);
-
-             const tagKeys = ["focus", "actions", "expressions", "traits", "clothing", "props"];
-             tagKeys.forEach(key => {
-                 if (charSet[key] && charSet[key] !== '0') {
-                     charPromptPart.push(charSet[key]);
-                 }
-             });
-
-             const characterPromptString = charPromptPart.join(', ').trim();
+             if (charSet.tagsString) charPromptPart.push(charSet.tagsString);
+             const characterPromptString = charPromptPart.filter(p=>p).join(', ').trim();
              return { name: charName, prompt: characterPromptString };
          });
-
          const characterResults = await Promise.all(characterPromises);
-
          characterResults.forEach(result => {
-             promptParts.push(result.prompt);
+             if(result.prompt) promptParts.push(result.prompt);
              if (mainDrawingPromptContentForDisplay) mainDrawingPromptContentForDisplay += " | ";
-             mainDrawingPromptContentForDisplay += `${result.name}: ${result.prompt}`;
+             mainDrawingPromptContentForDisplay += `${result.name}: ${result.prompt || '[No Tags]'}`;
          });
-
          let finalPrompt = promptParts.map(p => p.replace(/,\s*,/g, ',').replace(/^,\s*|\s*,$/g, '')).filter(p => p).join(' | ');
-
          let cleanedPrompt = finalPrompt;
          cleanedPrompt = cleanedPrompt.replace(/,\s*0\s*,/g, ',');
          cleanedPrompt = cleanedPrompt.replace(/^0\s*,/g, '');
@@ -1119,17 +1123,13 @@ const apiModule = {
          cleanedPrompt = cleanedPrompt.replace(/,\s*,/g, ',');
          cleanedPrompt = cleanedPrompt.replace(/^,\s*/, '').replace(/,\s*$/, '');
          finalPrompt = cleanedPrompt.trim();
-
          const finalNegativePrompt = stateModule.config.novelaiDefaultNegativePrompt || "";
-
          let seed = parseInt(stateModule.config.novelaiSeed) || 0;
          if (seed === 0) {
              seed = Math.floor(Math.random() * 10000000000);
          }
-
          const model = stateModule.config.novelaiModel;
          const isV4 = model.startsWith("nai-diffusion-4");
-
          const finalParameters = {
              params_version: 3,
              width: parseInt(stateModule.config.novelaiWidth) || 1024,
@@ -1150,13 +1150,11 @@ const apiModule = {
              skip_cfg_above_sigma: null,
              legacy_v3_extend: false,
          };
-
          let finalRequestBody = {
              model: model,
              action: "generate",
              parameters: finalParameters
          };
-
          if (isV4) {
              finalParameters.v4_prompt = {
                  caption: { base_caption: finalPrompt, char_captions: [] },
@@ -1170,12 +1168,10 @@ const apiModule = {
              finalRequestBody.input = finalPrompt;
              finalParameters.negative_prompt = finalNegativePrompt;
          }
-
          stateModule.lastNaiPrompt = finalPrompt;
          if (typeof uiSettingsModule !== 'undefined' && uiSettingsModule.updateLastNaiPromptDisplay) {
              uiSettingsModule.updateLastNaiPromptDisplay(stateModule.lastNaiPrompt);
          }
-
          return {
              nai_api_key: naiApiKey,
              parameters: finalRequestBody,
@@ -1183,7 +1179,6 @@ const apiModule = {
              rawJsonText: rawJsonText
          };
     },
-
     addNaiRequestToQueue: (requestData, targetMessageId = null) => {
         const queueItem = { ...requestData, targetMessageId };
         if (stateModule.naiRequestQueue.length >= 3) {
@@ -1194,22 +1189,18 @@ const apiModule = {
             apiModule.processNaiQueue();
         }
     },
-
     processNaiQueue: async () => {
         if (stateModule.isNaiProcessing || stateModule.naiRequestQueue.length === 0) {
             return;
         }
-
         stateModule.isNaiProcessing = true;
         const requestData = stateModule.naiRequestQueue.shift();
         const { nai_api_key, parameters, originalDrawingMasterData, rawJsonText, targetMessageId } = requestData;
         let lastError = null;
         let success = false;
-
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), REQUEST_TIMEOUT_MS);
         let responseData = null;
-
         try {
             const response = await fetch('/novelai-proxy', {
                 method: 'POST',
@@ -1217,27 +1208,21 @@ const apiModule = {
                 body: JSON.stringify({ nai_api_key, parameters }),
                 signal: abortController.signal
             });
-
             clearTimeout(timeoutId);
-
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`NAI Proxy Error! Status: ${response.status}, Detail: ${errorText}`);
             }
-
             responseData = await response.json();
-
             if (responseData && responseData.imageDataUrl) {
                 if (typeof uiChatModule !== 'undefined' && uiChatModule.handleNovelAiResponse) {
                     uiChatModule.handleNovelAiResponse(responseData, originalDrawingMasterData, rawJsonText, targetMessageId);
                 } else {
-                    console.warn("uiChatModule.handleNovelAiResponse not available for NAI success");
                 }
                 success = true;
             } else {
                 lastError = new Error('NAI response missing valid imageDataUrl');
             }
-
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
@@ -1247,166 +1232,156 @@ const apiModule = {
             }
         }
 
-
         if (!success && lastError) {
              _logAndDisplayError(`NAI request failed: ${lastError.message}`, 'processNaiQueue', 'N/A', 'N/A', lastError);
              if (typeof uiChatModule !== 'undefined' && uiChatModule.handleNovelAiResponse) {
                   uiChatModule.handleNovelAiResponse({ error: lastError.message }, originalDrawingMasterData, rawJsonText, targetMessageId);
              }
         }
-
         stateModule.isNaiProcessing = false;
         if(stateModule.naiRequestQueue.length > 0) {
              setTimeout(() => apiModule.processNaiQueue(), 1000);
         }
     },
-
     fetchModels: async () => {
-        let allModelSelects = document.querySelectorAll('.settings-select[id$="-model-select-settings"], select[id$="-model-settings"]');
-        const modelSelects = Array.from(allModelSelects).filter(sel => sel.id !== 'novelai-model-settings');
-        stateModule.availableModels = [];
-
-        const setOptions = (selectElement, message) => {
-            selectElement.innerHTML = `<option value="" disabled selected>${message}</option>`;
+        const setAllOptions = (message, isError = false) => {
+            const allSelects = document.querySelectorAll('.settings-select[id*="-model-"]');
+            allSelects.forEach(selectElement => {
+                 if (selectElement.id !== 'novelai-model-settings') {
+                     selectElement.innerHTML = `<option value="" disabled selected>${message}</option>`;
+                     selectElement.style.borderColor = isError ? 'red' : '';
+                 }
+            });
         };
 
-        modelSelects.forEach(sel => setOptions(sel, 'Loading...'));
+        setAllOptions('正在拉取...');
 
-
-        let allKeys = [];
-        try {
-            allKeys = apiKeyManager.getApiKeys();
-        } catch (e) {
-            _logAndDisplayError(`Error getting API key list: ${e.message}`, 'fetchModels');
-            modelSelects.forEach(sel => setOptions(sel, 'Key Error'));
-            return;
-        }
-
+        let allKeys = apiKeyManager.getApiKeys();
         if (allKeys.length === 0) {
             _logAndDisplayError("No API keys configured, cannot load model list.", 'fetchModels');
-            modelSelects.forEach(sel => setOptions(sel, 'No API Key'));
+            setAllOptions('无API密钥', true);
+            alert('请先在API设置中输入至少一个谷歌API密钥！');
             return;
         }
 
         let success = false;
         let lastError = null;
+        let loadedModels = [];
         const maxAttempts = allKeys.length;
+        let attemptedKeys = 0;
 
-        apiKeyManager.setCurrentApiKeyIndex(0);
-
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            let apiKey;
-            try {
-                 apiKey = apiKeyManager.getNextApiKey();
-            } catch (e) {
-                lastError = e;
-                _logAndDisplayError(`Error getting API key #${attempt + 1}: ${e.message}`, 'fetchModels');
-                continue;
-            }
-
-            if (!apiKey) {
-                 lastError = new Error("Got an empty API key.");
-                 _logAndDisplayError(`Attempt ${attempt + 1}/${maxAttempts}: Got an empty API key.`, 'fetchModels');
+        while(attemptedKeys < maxAttempts && !success) {
+             let apiKey;
+             try {
+                  apiKey = apiKeyManager.selectApiKey();
+             } catch (e) {
+                 lastError = e;
+                 _logAndDisplayError(`Error selecting API key (attempt ${attemptedKeys + 1}): ${e.message}`, 'fetchModels');
+                 attemptedKeys++;
                  continue;
-            }
+             }
 
-            try {
+             if (!apiKey) {
+                  lastError = new Error("Got an empty API key.");
+                  _logAndDisplayError(`Attempt ${attemptedKeys + 1}/${maxAttempts}: Got an empty API key.`, 'fetchModels');
+                  attemptedKeys++;
+                  continue;
+             }
+
+             try {
                 const response = await fetch(`/models?key=${apiKey}`);
+                apiKeyManager.markApiKeyUsed(apiKey);
+
                 if (!response.ok) {
                     const errorText = await response.text();
-                    lastError = new Error(`Model list load failed (Key ${apiKey.substring(0, 4)}..., Attempt ${attempt + 1}/${maxAttempts}): ${response.status} ${errorText}`);
+                    lastError = new Error(`Model list load failed (Key ${apiKey.substring(0, 4)}..., Attempt ${attemptedKeys + 1}/${maxAttempts}): ${response.status} ${errorText}`);
                     _logAndDisplayError(lastError.message, 'fetchModels');
                     apiKeyManager.incrementApiKeyFailure(apiKey);
+                    attemptedKeys++;
                     continue;
                 }
 
                 const data = await response.json();
-
                 if (data.models && Array.isArray(data.models)) {
+                    loadedModels = [];
                     data.models.forEach(model => {
                        if (model.name && model.supportedGenerationMethods?.includes('generateContent')) {
                            const modelId = model.name.startsWith('models/') ? model.name.substring(7) : model.name;
-                           stateModule.availableModels.push({ id: modelId, name: model.displayName || modelId });
+                           loadedModels.push({ id: modelId, name: model.displayName || modelId });
                        }
                     });
-                    stateModule.availableModels.sort((a, b) => a.name.localeCompare(b.name));
-
-                    modelSelects.forEach(selectElement => {
-                         selectElement.innerHTML = '';
-                         let currentSavedValue = null;
-
-
-                         if (selectElement.id === 'chatroom-model-select-settings') {
-                             currentSavedValue = stateModule.config.model || '';
-                         } else {
-                             const toolMatch = selectElement.id.match(/^(.*)-model-settings$/);
-                             if (toolMatch) {
-                                const toolName = toolMatch[1].replace(/-(\w)/g, (match, p1) => p1.toUpperCase());
-                                if(stateModule.config.toolSettings[toolName]) {
-                                    currentSavedValue = stateModule.config.toolSettings[toolName].model || '';
-                                }
-                             }
-                         }
-
-                         let valueFound = false;
-                         stateModule.availableModels.forEach(model => {
-                             const option = new Option(model.name, model.id);
-                             selectElement.add(option);
-                             if (currentSavedValue === model.id) {
-                                 option.selected = true;
-                                 valueFound = true;
-                             }
-                         });
-
-                         if (!valueFound && selectElement.options.length > 0) {
-                              selectElement.selectedIndex = 0;
-
-                         } else if (selectElement.options.length === 0) {
-                              setOptions(selectElement, 'No models available');
-                         }
-                    });
-
-
+                    loadedModels.sort((a, b) => a.name.localeCompare(b.name));
+                    stateModule.availableModels = loadedModels;
                     success = true;
-                    break;
                 } else {
                      lastError = new Error("Invalid model list response format (no models array)");
                      _logAndDisplayError(lastError.message, 'fetchModels');
                      apiKeyManager.incrementApiKeyFailure(apiKey);
+                     attemptedKeys++;
                      continue;
                 }
-
             } catch (error) {
+                apiKeyManager.markApiKeyUsed(apiKey);
                 lastError = error;
-                _logAndDisplayError(`Network or processing error fetching models (Key ${apiKey.substring(0, 4)}..., Attempt ${attempt + 1}/${maxAttempts}): ${error.message}`, 'fetchModels');
+                _logAndDisplayError(`Network or processing error fetching models (Key ${apiKey.substring(0, 4)}..., Attempt ${attemptedKeys + 1}/${maxAttempts}): ${error.message}`, 'fetchModels');
                 apiKeyManager.incrementApiKeyFailure(apiKey);
+                attemptedKeys++;
                 continue;
             }
         }
 
-        if (!success) {
+        if (success) {
+            const allSelects = document.querySelectorAll('.settings-select[id*="-model-"]');
+            allSelects.forEach(selectElement => {
+                 if (selectElement.id !== 'novelai-model-settings') {
+                    const previouslySelectedValue = selectElement.value;
+                    const previouslySelectedText = selectElement.options[selectElement.selectedIndex]?.text || "";
+
+                    selectElement.innerHTML = '';
+                    selectElement.style.borderColor = '';
+
+                    let valueToSelect = previouslySelectedValue;
+                    let valueFoundInNewList = false;
+
+                    stateModule.availableModels.forEach(model => {
+                         const option = new Option(model.name, model.id);
+                         selectElement.add(option);
+                         if (model.id === valueToSelect) {
+                             valueFoundInNewList = true;
+                         }
+                    });
+
+                    if (!valueFoundInNewList && previouslySelectedValue) {
+                         const oldOption = new Option(previouslySelectedText || `(旧) ${previouslySelectedValue}`, previouslySelectedValue);
+                         selectElement.add(oldOption, 0);
+                         valueToSelect = previouslySelectedValue;
+                    } else if (!valueFoundInNewList && !previouslySelectedValue && selectElement.options.length > 0) {
+                         valueToSelect = selectElement.options[0].value;
+                    }
+
+                    if (selectElement.options.length === 0) {
+                         selectElement.innerHTML = '<option value="" disabled selected>无可用模型</option>';
+                    } else {
+                         selectElement.value = valueToSelect;
+                    }
+                 }
+            });
+            alert('模型列表拉取成功！');
+        } else {
             _logAndDisplayError(`All API key attempts failed to load model list. Last error: ${lastError?.message || 'Unknown error'}`, 'fetchModels');
-            modelSelects.forEach(sel => setOptions(sel, 'Load Failed'));
-        }
-
-
-        if (success && typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
-            mainModule.triggerDebouncedSave();
+            setAllOptions('拉取失败', true);
+            alert(`拉取模型列表失败！\n${lastError?.message || '未知错误'}`);
         }
     },
-
     sendSingleMessageForRoleImpl: async (roleName, roleType, targetRoleNameForTool = null) => {
         await apiModule._sendGeminiRequestWithRetry(roleName, roleType, targetRoleNameForTool);
     },
-
     triggerRoleResponse: (roleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails || !chatroomDetails.config) return;
-
         let roleType = 'unknown';
         let roleConfig = chatroomDetails.config.roleStates ? chatroomDetails.config.roleStates[roleName] : undefined;
         let toolConfig = null;
-
         if (toolNameMap.hasOwnProperty(roleName)) {
              roleType = 'tool';
              toolConfig = stateModule.config.toolSettings[roleName];
@@ -1422,11 +1397,9 @@ const apiModule = {
                   return;
              }
         }
-
         if (stateModule.config.isRunPaused && (roleType === 'role' || roleType === 'temporary_role')) {
             return;
         }
-
 
         if (!stateModule.chatContextCache) {
              updateChatContextCache().then(() => {
@@ -1440,11 +1413,9 @@ const apiModule = {
              apiModule._triggerRoleResponseInternal(roleName, roleType);
         }
     },
-
     _triggerRoleResponseInternal: (roleName, roleType) => {
         apiModule.sendSingleMessageForRoleImpl(roleName, roleType);
     },
-
     triggerCharacterUpdateForRole: (targetRoleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails || !chatroomDetails.config?.roleStates || !(targetRoleName in chatroomDetails.config.roleStates)) {
@@ -1455,10 +1426,8 @@ const apiModule = {
         if (!stateModule.config.toolSettings[toolName]?.enabled) {
              return;
         }
-
         apiModule.sendSingleMessageForRoleImpl(toolName, 'tool', targetRoleName);
     },
-
     addChatroom: async (name) => {
         if (!name || name.trim() === "") {
              _logAndDisplayError("Chatroom name cannot be empty.", "addChatroom");
@@ -1474,7 +1443,6 @@ const apiModule = {
             if (!response.ok) {
                  throw new Error(result.error || `HTTP error! Status: ${response.status}`);
             }
-
             stateModule.config.chatRoomOrder.push(name);
             if (typeof mainModule !== 'undefined') mainModule.triggerDebouncedSave();
             return name;
@@ -1483,7 +1451,6 @@ const apiModule = {
             return null;
         }
     },
-
     renameChatroom: async (oldName, newName) => {
          if (!oldName || !newName || oldName === newName || newName.trim() === "") {
              _logAndDisplayError("Invalid names for rename.", 'renameChatroom');
@@ -1499,7 +1466,6 @@ const apiModule = {
              if (!response.ok) {
                  throw new Error(result.error || `HTTP error! Status: ${response.status}`);
              }
-
              const index = stateModule.config.chatRoomOrder.indexOf(oldName);
              if (index > -1) {
                  stateModule.config.chatRoomOrder[index] = newName;
@@ -1516,7 +1482,6 @@ const apiModule = {
              return false;
          }
     },
-
     deleteChatroom: async (name) => {
         if (!name) return false;
         try {
@@ -1527,7 +1492,6 @@ const apiModule = {
              if (!response.ok) {
                  throw new Error(result.error || `HTTP error! Status: ${response.status}`);
              }
-
              stateModule.config.chatRoomOrder = stateModule.config.chatRoomOrder.filter(n => n !== name);
              if (stateModule.config.activeChatRoomName === name) {
                  stateModule.config.activeChatRoomName = stateModule.config.chatRoomOrder.length > 0 ? stateModule.config.chatRoomOrder[0] : null;
@@ -1540,7 +1504,6 @@ const apiModule = {
              return false;
         }
     },
-
     fetchChatroomDetails: async (roomName) => {
          if (!roomName) {
              stateModule.currentChatroomDetails = null;
@@ -1557,6 +1520,38 @@ const apiModule = {
              if (details.config && !details.config.roleDetailedStates) {
                  details.config.roleDetailedStates = {};
              }
+             if (details.config && !details.config.overrideSettings) {
+                details.config.overrideSettings = JSON.parse(JSON.stringify(defaultChatroomOverrideSettings));
+                _logAndDisplayError(`Chatroom ${roomName} config missing overrideSettings, added default. Consider re-exporting/importing if this persists.`, 'fetchChatroomDetails');
+             } else if (details.config && details.config.overrideSettings) {
+
+                 let updated = false;
+                 const currentOverrides = details.config.overrideSettings;
+                 const defaultKeys = Object.keys(defaultChatroomOverrideSettings);
+                 const currentKeys = Object.keys(currentOverrides);
+
+                 defaultKeys.forEach(key => {
+                     if (!currentOverrides[key]) {
+                         currentOverrides[key] = JSON.parse(JSON.stringify(defaultChatroomOverrideSettings[key]));
+                         updated = true;
+                     } else {
+                          const defaultSectionKeys = Object.keys(defaultChatroomOverrideSettings[key]);
+                          const currentSectionKeys = Object.keys(currentOverrides[key]);
+                          defaultSectionKeys.forEach(subKey => {
+                              if (!(subKey in currentOverrides[key])) {
+                                 currentOverrides[key][subKey] = defaultChatroomOverrideSettings[key][subKey];
+                                 updated = true;
+                              }
+                          });
+                     }
+                 });
+                 if(updated) {
+                      _logAndDisplayError(`Chatroom ${roomName} overrideSettings structure updated.`, 'fetchChatroomDetails');
+
+                 }
+             }
+
+
              stateModule.currentChatroomDetails = details;
              updateChatContextCache();
          } catch (error) {
@@ -1566,11 +1561,9 @@ const apiModule = {
               if (stateModule.config.activeChatRoomName === roomName) {
                   stateModule.config.activeChatRoomName = stateModule.config.chatRoomOrder.length > 0 ? stateModule.config.chatRoomOrder[0] : null;
                   if (typeof mainModule !== 'undefined') mainModule.triggerDebouncedSave();
-
               }
          }
     },
-
     updateChatroomConfig: async (roomName, configData) => {
          if (!roomName || !configData) return false;
          try {
@@ -1589,10 +1582,8 @@ const apiModule = {
               return false;
          }
     },
-
     triggerDebouncedChatroomConfigSave: (roomName) => {
          if (!roomName || !stateModule.currentChatroomDetails || stateModule.currentChatroomDetails.config.name !== roomName) return;
-
          clearTimeout(stateModule.chatroomConfigSaveTimers[roomName]);
          stateModule.chatroomConfigSaveTimers[roomName] = setTimeout(async () => {
              const configToSave = { ...stateModule.currentChatroomDetails.config };
@@ -1600,7 +1591,6 @@ const apiModule = {
              await apiModule.updateChatroomConfig(roomName, configToSave);
          }, stateModule.chatroomConfigSaveDelay);
     },
-
      createRole: async (roomName, roleData) => {
          if (!roomName || !roleData || !roleData.name) return false;
          try {
@@ -1619,7 +1609,6 @@ const apiModule = {
              return false;
          }
      },
-
      updateRole: async (roomName, roleName, roleData) => {
           if (!roomName || !roleName || !roleData) return false;
           try {
@@ -1638,7 +1627,6 @@ const apiModule = {
               return false;
           }
      },
-
      deleteRole: async (roomName, roleName) => {
           if (!roomName || !roleName) return false;
           try {
@@ -1655,7 +1643,6 @@ const apiModule = {
               return false;
           }
      },
-
      createNovel: async (roomName, novelData) => {
           if (!roomName || !novelData || !novelData.id) return false;
           try {
@@ -1674,7 +1661,6 @@ const apiModule = {
               return false;
           }
      },
-
      updateNovel: async (roomName, novelId, novelData) => {
           if (!roomName || !novelId || !novelData) return false;
           try {
@@ -1693,7 +1679,6 @@ const apiModule = {
               return false;
           }
      },
-
      deleteNovel: async (roomName, novelId) => {
           if (!roomName || !novelId) return false;
           try {
@@ -1711,7 +1696,6 @@ const apiModule = {
           }
      },
 
-
     setBackgroundImage: async (roomName, imageDataUrl) => {
          if (!roomName || !imageDataUrl) {
              _logAndDisplayError("Missing roomName or imageDataUrl for setBackgroundImage", "setBackgroundImage");
@@ -1728,14 +1712,12 @@ const apiModule = {
                    throw new Error(`Failed to set background: ${response.status} ${errorData.error || ''}`);
               }
               const result = await response.json();
-
               if (stateModule.currentChatroomDetails && stateModule.currentChatroomDetails.config.name === roomName) {
                    stateModule.currentChatroomDetails.config.backgroundImageFilename = result.path.split('/').pop();
                    if (elementsModule.chatContainer) {
                        elementsModule.chatContainer.style.backgroundImage = `url(${result.path}?t=${Date.now()})`;
                    }
               }
-
          } catch (error) {
               _logAndDisplayError(error.message, "setBackgroundImage");
          }
@@ -1748,19 +1730,16 @@ const apiModule = {
                   const errorData = await response.json().catch(() => ({}));
                   throw new Error(`Failed to delete background: ${response.status} ${errorData.error || ''}`);
               }
-
               if (stateModule.currentChatroomDetails && stateModule.currentChatroomDetails.config.name === roomName) {
                   stateModule.currentChatroomDetails.config.backgroundImageFilename = null;
                    if (elementsModule.chatContainer) {
                        elementsModule.chatContainer.style.backgroundImage = '';
                    }
               }
-
          } catch (error) {
               _logAndDisplayError(error.message, "removeBackgroundImage");
          }
     },
-
     exportPromptPresets: () => {
         const dataToExport = {
             version: 2,
@@ -1777,7 +1756,6 @@ const apiModule = {
             },
             toolSettings: {}
         };
-
         Object.keys(stateModule.config.toolSettings).forEach(toolName => {
             const toolConfig = stateModule.config.toolSettings[toolName];
             if (toolConfig) {
@@ -1790,7 +1768,6 @@ const apiModule = {
                  };
             }
         });
-
         const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1801,7 +1778,6 @@ const apiModule = {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     },
-
     importPromptPresets: (file) => {
         if (!file) return;
         const reader = new FileReader();
@@ -1812,7 +1788,6 @@ const apiModule = {
                     throw new Error("Invalid file format: Not an object.");
                 }
 
-
                 if (importedData.version === 2) {
                     if (importedData.globalSettings) {
                         stateModule.config.systemInstruction = importedData.globalSettings.systemInstruction || '';
@@ -1821,7 +1796,6 @@ const apiModule = {
                          stateModule.config.systemInstruction = '';
                          stateModule.config.promptPresetTurns = [];
                     }
-
                     if (importedData.sharedChatroomSettings) {
                          stateModule.config.model = importedData.sharedChatroomSettings.model || '';
                          stateModule.config.responseSchemaJson = importedData.sharedChatroomSettings.responseSchemaJson || '';
@@ -1835,7 +1809,6 @@ const apiModule = {
                          stateModule.config.sharedDatabaseInstruction = '';
                          stateModule.config.mainPrompt = '';
                     }
-
                     if (importedData.toolSettings && typeof importedData.toolSettings === 'object') {
                         Object.keys(importedData.toolSettings).forEach(toolName => {
                              if (stateModule.config.toolSettings[toolName]) {
@@ -1850,15 +1823,11 @@ const apiModule = {
                              }
                         });
                     }
-
                 } else {
-
                      stateModule.config.systemInstruction = importedData.systemInstruction || '';
                      stateModule.config.promptPresetTurns = Array.isArray(importedData.promptPresetTurns) ? importedData.promptPresetTurns : [];
-
                      _logAndDisplayError("Imported data is V1 format. Only systemInstruction and promptPresetTurns were imported.", 'importPromptPresets');
                 }
-
                 if (typeof uiSettingsModule !== 'undefined') {
                     uiSettingsModule.loadPromptPresetSettings();
                     uiSettingsModule.renderPromptPresetsList();
@@ -1874,17 +1843,16 @@ const apiModule = {
                 if (typeof mainModule !== 'undefined') {
                     mainModule.triggerDebouncedSave();
                 }
-                alert("提示导入成功");
+
             } catch (error) {
                 _logAndDisplayError(`Failed to import prompt presets: ${error.message}`, 'importPromptPresets');
-                alert(`Failed to import prompt presets: ${error.message}`);
+
             }
         };
         reader.onerror = () => {
             _logAndDisplayError('Error reading file.', 'importPromptPresets');
-            alert('Error reading file.');
+
         };
         reader.readAsText(file);
     },
-
 };

@@ -55,7 +55,7 @@ default_config = {
     "isRunPaused": True,
     "isRoleListVisible": False,
     "lastViewedNovelId": None,
-    "referenceTextLength": 10000,
+    "originalNovelLength": 10000,
     "novelaiModel": "",
     "novelaiArtistChain": "",
     "novelaiDefaultPositivePrompt": "",
@@ -70,6 +70,72 @@ default_config = {
     "novelaiSeed": 0,
     "systemInstruction": ""
 }
+
+
+default_chatroom_override_settings = {
+    "general": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "sharedDatabaseInstruction": "",
+        "mainPrompt": ""
+    },
+    "drawingMaster": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "toolDatabaseInstruction": "",
+        "mainPrompt": ""
+    },
+    "gameHost": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "toolDatabaseInstruction": "",
+        "mainPrompt": ""
+    },
+    "writingMaster": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "toolDatabaseInstruction": "",
+        "mainPrompt": ""
+    },
+    "characterUpdateMaster": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "toolDatabaseInstruction": "",
+        "mainPrompt": ""
+    },
+    "privateAssistant": {
+        "enabled": False,
+        "model": "",
+        "responseSchemaJson": "",
+        "responseSchemaParserJs": "",
+        "toolDatabaseInstruction": "",
+        "mainPrompt": ""
+    }
+}
+
+default_chatroom_config = {
+    "name": "",
+    "roleplayRules": "",
+    "publicInfo": "",
+    "activeNovelIds": [],
+    "roleStates": {"管理员": "默"},
+    "roleDetailedStates": {},
+    "novelCurrentSegmentIds": {},
+    "backgroundImageFilename": None,
+    "overrideSettings": default_chatroom_override_settings.copy(),
+    "roleVisibility": {"管理员": True}
+}
+
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
@@ -288,17 +354,17 @@ def ai_proxy():
     if response_schema:
         gemini_payload["generationConfig"]["responseSchema"] = response_schema
 
-    print("--- BACKEND -> GOOGLE AI ---")
-    print(json.dumps(gemini_payload, indent=2, ensure_ascii=False))
 
     ai_response_json = None
     try:
+        print("--- Sending to Gemini ---")
+        print(json.dumps(gemini_payload, indent=2, ensure_ascii=False))
         response = requests.post(gemini_api_url, headers={'Content-Type': 'application/json'}, json=gemini_payload)
-        response.raise_for_status()
         ai_response_json = response.json()
-
-        print("--- GOOGLE AI -> BACKEND ---")
+        print("--- Received from Gemini ---")
         print(json.dumps(ai_response_json, indent=2, ensure_ascii=False))
+        response.raise_for_status()
+
 
         if response.status_code == 200 and ai_response_json:
             if 'candidates' not in ai_response_json and 'content' in ai_response_json:
@@ -335,14 +401,10 @@ def ai_proxy():
             return jsonify({"error": error_message, "full_response_for_error": ai_response_json}), response.status_code if response.status_code >= 400 else 500
 
     except requests.exceptions.RequestException as e:
-        print("--- GOOGLE AI -> BACKEND (Request Exception) ---")
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 500
     except Exception as e:
-        print("--- GOOGLE AI -> BACKEND (General Exception) ---")
-        print(f"Error: {e}")
-        if ai_response_json:
-            print(json.dumps(ai_response_json, indent=2, ensure_ascii=False))
+        print(f"Error: {e}", file=sys.stderr)
         exc_type, exc_value, exc_traceback_obj = sys.exc_info()
         traceback.print_tb(exc_traceback_obj, limit=2, file=sys.stderr)
         return jsonify({"error": f"Error processing AI response: {e}"}), 500
@@ -361,10 +423,10 @@ def novelai_proxy():
         "Authorization": f"Bearer {nai_api_key}"
     }
 
-    print("--- BACKEND -> NOVELAI ---")
-    print(json.dumps(parameters, indent=2, ensure_ascii=False))
 
     try:
+        print("--- Sending to NovelAI ---")
+        print(json.dumps(parameters, indent=2, ensure_ascii=False))
         response = requests.post(novelai_api_url, headers=headers, json=parameters)
 
         if not response.ok:
@@ -650,6 +712,11 @@ def _update_chatroom_config(chatroom_name, updates):
         config_data["roleStates"] = {}
     if "roleDetailedStates" not in config_data:
         config_data["roleDetailedStates"] = {}
+    if "overrideSettings" not in config_data:
+        config_data["overrideSettings"] = default_chatroom_override_settings.copy()
+    if "roleVisibility" not in config_data:
+         config_data["roleVisibility"] = {}
+
 
     try:
         with open(config_path, 'w', encoding='utf-8') as f:
@@ -839,6 +906,15 @@ def import_chatroom_zip():
             if not imported_room_name or not isinstance(imported_room_name, str):
                  raise ValueError("Room name in config is invalid")
 
+            if "overrideSettings" not in room_config:
+                 room_config["overrideSettings"] = default_chatroom_override_settings.copy()
+            if "roleVisibility" not in room_config:
+                 room_config["roleVisibility"] = {}
+
+
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(room_config, f, indent=2, ensure_ascii=False)
+
 
         config = load_current_config()
         current_room_names = set(config['chatRoomOrder'])
@@ -945,6 +1021,7 @@ def import_full_config_zip():
                      print(f"Skipping potentially unsafe path in ZIP: {member_info.filename}", file=sys.stderr)
                      continue
 
+                target_filepath_abs = None
                 if target_path_part == CONFIG_FILENAME:
                      target_filepath_abs = os.path.join(project_root_abs, CONFIG_FILENAME)
                 elif target_path_part.startswith(CHATROOMS_DIR + '/'):
@@ -956,12 +1033,26 @@ def import_full_config_zip():
                      print(f"Skipping unexpected file/folder in ZIP root: {member_info.filename}", file=sys.stderr)
                      continue
 
-                if member_info.is_dir():
-                    os.makedirs(target_filepath_abs, exist_ok=True)
-                else:
-                    os.makedirs(os.path.dirname(target_filepath_abs), exist_ok=True)
-                    with zf.open(member_info) as source, open(target_filepath_abs, "wb") as target:
-                         target.write(source.read())
+                if target_filepath_abs:
+                    if member_info.is_dir():
+                        os.makedirs(target_filepath_abs, exist_ok=True)
+                    else:
+                        os.makedirs(os.path.dirname(target_filepath_abs), exist_ok=True)
+                        with zf.open(member_info) as source, open(target_filepath_abs, "wb") as target:
+                            target.write(source.read())
+                        if target_filepath_abs.endswith(CHATROOM_CONFIG_FILENAME):
+                             try:
+                                 with open(target_filepath_abs, 'r+', encoding='utf-8') as f:
+                                     room_config = json.load(f)
+                                     if "overrideSettings" not in room_config:
+                                         room_config["overrideSettings"] = default_chatroom_override_settings.copy()
+                                     if "roleVisibility" not in room_config:
+                                          room_config["roleVisibility"] = {}
+                                     f.seek(0)
+                                     json.dump(room_config, f, indent=2, ensure_ascii=False)
+                                     f.truncate()
+                             except Exception as e:
+                                  print(f"Warning: Failed to check/update settings in imported {target_filepath_abs}: {e}", file=sys.stderr)
 
 
         load_current_config()
@@ -1101,15 +1192,8 @@ def get_chatroom_details(chatroom_name):
         return jsonify({"error": "Chatroom not found"}), 404
 
     details = {"config": None, "roles": [], "novels": []}
+    permanent_role_names = set()
 
-    try:
-        config_path = os.path.join(chatroom_path, CHATROOM_CONFIG_FILENAME)
-        with open(config_path, 'r', encoding='utf-8') as f:
-            details["config"] = json.load(f)
-            if "roleDetailedStates" not in details["config"]:
-                details["config"]["roleDetailedStates"] = {}
-    except Exception as e:
-        return jsonify({"error": f"Failed to load chatroom config: {e}"}), 500
 
     try:
         roles_path = os.path.join(chatroom_path, ROLES_SUBDIR)
@@ -1121,12 +1205,68 @@ def get_chatroom_details(chatroom_name):
                         try:
                             with open(role_file_path, 'r', encoding='utf-8') as rf:
                                 role_data = json.load(rf)
-                                role_data['isTemporary'] = False
-                                details["roles"].append(role_data)
+                                if 'name' in role_data:
+                                    permanent_role_names.add(role_data['name'])
+                                    role_data['isTemporary'] = False
+                                    details["roles"].append(role_data)
                         except Exception as e:
                             print(f"Warning: Failed to load role file {filename}: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Warning: Error reading roles directory for {chatroom_name}: {e}", file=sys.stderr)
+
+
+    try:
+        config_path = os.path.join(chatroom_path, CHATROOM_CONFIG_FILENAME)
+        config_needs_update = False
+        with open(config_path, 'r+', encoding='utf-8') as f:
+            details["config"] = json.load(f)
+            if "roleDetailedStates" not in details["config"]:
+                details["config"]["roleDetailedStates"] = {}
+                config_needs_update = True
+            if "overrideSettings" not in details["config"]:
+                details["config"]["overrideSettings"] = default_chatroom_override_settings.copy()
+                config_needs_update = True
+            else:
+                loaded_overrides = details["config"]["overrideSettings"]
+                default_overrides_copy = default_chatroom_override_settings.copy()
+                for section_key, default_section in default_overrides_copy.items():
+                     if section_key not in loaded_overrides:
+                         loaded_overrides[section_key] = default_section
+                         config_needs_update = True
+                     else:
+                          loaded_section = loaded_overrides[section_key]
+                          for key, default_value in default_section.items():
+                              if key not in loaded_section:
+                                  loaded_section[key] = default_value
+                                  config_needs_update = True
+
+            if "roleVisibility" not in details["config"] or not isinstance(details["config"]["roleVisibility"], dict):
+                 details["config"]["roleVisibility"] = {}
+                 config_needs_update = True
+
+            current_visibility = details["config"]["roleVisibility"]
+            for role_name in permanent_role_names:
+                if role_name not in current_visibility:
+                    current_visibility[role_name] = True
+                    config_needs_update = True
+                elif not isinstance(current_visibility[role_name], bool):
+                     current_visibility[role_name] = True
+                     config_needs_update = True
+
+            for role_name in list(current_visibility.keys()):
+                 if role_name != "管理员" and role_name not in permanent_role_names:
+                      del current_visibility[role_name]
+                      config_needs_update = True
+
+            if config_needs_update:
+                 f.seek(0)
+                 json.dump(details["config"], f, indent=2, ensure_ascii=False)
+                 f.truncate()
+
+    except Exception as e:
+        print(f"Error loading/processing chatroom config '{config_path}': {e}", file=sys.stderr)
+        return jsonify({"error": f"Failed to load chatroom config: {e}"}), 500
+
 
     try:
         novels_path = os.path.join(chatroom_path, NOVELS_SUBDIR)
@@ -1179,16 +1319,9 @@ def create_chatroom_route():
         os.makedirs(os.path.join(new_room_path, ROLES_SUBDIR), exist_ok=True)
         os.makedirs(os.path.join(new_room_path, NOVELS_SUBDIR), exist_ok=True)
 
-        initial_config = {
-            "name": new_name,
-            "roleplayRules": "",
-            "publicInfo": "",
-            "activeNovelIds": [],
-            "roleStates": {"管理员": "默"},
-            "roleDetailedStates": {},
-            "novelCurrentSegmentIds": {},
-            "backgroundImageFilename": None
-        }
+        initial_config = default_chatroom_config.copy()
+        initial_config["name"] = new_name
+
         with open(os.path.join(new_room_path, CHATROOM_CONFIG_FILENAME), 'w', encoding='utf-8') as f:
             json.dump(initial_config, f, indent=2, ensure_ascii=False)
 
@@ -1324,21 +1457,26 @@ def create_role_route(chatroom_name):
              if not os.path.exists(config_path):
                   raise FileNotFoundError("Chatroom config file not found.")
 
-             with open(config_path, 'r', encoding='utf-8') as f:
+             with open(config_path, 'r+', encoding='utf-8') as f:
                  room_config = json.load(f)
-             if not isinstance(room_config, dict):
-                  room_config = {}
+                 if not isinstance(room_config, dict):
+                     room_config = {}
 
-             if 'roleStates' not in room_config or not isinstance(room_config['roleStates'], dict):
-                 room_config['roleStates'] = {}
-             room_config['roleStates'][role_name] = "默"
+                 if 'roleStates' not in room_config or not isinstance(room_config['roleStates'], dict):
+                     room_config['roleStates'] = {}
+                 room_config['roleStates'][role_name] = "默"
 
-             if 'roleDetailedStates' not in room_config or not isinstance(room_config['roleDetailedStates'], dict):
-                 room_config['roleDetailedStates'] = {}
-             room_config['roleDetailedStates'][role_name] = ""
+                 if 'roleDetailedStates' not in room_config or not isinstance(room_config['roleDetailedStates'], dict):
+                     room_config['roleDetailedStates'] = {}
+                 room_config['roleDetailedStates'][role_name] = ""
 
-             with open(config_path, 'w', encoding='utf-8') as f:
+                 if 'roleVisibility' not in room_config or not isinstance(room_config['roleVisibility'], dict):
+                     room_config['roleVisibility'] = {}
+                 room_config['roleVisibility'][role_name] = True
+
+                 f.seek(0)
                  json.dump(room_config, f, indent=2, ensure_ascii=False)
+                 f.truncate()
 
          except Exception as update_e:
               print(f"Warning: Role file created, but failed to update chatroom config states: {update_e}", file=sys.stderr)
@@ -1392,21 +1530,29 @@ def update_role_route(chatroom_name, role_name):
 
              try:
                   config_path = os.path.join(chatrooms_dir, chatroom_name, CHATROOM_CONFIG_FILENAME)
-                  with open(config_path, 'r', encoding='utf-8') as f:
+                  with open(config_path, 'r+', encoding='utf-8') as f:
                       room_config = json.load(f)
-                  updated_config = False
-                  if 'roleStates' in room_config and role_name in room_config['roleStates']:
-                      room_config['roleStates'][new_name] = room_config['roleStates'].pop(role_name)
-                      updated_config = True
-                  if 'roleDetailedStates' in room_config and role_name in room_config['roleDetailedStates']:
-                      room_config['roleDetailedStates'][new_name] = room_config['roleDetailedStates'].pop(role_name)
-                      updated_config = True
+                      updated_config = False
+                      visibility_value = True
 
-                  if updated_config:
-                      with open(config_path, 'w', encoding='utf-8') as f:
+                      if 'roleVisibility' in room_config and role_name in room_config['roleVisibility']:
+                            visibility_value = room_config['roleVisibility'].pop(role_name)
+                            room_config['roleVisibility'][new_name] = visibility_value
+                            updated_config = True
+
+                      if 'roleStates' in room_config and role_name in room_config['roleStates']:
+                          room_config['roleStates'][new_name] = room_config['roleStates'].pop(role_name)
+                          updated_config = True
+                      if 'roleDetailedStates' in room_config and role_name in room_config['roleDetailedStates']:
+                          room_config['roleDetailedStates'][new_name] = room_config['roleDetailedStates'].pop(role_name)
+                          updated_config = True
+
+                      if updated_config:
+                          f.seek(0)
                           json.dump(room_config, f, indent=2, ensure_ascii=False)
+                          f.truncate()
              except Exception as update_e:
-                  print(f"Warning: Role file renamed/updated, but failed to update chatroom config states: {update_e}", file=sys.stderr)
+                  print(f"Warning: Role file renamed/updated, but failed to update chatroom config states/visibility: {update_e}", file=sys.stderr)
 
         return jsonify({"message": f"Role '{new_name}' updated successfully"})
     except Exception as e:
@@ -1429,21 +1575,25 @@ def delete_role_route(chatroom_name, role_name):
 
         try:
              config_path = os.path.join(chatrooms_dir, chatroom_name, CHATROOM_CONFIG_FILENAME)
-             with open(config_path, 'r', encoding='utf-8') as f:
+             with open(config_path, 'r+', encoding='utf-8') as f:
                  room_config = json.load(f)
-             updated_config = False
-             if 'roleStates' in room_config and role_name in room_config['roleStates']:
-                 del room_config['roleStates'][role_name]
-                 updated_config = True
-             if 'roleDetailedStates' in room_config and role_name in room_config['roleDetailedStates']:
-                 del room_config['roleDetailedStates'][role_name]
-                 updated_config = True
+                 updated_config = False
+                 if 'roleStates' in room_config and role_name in room_config['roleStates']:
+                     del room_config['roleStates'][role_name]
+                     updated_config = True
+                 if 'roleDetailedStates' in room_config and role_name in room_config['roleDetailedStates']:
+                     del room_config['roleDetailedStates'][role_name]
+                     updated_config = True
+                 if 'roleVisibility' in room_config and role_name in room_config['roleVisibility']:
+                     del room_config['roleVisibility'][role_name]
+                     updated_config = True
 
-             if updated_config:
-                 with open(config_path, 'w', encoding='utf-8') as f:
+                 if updated_config:
+                     f.seek(0)
                      json.dump(room_config, f, indent=2, ensure_ascii=False)
+                     f.truncate()
         except Exception as update_e:
-             print(f"Warning: Role file deleted, but failed to update chatroom config states: {update_e}", file=sys.stderr)
+             print(f"Warning: Role file deleted, but failed to update chatroom config states/visibility: {update_e}", file=sys.stderr)
 
         return jsonify({"message": f"Role '{role_name}' deleted successfully"})
     except Exception as e:
@@ -1540,18 +1690,19 @@ def delete_novel_route(chatroom_name, novel_id):
 
         try:
              config_path = os.path.join(chatrooms_dir, chatroom_name, CHATROOM_CONFIG_FILENAME)
-             with open(config_path, 'r', encoding='utf-8') as f:
+             with open(config_path, 'r+', encoding='utf-8') as f:
                  room_config = json.load(f)
-             updated = False
-             if 'activeNovelIds' in room_config and novel_id in room_config['activeNovelIds']:
-                 room_config['activeNovelIds'].remove(novel_id)
-                 updated = True
-             if 'novelCurrentSegmentIds' in room_config and novel_id in room_config['novelCurrentSegmentIds']:
-                 del room_config['novelCurrentSegmentIds'][novel_id]
-                 updated = True
-             if updated:
-                 with open(config_path, 'w', encoding='utf-8') as f:
+                 updated = False
+                 if 'activeNovelIds' in room_config and novel_id in room_config['activeNovelIds']:
+                     room_config['activeNovelIds'].remove(novel_id)
+                     updated = True
+                 if 'novelCurrentSegmentIds' in room_config and novel_id in room_config['novelCurrentSegmentIds']:
+                     del room_config['novelCurrentSegmentIds'][novel_id]
+                     updated = True
+                 if updated:
+                     f.seek(0)
                      json.dump(room_config, f, indent=2, ensure_ascii=False)
+                     f.truncate()
         except Exception as update_e:
              print(f"Warning: Novel file deleted, but failed to update chatroom config: {update_e}", file=sys.stderr)
 

@@ -345,10 +345,88 @@
          #game-host-main-prompt-settings,
          #writing-master-main-prompt-settings,
          #character-update-master-main-prompt-settings,
-         #private-assistant-main-prompt-settings {
+         #private-assistant-main-prompt-settings,
+
+         #chatroom-override-general-shared-database-instruction,
+         #chatroom-override-general-main-prompt,
+         #chatroom-override-drawingMaster-tool-database-instruction,
+         #chatroom-override-drawingMaster-main-prompt,
+         #chatroom-override-gameHost-tool-database-instruction,
+         #chatroom-override-gameHost-main-prompt,
+         #chatroom-override-writingMaster-tool-database-instruction,
+         #chatroom-override-writingMaster-main-prompt,
+         #chatroom-override-characterUpdateMaster-tool-database-instruction,
+         #chatroom-override-characterUpdateMaster-main-prompt,
+         #chatroom-override-privateAssistant-tool-database-instruction,
+         #chatroom-override-privateAssistant-main-prompt,
+         #response-schema-json-settings,
+         #response-schema-parser-js-settings,
+         #drawing-master-response-schema-json-settings,
+         #drawing-master-response-schema-parser-js-settings,
+         #game-host-response-schema-json-settings,
+         #game-host-response-schema-parser-js-settings,
+         #writing-master-response-schema-json-settings,
+         #writing-master-response-schema-parser-js-settings,
+         #character-update-master-response-schema-json-settings,
+         #character-update-master-response-schema-parser-js-settings,
+         #private-assistant-response-schema-json-settings,
+         #private-assistant-response-schema-parser-js-settings,
+         #chatroom-override-general-response-schema-json,
+         #chatroom-override-general-response-schema-parser-js,
+         #chatroom-override-drawingMaster-response-schema-json,
+         #chatroom-override-drawingMaster-response-schema-parser-js,
+         #chatroom-override-gameHost-response-schema-json,
+         #chatroom-override-gameHost-response-schema-parser-js,
+         #chatroom-override-writingMaster-response-schema-json,
+         #chatroom-override-writingMaster-response-schema-parser-js,
+         #chatroom-override-characterUpdateMaster-response-schema-json,
+         #chatroom-override-characterUpdateMaster-response-schema-parser-js,
+         #chatroom-override-privateAssistant-response-schema-json,
+         #chatroom-override-privateAssistant-response-schema-parser-js {
              height: 150px;
          }
 
+        .setting-page-template .settings-group input[type="checkbox"] + label {
+            margin-left: 8px;
+            cursor: pointer;
+            flex-grow: 1;
+            vertical-align: middle;
+            display: inline;
+        }
+
+        .setting-page-template .settings-group input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #777;
+            border-radius: 3px;
+            background-color: #252525;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        .setting-page-template .settings-group input[type="checkbox"]:checked {
+            border-color: #e0c2a3;
+        }
+
+        .setting-page-template .settings-group input[type="checkbox"]:checked::after {
+            content: '✔';
+            display: block;
+            position: absolute;
+            top: -1px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+            line-height: 16px;
+            text-align: center;
+            color: #e0c2a3;
+        }
 
         #role-list-container,
         #chatroom-list-container,
@@ -827,6 +905,9 @@
              overflow: hidden;
              text-overflow: ellipsis;
          }
+         #novel-toc-list-container .novel-toc-item.current-chapter {
+             font-weight: bold;
+         }
 
          .ai-response .game-host-controls {
              display: flex;
@@ -1007,6 +1088,7 @@
                         <label for="api-key-textarea-settings" class="settings-label">谷歌 API 密钥 (每行一个)</label>
                         <textarea id="api-key-textarea-settings" class="settings-textarea"></textarea>
                         <div id="api-key-failure-counts-display" class="settings-group" style="margin-top: 10px;"></div>
+                        <div id="fetch-models-button" class="settings-menu-item">拉取模型列表</div>
                     </div>
 
                     <div class="settings-group sending-settings">
@@ -1226,12 +1308,12 @@
                  </div>
                   <div class="settings-section">
                     <div class="settings-group general-config">
-                         <label for="reference-text-length-settings" class="settings-label">参考文本字符数</label>
-                         <input type="number" id="reference-text-length-settings" class="settings-input" value="40000" step="1000">
+                         <label for="original-novel-length-settings" class="settings-label">原著小说字符数</label>
+                         <input type="number" id="original-novel-length-settings" class="settings-input" value="40000" step="1000">
 
                          <label for="chatroom-model-select-settings" class="settings-label">模型 (角色/临时角色)</label>
                          <select id="chatroom-model-select-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                          </select>
 
                          <label for="response-schema-json-settings" class="settings-label">Response Schema (JSON) (角色/临时角色)</label>
@@ -1272,6 +1354,7 @@
                      <div class="settings-menu-item" data-target="current-chatroom-settings-page">当前聊天室设置</div>
                      <div class="settings-menu-item" data-target="role-list-page">聊天室角色</div>
                      <div class="settings-menu-item" data-target="story-mode-page">聊天室小说</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-config-menu-page">聊天室覆盖配置</div>
                  </div>
 
              </div>
@@ -1331,13 +1414,13 @@
                  <div class="settings-section">
                     <div class="settings-group god-settings">
                         <div class="tool-setting-item">
-                            <label for="drawing-master-enabled-settings">启用</label>
                             <input type="checkbox" id="drawing-master-enabled-settings">
+                            <label for="drawing-master-enabled-settings">启用</label>
                         </div>
 
                         <label for="drawing-master-model-settings" class="settings-label">模型</label>
                         <select id="drawing-master-model-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                         </select>
 
                         <label for="drawing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
@@ -1363,13 +1446,13 @@
                  <div class="settings-section">
                     <div class="settings-group god-settings">
                         <div class="tool-setting-item">
-                            <label for="game-host-enabled-settings">启用</label>
                             <input type="checkbox" id="game-host-enabled-settings">
+                            <label for="game-host-enabled-settings">启用</label>
                         </div>
 
                         <label for="game-host-model-settings" class="settings-label">模型</label>
                         <select id="game-host-model-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                         </select>
 
                         <label for="game-host-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
@@ -1395,13 +1478,13 @@
                  <div class="settings-section">
                     <div class="settings-group god-settings">
                         <div class="tool-setting-item">
+                             <input type="checkbox" id="writing-master-enabled-settings">
                             <label for="writing-master-enabled-settings">启用</label>
-                            <input type="checkbox" id="writing-master-enabled-settings">
                         </div>
 
                         <label for="writing-master-model-settings" class="settings-label">模型</label>
                         <select id="writing-master-model-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                         </select>
 
                         <label for="writing-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
@@ -1427,13 +1510,13 @@
                  <div class="settings-section">
                     <div class="settings-group god-settings">
                         <div class="tool-setting-item">
+                             <input type="checkbox" id="character-update-master-enabled-settings">
                             <label for="character-update-master-enabled-settings">启用</label>
-                            <input type="checkbox" id="character-update-master-enabled-settings">
                         </div>
 
                          <label for="character-update-master-model-settings" class="settings-label">模型</label>
                          <select id="character-update-master-model-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                          </select>
 
                         <label for="character-update-master-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
@@ -1459,13 +1542,13 @@
                  <div class="settings-section">
                     <div class="settings-group god-settings">
                         <div class="tool-setting-item">
+                             <input type="checkbox" id="private-assistant-enabled-settings">
                             <label for="private-assistant-enabled-settings">启用</label>
-                            <input type="checkbox" id="private-assistant-enabled-settings">
                         </div>
 
                          <label for="private-assistant-model-settings" class="settings-label">模型</label>
                          <select id="private-assistant-model-settings" class="settings-select" style="width: 100%;">
-                             <option value="" disabled selected>正在加载模型列表...</option>
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
                          </select>
 
                         <label for="private-assistant-response-schema-json-settings" class="settings-label">Response Schema (JSON)</label>
@@ -1482,6 +1565,189 @@
                     </div>
                  </div>
              </div>
+
+
+             <div id="chatroom-override-config-menu-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     聊天室覆盖配置
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div id="chatroom-override-config-menu" class="settings-section">
+                     <div class="settings-menu-item" data-target="chatroom-override-general-page">通用配置覆盖</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-drawingMaster-page">绘图大师覆盖</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-gameHost-page">游戏主持人覆盖</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-writingMaster-page">写作大师覆盖</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-characterUpdateMaster-page">角色更新大师覆盖</div>
+                     <div class="settings-menu-item" data-target="chatroom-override-privateAssistant-page">私人助理覆盖</div>
+                 </div>
+             </div>
+
+
+             <div id="chatroom-override-general-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     通用配置覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-general-enabled">
+                         <label for="chatroom-override-general-enabled">启用通用配置覆盖</label>
+
+                         <label for="chatroom-override-general-model-select" class="settings-label" style="margin-top:15px;">模型 (角色/临时角色)</label>
+                         <select id="chatroom-override-general-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+
+                         <label for="chatroom-override-general-response-schema-json" class="settings-label">Response Schema (JSON) (角色/临时角色)</label>
+                         <textarea id="chatroom-override-general-response-schema-json" class="settings-textarea"></textarea>
+
+                         <label for="chatroom-override-general-response-schema-parser-js" class="settings-label">Response Schema Parser (JS) (角色/临时角色)</label>
+                         <textarea id="chatroom-override-general-response-schema-parser-js" class="settings-textarea"></textarea>
+
+                         <label for="chatroom-override-general-shared-database-instruction" class="settings-label">共享数据库 (角色/临时角色)</label>
+                         <textarea id="chatroom-override-general-shared-database-instruction" class="settings-textarea"></textarea>
+
+                         <label for="chatroom-override-general-main-prompt" class="settings-label">主提示词 (角色/临时角色)</label>
+                         <textarea id="chatroom-override-general-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
+
+             <div id="chatroom-override-drawingMaster-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     绘图大师覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-drawingMaster-enabled">
+                         <label for="chatroom-override-drawingMaster-enabled">启用绘图大师覆盖</label>
+
+                         <label for="chatroom-override-drawingMaster-model-select" class="settings-label" style="margin-top:15px;">模型</label>
+                         <select id="chatroom-override-drawingMaster-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+                         <label for="chatroom-override-drawingMaster-response-schema-json" class="settings-label">Response Schema (JSON)</label>
+                         <textarea id="chatroom-override-drawingMaster-response-schema-json" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-drawingMaster-response-schema-parser-js" class="settings-label">Response Schema Parser (JS)</label>
+                         <textarea id="chatroom-override-drawingMaster-response-schema-parser-js" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-drawingMaster-tool-database-instruction" class="settings-label">数据库</label>
+                         <textarea id="chatroom-override-drawingMaster-tool-database-instruction" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-drawingMaster-main-prompt" class="settings-label">主提示词</label>
+                         <textarea id="chatroom-override-drawingMaster-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
+
+              <div id="chatroom-override-gameHost-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     游戏主持人覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-gameHost-enabled">
+                         <label for="chatroom-override-gameHost-enabled">启用游戏主持人覆盖</label>
+
+                         <label for="chatroom-override-gameHost-model-select" class="settings-label" style="margin-top:15px;">模型</label>
+                         <select id="chatroom-override-gameHost-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+                         <label for="chatroom-override-gameHost-response-schema-json" class="settings-label">Response Schema (JSON)</label>
+                         <textarea id="chatroom-override-gameHost-response-schema-json" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-gameHost-response-schema-parser-js" class="settings-label">Response Schema Parser (JS)</label>
+                         <textarea id="chatroom-override-gameHost-response-schema-parser-js" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-gameHost-tool-database-instruction" class="settings-label">数据库</label>
+                         <textarea id="chatroom-override-gameHost-tool-database-instruction" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-gameHost-main-prompt" class="settings-label">主提示词</label>
+                         <textarea id="chatroom-override-gameHost-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
+
+             <div id="chatroom-override-writingMaster-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     写作大师覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-writingMaster-enabled">
+                         <label for="chatroom-override-writingMaster-enabled">启用写作大师覆盖</label>
+
+                         <label for="chatroom-override-writingMaster-model-select" class="settings-label" style="margin-top:15px;">模型</label>
+                         <select id="chatroom-override-writingMaster-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+                         <label for="chatroom-override-writingMaster-response-schema-json" class="settings-label">Response Schema (JSON)</label>
+                         <textarea id="chatroom-override-writingMaster-response-schema-json" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-writingMaster-response-schema-parser-js" class="settings-label">Response Schema Parser (JS)</label>
+                         <textarea id="chatroom-override-writingMaster-response-schema-parser-js" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-writingMaster-tool-database-instruction" class="settings-label">数据库</label>
+                         <textarea id="chatroom-override-writingMaster-tool-database-instruction" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-writingMaster-main-prompt" class="settings-label">主提示词</label>
+                         <textarea id="chatroom-override-writingMaster-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
+
+             <div id="chatroom-override-characterUpdateMaster-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     角色更新大师覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-characterUpdateMaster-enabled">
+                         <label for="chatroom-override-characterUpdateMaster-enabled">启用角色更新大师覆盖</label>
+
+                         <label for="chatroom-override-characterUpdateMaster-model-select" class="settings-label" style="margin-top:15px;">模型</label>
+                         <select id="chatroom-override-characterUpdateMaster-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+                         <label for="chatroom-override-characterUpdateMaster-response-schema-json" class="settings-label">Response Schema (JSON)</label>
+                         <textarea id="chatroom-override-characterUpdateMaster-response-schema-json" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-characterUpdateMaster-response-schema-parser-js" class="settings-label">Response Schema Parser (JS)</label>
+                         <textarea id="chatroom-override-characterUpdateMaster-response-schema-parser-js" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-characterUpdateMaster-tool-database-instruction" class="settings-label">数据库</label>
+                         <textarea id="chatroom-override-characterUpdateMaster-tool-database-instruction" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-characterUpdateMaster-main-prompt" class="settings-label">主提示词</label>
+                         <textarea id="chatroom-override-characterUpdateMaster-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
+
+             <div id="chatroom-override-privateAssistant-page" class="setting-page-template" style="flex-direction: column;">
+                 <div class="settings-header">
+                     私人助理覆盖
+                     <div class="close-button std-button">✕</div>
+                 </div>
+                 <div class="settings-section">
+                     <div class="settings-group">
+                         <input type="checkbox" id="chatroom-override-privateAssistant-enabled">
+                         <label for="chatroom-override-privateAssistant-enabled">启用私人助理覆盖</label>
+
+                         <label for="chatroom-override-privateAssistant-model-select" class="settings-label" style="margin-top:15px;">模型</label>
+                         <select id="chatroom-override-privateAssistant-model-select" class="settings-select" style="width: 100%;">
+                             <option value="" disabled selected>请在 API 设置中拉取</option>
+                         </select>
+                         <label for="chatroom-override-privateAssistant-response-schema-json" class="settings-label">Response Schema (JSON)</label>
+                         <textarea id="chatroom-override-privateAssistant-response-schema-json" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-privateAssistant-response-schema-parser-js" class="settings-label">Response Schema Parser (JS)</label>
+                         <textarea id="chatroom-override-privateAssistant-response-schema-parser-js" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-privateAssistant-tool-database-instruction" class="settings-label">数据库</label>
+                         <textarea id="chatroom-override-privateAssistant-tool-database-instruction" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-privateAssistant-main-prompt" class="settings-label">主提示词</label>
+                         <textarea id="chatroom-override-privateAssistant-main-prompt" class="settings-textarea"></textarea>
+                     </div>
+                 </div>
+             </div>
+
 
         </div>
 

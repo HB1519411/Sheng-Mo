@@ -11,6 +11,7 @@ const elementsModule = {
 
     apiKeyTextareaSettings: null,
     apiKeyFailureCountsDisplay: null,
+    fetchModelsButton: null,
 
     chatArea: null,
     chatContainer: null,
@@ -37,7 +38,7 @@ const elementsModule = {
     importPromptPresetsButton: null,
     importPromptPresetsFile: null,
 
-    referenceTextLengthSettings: null,
+    originalNovelLengthSettings: null,
     worldInfoDisplay: null,
 
     roleListContainer: null,
@@ -123,6 +124,56 @@ const elementsModule = {
     chatroomRolePage: null,
     chatroomNovelPage: null,
 
+    chatroomOverrideConfigMenuPage: null,
+    chatroomOverrideConfigMenuItems: null,
+    chatroomOverrideGeneralPage: null,
+    chatroomOverrideGeneralEnabled: null,
+    chatroomOverrideGeneralModelSelect: null,
+    chatroomOverrideGeneralResponseSchemaJson: null,
+    chatroomOverrideGeneralResponseSchemaParserJs: null,
+    chatroomOverrideGeneralSharedDatabaseInstruction: null,
+    chatroomOverrideGeneralMainPrompt: null,
+
+    chatroomOverrideDrawingMasterPage: null,
+    chatroomOverrideDrawingMasterEnabled: null,
+    chatroomOverrideDrawingMasterModelSelect: null,
+    chatroomOverrideDrawingMasterResponseSchemaJson: null,
+    chatroomOverrideDrawingMasterResponseSchemaParserJs: null,
+    chatroomOverrideDrawingMasterToolDatabaseInstruction: null,
+    chatroomOverrideDrawingMasterMainPrompt: null,
+
+    chatroomOverrideGameHostPage: null,
+    chatroomOverrideGameHostEnabled: null,
+    chatroomOverrideGameHostModelSelect: null,
+    chatroomOverrideGameHostResponseSchemaJson: null,
+    chatroomOverrideGameHostResponseSchemaParserJs: null,
+    chatroomOverrideGameHostToolDatabaseInstruction: null,
+    chatroomOverrideGameHostMainPrompt: null,
+
+    chatroomOverrideWritingMasterPage: null,
+    chatroomOverrideWritingMasterEnabled: null,
+    chatroomOverrideWritingMasterModelSelect: null,
+    chatroomOverrideWritingMasterResponseSchemaJson: null,
+    chatroomOverrideWritingMasterResponseSchemaParserJs: null,
+    chatroomOverrideWritingMasterToolDatabaseInstruction: null,
+    chatroomOverrideWritingMasterMainPrompt: null,
+
+    chatroomOverrideCharacterUpdateMasterPage: null,
+    chatroomOverrideCharacterUpdateMasterEnabled: null,
+    chatroomOverrideCharacterUpdateMasterModelSelect: null,
+    chatroomOverrideCharacterUpdateMasterResponseSchemaJson: null,
+    chatroomOverrideCharacterUpdateMasterResponseSchemaParserJs: null,
+    chatroomOverrideCharacterUpdateMasterToolDatabaseInstruction: null,
+    chatroomOverrideCharacterUpdateMasterMainPrompt: null,
+
+    chatroomOverridePrivateAssistantPage: null,
+    chatroomOverridePrivateAssistantEnabled: null,
+    chatroomOverridePrivateAssistantModelSelect: null,
+    chatroomOverridePrivateAssistantResponseSchemaJson: null,
+    chatroomOverridePrivateAssistantResponseSchemaParserJs: null,
+    chatroomOverridePrivateAssistantToolDatabaseInstruction: null,
+    chatroomOverridePrivateAssistantMainPrompt: null,
+
 
     runPauseButton: null,
     roleButton: null,
@@ -189,6 +240,7 @@ const elementsModule = {
 
         this.apiKeyTextareaSettings = document.getElementById('api-key-textarea-settings');
         this.apiKeyFailureCountsDisplay = document.getElementById('api-key-failure-counts-display');
+        this.fetchModelsButton = document.getElementById('fetch-models-button');
 
         this.chatArea = document.getElementById('chat-area');
         this.chatContainer = document.getElementById('chat-container');
@@ -215,7 +267,7 @@ const elementsModule = {
         this.importPromptPresetsButton = document.getElementById('import-prompt-presets-button');
         this.importPromptPresetsFile = document.getElementById('import-prompt-presets-file');
 
-        this.referenceTextLengthSettings = document.getElementById('reference-text-length-settings');
+        this.originalNovelLengthSettings = document.getElementById('original-novel-length-settings');
         this.worldInfoDisplay = document.getElementById('world-info-display');
 
         this.roleListContainer = document.getElementById('role-list-container');
@@ -300,6 +352,57 @@ const elementsModule = {
 
         this.chatroomRolePage = document.getElementById('role-list-page');
         this.chatroomNovelPage = document.getElementById('story-mode-page');
+
+        this.chatroomOverrideConfigMenuPage = document.getElementById('chatroom-override-config-menu-page');
+        this.chatroomOverrideConfigMenuItems = document.querySelectorAll('#chatroom-override-config-menu .settings-menu-item');
+
+        this.chatroomOverrideGeneralPage = document.getElementById('chatroom-override-general-page');
+        this.chatroomOverrideGeneralEnabled = document.getElementById('chatroom-override-general-enabled');
+        this.chatroomOverrideGeneralModelSelect = document.getElementById('chatroom-override-general-model-select');
+        this.chatroomOverrideGeneralResponseSchemaJson = document.getElementById('chatroom-override-general-response-schema-json');
+        this.chatroomOverrideGeneralResponseSchemaParserJs = document.getElementById('chatroom-override-general-response-schema-parser-js');
+        this.chatroomOverrideGeneralSharedDatabaseInstruction = document.getElementById('chatroom-override-general-shared-database-instruction');
+        this.chatroomOverrideGeneralMainPrompt = document.getElementById('chatroom-override-general-main-prompt');
+
+        this.chatroomOverrideDrawingMasterPage = document.getElementById('chatroom-override-drawingMaster-page');
+        this.chatroomOverrideDrawingMasterEnabled = document.getElementById('chatroom-override-drawingMaster-enabled');
+        this.chatroomOverrideDrawingMasterModelSelect = document.getElementById('chatroom-override-drawingMaster-model-select');
+        this.chatroomOverrideDrawingMasterResponseSchemaJson = document.getElementById('chatroom-override-drawingMaster-response-schema-json');
+        this.chatroomOverrideDrawingMasterResponseSchemaParserJs = document.getElementById('chatroom-override-drawingMaster-response-schema-parser-js');
+        this.chatroomOverrideDrawingMasterToolDatabaseInstruction = document.getElementById('chatroom-override-drawingMaster-tool-database-instruction');
+        this.chatroomOverrideDrawingMasterMainPrompt = document.getElementById('chatroom-override-drawingMaster-main-prompt');
+
+        this.chatroomOverrideGameHostPage = document.getElementById('chatroom-override-gameHost-page');
+        this.chatroomOverrideGameHostEnabled = document.getElementById('chatroom-override-gameHost-enabled');
+        this.chatroomOverrideGameHostModelSelect = document.getElementById('chatroom-override-gameHost-model-select');
+        this.chatroomOverrideGameHostResponseSchemaJson = document.getElementById('chatroom-override-gameHost-response-schema-json');
+        this.chatroomOverrideGameHostResponseSchemaParserJs = document.getElementById('chatroom-override-gameHost-response-schema-parser-js');
+        this.chatroomOverrideGameHostToolDatabaseInstruction = document.getElementById('chatroom-override-gameHost-tool-database-instruction');
+        this.chatroomOverrideGameHostMainPrompt = document.getElementById('chatroom-override-gameHost-main-prompt');
+
+        this.chatroomOverrideWritingMasterPage = document.getElementById('chatroom-override-writingMaster-page');
+        this.chatroomOverrideWritingMasterEnabled = document.getElementById('chatroom-override-writingMaster-enabled');
+        this.chatroomOverrideWritingMasterModelSelect = document.getElementById('chatroom-override-writingMaster-model-select');
+        this.chatroomOverrideWritingMasterResponseSchemaJson = document.getElementById('chatroom-override-writingMaster-response-schema-json');
+        this.chatroomOverrideWritingMasterResponseSchemaParserJs = document.getElementById('chatroom-override-writingMaster-response-schema-parser-js');
+        this.chatroomOverrideWritingMasterToolDatabaseInstruction = document.getElementById('chatroom-override-writingMaster-tool-database-instruction');
+        this.chatroomOverrideWritingMasterMainPrompt = document.getElementById('chatroom-override-writingMaster-main-prompt');
+
+        this.chatroomOverrideCharacterUpdateMasterPage = document.getElementById('chatroom-override-characterUpdateMaster-page');
+        this.chatroomOverrideCharacterUpdateMasterEnabled = document.getElementById('chatroom-override-characterUpdateMaster-enabled');
+        this.chatroomOverrideCharacterUpdateMasterModelSelect = document.getElementById('chatroom-override-characterUpdateMaster-model-select');
+        this.chatroomOverrideCharacterUpdateMasterResponseSchemaJson = document.getElementById('chatroom-override-characterUpdateMaster-response-schema-json');
+        this.chatroomOverrideCharacterUpdateMasterResponseSchemaParserJs = document.getElementById('chatroom-override-characterUpdateMaster-response-schema-parser-js');
+        this.chatroomOverrideCharacterUpdateMasterToolDatabaseInstruction = document.getElementById('chatroom-override-characterUpdateMaster-tool-database-instruction');
+        this.chatroomOverrideCharacterUpdateMasterMainPrompt = document.getElementById('chatroom-override-characterUpdateMaster-main-prompt');
+
+        this.chatroomOverridePrivateAssistantPage = document.getElementById('chatroom-override-privateAssistant-page');
+        this.chatroomOverridePrivateAssistantEnabled = document.getElementById('chatroom-override-privateAssistant-enabled');
+        this.chatroomOverridePrivateAssistantModelSelect = document.getElementById('chatroom-override-privateAssistant-model-select');
+        this.chatroomOverridePrivateAssistantResponseSchemaJson = document.getElementById('chatroom-override-privateAssistant-response-schema-json');
+        this.chatroomOverridePrivateAssistantResponseSchemaParserJs = document.getElementById('chatroom-override-privateAssistant-response-schema-parser-js');
+        this.chatroomOverridePrivateAssistantToolDatabaseInstruction = document.getElementById('chatroom-override-privateAssistant-tool-database-instruction');
+        this.chatroomOverridePrivateAssistantMainPrompt = document.getElementById('chatroom-override-privateAssistant-main-prompt');
 
 
         this.runPauseButton = document.getElementById('run-pause-button');

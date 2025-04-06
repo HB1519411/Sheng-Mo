@@ -27,16 +27,17 @@ const uiSettingsModule = {
 
 
         let requiresChatroomData = [
-            'role-list-page', 'story-mode-page', 'current-chatroom-settings-page', 'chat-room-detail-page'
+            'role-list-page', 'story-mode-page', 'current-chatroom-settings-page', 'chat-room-detail-page',
+            'chatroom-override-config-menu-page', 'chatroom-override-general-page', 'chatroom-override-drawingMaster-page',
+            'chatroom-override-gameHost-page', 'chatroom-override-writingMaster-page', 'chatroom-override-characterUpdateMaster-page',
+            'chatroom-override-privateAssistant-page'
         ].includes(sectionId);
 
         let needsRefresh = false;
         if (requiresChatroomData && !stateModule.currentChatroomDetails && stateModule.config.activeChatRoomName) {
-             _logAndDisplayError("Chatroom details not loaded, attempting to fetch...", "showSection");
              await apiModule.fetchChatroomDetails(stateModule.config.activeChatRoomName);
              needsRefresh = true;
         } else if (requiresChatroomData && stateModule.currentChatroomDetails && stateModule.config.activeChatRoomName !== stateModule.currentChatroomDetails.config.name) {
-             _logAndDisplayError("Active chatroom name mismatch, fetching details...", "showSection");
              await apiModule.fetchChatroomDetails(stateModule.config.activeChatRoomName);
              needsRefresh = true;
         }
@@ -75,13 +76,13 @@ const uiSettingsModule = {
             uiSettingsModule.loadRoleplayRulesSetting();
             uiSettingsModule.loadPublicInfoSetting();
         } else if (sectionId === 'general-config-page') {
-            uiSettingsModule.loadReferenceTextLengthSetting();
+            uiSettingsModule.loadOriginalNovelLengthSetting();
             uiSettingsModule.loadChatroomModelSetting();
             uiSettingsModule.loadSettingValue('responseSchemaJson');
             uiSettingsModule.loadSettingValue('responseSchemaParserJs');
             uiSettingsModule.loadSettingValue('sharedDatabaseInstruction');
             uiSettingsModule.loadChatroomMainPromptSetting();
-        } else if (sectionId.endsWith('-master-page')) {
+        } else if (sectionId.endsWith('-master-page') && !sectionId.startsWith('chatroom-override-')) {
             const toolName = sectionId.replace('-page', '');
             const camelCaseToolName = toolName.replace(/-(\w)/g, (match, p1) => p1.toUpperCase());
             uiSettingsModule.loadGodSettings(camelCaseToolName);
@@ -94,6 +95,14 @@ const uiSettingsModule = {
         } else if (sectionId === 'prompt-preset-page') {
             uiSettingsModule.loadPromptPresetSettings();
             uiSettingsModule.renderPromptPresetsList();
+        } else if (sectionId === 'chatroom-override-general-page') {
+            uiSettingsModule.loadChatroomOverrideGeneralSettings();
+        } else if (sectionId.startsWith('chatroom-override-') && sectionId.endsWith('-page')) {
+            const match = sectionId.match(/^chatroom-override-(.+)-page$/);
+            if (match && match[1]) {
+                const toolName = match[1];
+                uiSettingsModule.loadChatroomOverrideToolSettings(toolName);
+            }
         }
     },
 
@@ -137,7 +146,6 @@ const uiSettingsModule = {
     saveApiKeysSetting: () => {
         const keys = elementsModule.apiKeyTextareaSettings.value.trim().split('\n').map(key => key.trim()).filter(key => key);
         apiKeyManager.setApiKeys(keys);
-        apiModule.fetchModels();
         uiSettingsModule.updateApiKeyFailureCountsDisplay();
     },
 
@@ -176,8 +184,8 @@ const uiSettingsModule = {
         const element = elementsModule[`${settingKey}${elementIdSuffix}`];
 
         if (element) {
-            if (settingKey === 'referenceTextLength') {
-                 element.value = stateModule.config.referenceTextLength || defaultConfig.referenceTextLength;
+            if (settingKey === 'originalNovelLength') {
+                 element.value = stateModule.config.originalNovelLength || defaultConfig.originalNovelLength;
              } else if (['responseSchemaJson', 'responseSchemaParserJs', 'sharedDatabaseInstruction', 'mainPrompt'].includes(settingKey)) {
                  element.value = stateModule.config[settingKey] || '';
              } else if (settingKey === 'novelaiApiKey') {
@@ -193,8 +201,20 @@ const uiSettingsModule = {
         roleItem.className = 'role-item';
         roleItem.dataset.roleName = roleName;
 
+        const isPermanent = !isTemporary && roleName !== "管理员";
+        if (isPermanent) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'role-visibility-checkbox';
+            checkbox.dataset.roleName = roleName;
+            const chatroomDetails = stateModule.currentChatroomDetails;
+            checkbox.checked = chatroomDetails?.config?.roleVisibility?.[roleName] ?? true;
+            roleItem.appendChild(checkbox);
+        }
+
         const nameSpan = document.createElement('span');
         nameSpan.textContent = roleName + (isTemporary ? " (临时)" : "");
+        nameSpan.style.marginLeft = isPermanent ? '8px' : '0';
         nameSpan.addEventListener('click', () => {
             uiSettingsModule.showRoleDetailPage(roleName);
         });
@@ -446,7 +466,6 @@ const uiSettingsModule = {
             if (typeof uiChatModule !== 'undefined') {
                  uiChatModule.updateRoleButtonsList();
                  if (stateModule.config.activeChatRoomName === chatroomDetails.config.name) {
-                     uiChatModule.loadChatHistory(chatroomDetails.config.name);
                  }
             }
             updateChatContextCache();
@@ -502,24 +521,24 @@ const uiSettingsModule = {
         }
     },
 
-    loadReferenceTextLengthSetting: () => {
-        if (elementsModule.referenceTextLengthSettings) {
-            elementsModule.referenceTextLengthSettings.value = stateModule.config.referenceTextLength || defaultConfig.referenceTextLength;
+    loadOriginalNovelLengthSetting: () => {
+        if (elementsModule.originalNovelLengthSettings) {
+            elementsModule.originalNovelLengthSettings.value = stateModule.config.originalNovelLength || defaultConfig.originalNovelLength;
         }
     },
 
-    saveReferenceTextLengthSetting: () => {
-        if (elementsModule.referenceTextLengthSettings) {
-             const value = parseInt(elementsModule.referenceTextLengthSettings.value);
+    saveOriginalNovelLengthSetting: () => {
+        if (elementsModule.originalNovelLengthSettings) {
+             const value = parseInt(elementsModule.originalNovelLengthSettings.value);
              if (!isNaN(value) && value > 0) {
-                 stateModule.config.referenceTextLength = value;
+                 stateModule.config.originalNovelLength = value;
                  if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
                     mainModule.triggerDebouncedSave();
                  }
              } else {
-                 stateModule.config.referenceTextLength = defaultConfig.referenceTextLength;
-                 elementsModule.referenceTextLengthSettings.value = stateModule.config.referenceTextLength;
-                 _logAndDisplayError("Please enter a valid positive integer for character count. Reset to default.", "saveReferenceTextLengthSetting");
+                 stateModule.config.originalNovelLength = defaultConfig.originalNovelLength;
+                 elementsModule.originalNovelLengthSettings.value = stateModule.config.originalNovelLength;
+                 _logAndDisplayError("Please enter a valid positive integer for character count. Reset to default.", "saveOriginalNovelLengthSetting");
              }
         }
     },
@@ -864,12 +883,17 @@ const uiSettingsModule = {
         settings.forEach(type => {
             const camelCaseType = type.charAt(0).toUpperCase() + type.slice(1);
             let elementIdSuffix = 'Settings';
+            let elId;
             if (type === 'toolDatabaseInstruction') {
                  elementIdSuffix = 'ToolDatabaseInstructionSettings';
+                 elId = `${godName}${elementIdSuffix}`;
+            } else if (type === 'model') {
+                 elementIdSuffix = 'ModelSettings';
+                 elId = `${godName}${elementIdSuffix}`;
             } else {
                  elementIdSuffix = `${camelCaseType}Settings`;
+                 elId = `${godName}${elementIdSuffix}`;
             }
-            const elId = `${godName}${elementIdSuffix}`;
             const el = elementsModule[elId];
 
             if (el) {
@@ -877,7 +901,13 @@ const uiSettingsModule = {
                 if (el.type === 'checkbox') {
                     el.checked = val ?? false;
                 } else if (el.tagName === 'SELECT') {
-                     el.value = val || '';
+                    el.value = val || '';
+                    if (!val && el.options.length > 0 && el.options[0].disabled) {
+
+                    } else if (val && !el.querySelector(`option[value="${val}"]`)) {
+                         const tempOption = new Option(`${val} (Saved)`, val, true, true);
+                         el.add(tempOption, 0);
+                    }
                 } else {
                     el.value = val || '';
                 }
@@ -896,6 +926,8 @@ const uiSettingsModule = {
              let elementIdSuffix = 'Settings';
              if (type === 'toolDatabaseInstruction') {
                   elementIdSuffix = 'ToolDatabaseInstructionSettings';
+             } else if (type === 'model') {
+                  elementIdSuffix = 'ModelSettings';
              } else {
                   elementIdSuffix = `${camelCaseType}Settings`;
              }
@@ -938,7 +970,7 @@ const uiSettingsModule = {
              if (!response.ok) {
                  throw new Error(result.error || `HTTP error! status: ${response.status}`);
              }
-             alert("所有配置已清除！应用程序将重新加载。");
+
 
              location.reload();
          } catch (error) {
@@ -1508,13 +1540,18 @@ const uiSettingsModule = {
              return;
         }
 
+        const currentTocIndex = stateModule.currentTocIndexByNovel[novelId];
         const fragment = document.createDocumentFragment();
+
         novelData.toc.forEach((tocItem, index) => {
             if (tocItem && tocItem.segmentId !== undefined && tocItem.title !== undefined) {
                 const tocElement = document.createElement('div');
                 tocElement.className = 'novel-toc-item';
                 tocElement.textContent = tocItem.title.replace(/</g, "<").replace(/>/g, ">");
                 tocElement.dataset.targetSegmentId = tocItem.segmentId;
+                if (index === currentTocIndex) {
+                    tocElement.classList.add('current-chapter');
+                }
                 tocElement.addEventListener('click', uiSettingsModule.novelUI_handleTocJump);
                 fragment.appendChild(tocElement);
             }
@@ -1522,7 +1559,6 @@ const uiSettingsModule = {
 
         container.appendChild(fragment);
 
-         const currentTocIndex = stateModule.currentTocIndexByNovel[novelId];
          if (currentTocIndex !== undefined && currentTocIndex !== null && novelData.toc[currentTocIndex]) {
               const targetSegmentId = novelData.toc[currentTocIndex].segmentId;
               if (targetSegmentId !== undefined) {
@@ -1960,16 +1996,29 @@ const uiSettingsModule = {
     loadChatroomModelSetting: () => {
          const selectElement = elementsModule.chatroomModelSelectSettings;
          if (selectElement) {
-             selectElement.value = stateModule.config.model || '';
+             const savedValue = stateModule.config.model || '';
+             selectElement.value = savedValue;
+             if (!savedValue && selectElement.options.length > 0 && selectElement.options[0].disabled) {
+
+             } else if (savedValue && !selectElement.querySelector(`option[value="${savedValue}"]`)) {
+                  const tempOption = new Option(`${savedValue} (Saved)`, savedValue, true, true);
+                  selectElement.add(tempOption, 0);
+             }
          }
     },
 
     saveChatroomModelSetting: () => {
          const selectElement = elementsModule.chatroomModelSelectSettings;
          if (selectElement) {
-              stateModule.config.model = selectElement.value;
+              const selectedValue = selectElement.value;
+              stateModule.config.model = selectedValue;
               if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
                   mainModule.triggerDebouncedSave();
+              }
+
+              const tempOption = selectElement.querySelector(`option[value="${selectedValue}"]`);
+              if (tempOption && tempOption.text.includes('(Saved)')) {
+                   tempOption.text = selectedValue;
               }
          }
     },
@@ -2004,9 +2053,15 @@ const uiSettingsModule = {
     saveToolModelSetting: (toolName) => {
         const selectElement = elementsModule[`${toolName}ModelSettings`];
         if (selectElement && stateModule.config.toolSettings[toolName]) {
-             stateModule.config.toolSettings[toolName].model = selectElement.value;
+             const selectedValue = selectElement.value;
+             stateModule.config.toolSettings[toolName].model = selectedValue;
              if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
                   mainModule.triggerDebouncedSave();
+             }
+
+             const tempOption = selectElement.querySelector(`option[value="${selectedValue}"]`);
+             if (tempOption && tempOption.text.includes('(Saved)')) {
+                  tempOption.text = selectedValue;
              }
         }
     },
@@ -2021,4 +2076,154 @@ const uiSettingsModule = {
          }
     },
 
+    _toggleOverrideSectionInputs: (sectionType, enabled) => {
+        const keys = ['ModelSelect', 'ResponseSchemaJson', 'ResponseSchemaParserJs', 'MainPrompt'];
+        let dbInstructionKey;
+        if(sectionType === 'general') {
+            dbInstructionKey = 'SharedDatabaseInstruction';
+        } else {
+            dbInstructionKey = 'ToolDatabaseInstruction';
+        }
+        keys.push(dbInstructionKey);
+
+        keys.forEach(keySuffix => {
+            const elementId = `chatroomOverride${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)}${keySuffix}`;
+            const element = elementsModule[elementId];
+            if (element) {
+                element.disabled = !enabled;
+                element.style.opacity = enabled ? 1 : 0.5;
+            }
+        });
+    },
+
+    loadChatroomOverrideGeneralSettings: () => {
+        const details = stateModule.currentChatroomDetails;
+        if (!details || !details.config || !details.config.overrideSettings || !details.config.overrideSettings.general) {
+             return;
+        }
+        const settings = details.config.overrideSettings.general;
+        const enabledCheckbox = elementsModule.chatroomOverrideGeneralEnabled;
+        const modelSelect = elementsModule.chatroomOverrideGeneralModelSelect;
+        const schemaJson = elementsModule.chatroomOverrideGeneralResponseSchemaJson;
+        const schemaParser = elementsModule.chatroomOverrideGeneralResponseSchemaParserJs;
+        const sharedDb = elementsModule.chatroomOverrideGeneralSharedDatabaseInstruction;
+        const mainPrompt = elementsModule.chatroomOverrideGeneralMainPrompt;
+
+        enabledCheckbox.checked = settings.enabled || false;
+        const savedValue = settings.model || '';
+        modelSelect.value = savedValue;
+         if (!savedValue && modelSelect.options.length > 0 && modelSelect.options[0].disabled) {
+
+         } else if (savedValue && !modelSelect.querySelector(`option[value="${savedValue}"]`)) {
+              const tempOption = new Option(`${savedValue} (Saved)`, savedValue, true, true);
+              modelSelect.add(tempOption, 0);
+         }
+        schemaJson.value = settings.responseSchemaJson || '';
+        schemaParser.value = settings.responseSchemaParserJs || '';
+        sharedDb.value = settings.sharedDatabaseInstruction || '';
+        mainPrompt.value = settings.mainPrompt || '';
+
+        uiSettingsModule._toggleOverrideSectionInputs('general', enabledCheckbox.checked);
+    },
+
+    loadChatroomOverrideToolSettings: (toolName) => {
+        const details = stateModule.currentChatroomDetails;
+        if (!details || !details.config || !details.config.overrideSettings || !details.config.overrideSettings[toolName]) {
+             return;
+        }
+        const settings = details.config.overrideSettings[toolName];
+        const toolNameCapitalized = toolName.charAt(0).toUpperCase() + toolName.slice(1);
+
+        const enabledCheckbox = elementsModule[`chatroomOverride${toolNameCapitalized}Enabled`];
+        const modelSelect = elementsModule[`chatroomOverride${toolNameCapitalized}ModelSelect`];
+        const schemaJson = elementsModule[`chatroomOverride${toolNameCapitalized}ResponseSchemaJson`];
+        const schemaParser = elementsModule[`chatroomOverride${toolNameCapitalized}ResponseSchemaParserJs`];
+        const toolDb = elementsModule[`chatroomOverride${toolNameCapitalized}ToolDatabaseInstruction`];
+        const mainPrompt = elementsModule[`chatroomOverride${toolNameCapitalized}MainPrompt`];
+
+        if(enabledCheckbox) enabledCheckbox.checked = settings.enabled || false;
+        if(modelSelect) {
+             const savedValue = settings.model || '';
+             modelSelect.value = savedValue;
+             if (!savedValue && modelSelect.options.length > 0 && modelSelect.options[0].disabled) {
+
+             } else if (savedValue && !modelSelect.querySelector(`option[value="${savedValue}"]`)) {
+                  const tempOption = new Option(`${savedValue} (Saved)`, savedValue, true, true);
+                  modelSelect.add(tempOption, 0);
+             }
+        }
+        if(schemaJson) schemaJson.value = settings.responseSchemaJson || '';
+        if(schemaParser) schemaParser.value = settings.responseSchemaParserJs || '';
+        if(toolDb) toolDb.value = settings.toolDatabaseInstruction || '';
+        if(mainPrompt) mainPrompt.value = settings.mainPrompt || '';
+
+        if(enabledCheckbox) uiSettingsModule._toggleOverrideSectionInputs(toolName, enabledCheckbox.checked);
+    },
+
+    saveChatroomOverrideEnabled: (sectionType) => {
+        const details = stateModule.currentChatroomDetails;
+        if (!details || !details.config || !details.config.overrideSettings || !details.config.overrideSettings[sectionType]) {
+             return;
+        }
+        const enabledCheckbox = elementsModule[`chatroomOverride${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)}Enabled`];
+        if (!enabledCheckbox) return;
+
+        const isEnabled = enabledCheckbox.checked;
+        details.config.overrideSettings[sectionType].enabled = isEnabled;
+        uiSettingsModule._toggleOverrideSectionInputs(sectionType, isEnabled);
+
+        apiModule.triggerDebouncedChatroomConfigSave(details.config.name);
+    },
+
+    saveChatroomOverrideSetting: (sectionType, key) => {
+        const details = stateModule.currentChatroomDetails;
+        if (!details || !details.config || !details.config.overrideSettings || !details.config.overrideSettings[sectionType]) {
+             return;
+        }
+
+        let elementKey = key.charAt(0).toUpperCase() + key.slice(1);
+        if(key === 'sharedDatabaseInstruction' && sectionType === 'general') {
+             elementKey = 'SharedDatabaseInstruction';
+        } else if (key === 'toolDatabaseInstruction' && sectionType !== 'general') {
+             elementKey = 'ToolDatabaseInstruction';
+        } else if (key === 'model') {
+             elementKey = 'ModelSelect';
+        } else if (key === 'responseSchemaJson') {
+             elementKey = 'ResponseSchemaJson';
+        } else if (key === 'responseSchemaParserJs') {
+             elementKey = 'ResponseSchemaParserJs';
+        } else if (key === 'mainPrompt') {
+             elementKey = 'MainPrompt';
+        } else {
+
+             return;
+        }
+
+        const element = elementsModule[`chatroomOverride${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)}${elementKey}`];
+        if (element) {
+             let value = element.value;
+             if (element.tagName === 'SELECT') {
+                  value = element.value;
+
+                   const tempOption = element.querySelector(`option[value="${value}"]`);
+                   if (tempOption && tempOption.text.includes('(Saved)')) {
+                        tempOption.text = value;
+                   }
+             }
+
+             details.config.overrideSettings[sectionType][key] = value;
+             apiModule.triggerDebouncedChatroomConfigSave(details.config.name);
+        }
+    },
+    handleRoleVisibilityChange: (roleName, isVisible) => {
+         const chatroomDetails = stateModule.currentChatroomDetails;
+         if (!chatroomDetails || !chatroomDetails.config || !chatroomDetails.config.roleVisibility) {
+             return;
+         }
+         chatroomDetails.config.roleVisibility[roleName] = isVisible;
+         apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
+         if (typeof uiChatModule !== 'undefined') {
+             uiChatModule.updateRoleButtonsList();
+         }
+     },
 };

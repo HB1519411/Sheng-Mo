@@ -1,23 +1,32 @@
 const uiChatModule = {
-
     ROLE_STATE_DEFAULT: '默',
     ROLE_STATE_ACTIVE: '活',
     ROLE_STATE_USER_CONTROL: '用',
     ROLE_STATE_UPDATE: '更',
     CHARACTER_SETTINGS_SEPARATOR: '\n--- CHARACTER_SETTINGS_START ---\n',
-
     _generateMessageId: () => {
         return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     },
-
     _parseAIResponse: (textContentString, roleName, roleType) => {
         let parserJsCode = '';
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        let sectionType = (roleType === 'role' || roleType === 'temporary_role') ? 'general' : roleName;
+        let useOverrideParser = false;
 
+        if (chatroomDetails && chatroomDetails.config && chatroomDetails.config.overrideSettings && chatroomDetails.config.overrideSettings[sectionType]) {
+            const overrideSection = chatroomDetails.config.overrideSettings[sectionType];
+            if (overrideSection.enabled && overrideSection.responseSchemaParserJs && overrideSection.responseSchemaParserJs.trim() !== '') {
+                parserJsCode = overrideSection.responseSchemaParserJs;
+                useOverrideParser = true;
+            }
+        }
 
-        if (roleType === 'tool') {
-            parserJsCode = stateModule.config.toolSettings[roleName]?.responseSchemaParserJs || '';
-        } else if (roleType === 'role' || roleType === 'temporary_role') {
-            parserJsCode = stateModule.config.responseSchemaParserJs || '';
+        if (!useOverrideParser) {
+            if (roleType === 'tool' && stateModule.config.toolSettings[roleName]) {
+                parserJsCode = stateModule.config.toolSettings[roleName].responseSchemaParserJs || '';
+            } else if (roleType === 'role' || roleType === 'temporary_role') {
+                parserJsCode = stateModule.config.responseSchemaParserJs || '';
+            }
         }
 
         let parsedResult = null;
@@ -26,188 +35,86 @@ const uiChatModule = {
         if (typeof textContentString !== 'string' || textContentString.trim() === '') {
             return { parsedResult: null, parserError: "No valid text content", rawText: textContentString };
         }
-
         try {
             dataToParse = JSON.parse(textContentString);
         } catch (e) {
             return { parsedResult: null, parserError: `Failed to parse JSON: ${e.message}`, rawText: textContentString };
         }
-
         if (!dataToParse) {
              return { parsedResult: null, parserError: "Empty after JSON parse", rawText: textContentString };
         }
-
         if (parserJsCode) {
             try {
-
                 const responseJsonMock = { candidates: [{ content: { parts: [dataToParse] } }] };
                 const parserFunction = new Function('responseJson', parserJsCode);
                 parsedResult = parserFunction(responseJsonMock);
                 if (parsedResult && typeof parsedResult === 'object' && parsedResult.error) {
                     parserError = parsedResult.error;
-
-                    if (roleType !== 'tool' || (roleName !== 'gameHost' && roleName !== 'drawingMaster' && roleName !== 'characterUpdateMaster' && roleName !== 'privateAssistant')) {
-                       parsedResult = { turnActions: [{ type: 'action', content: textContentString }] };
-                    } else {
-                       parsedResult = null;
-                    }
+                    parsedResult = null;
                 } else if (parsedResult === null || parsedResult === undefined) {
                     parserError = 'Parser returned null/undefined';
-                    if (roleType !== 'tool' || (roleName !== 'gameHost' && roleName !== 'drawingMaster' && roleName !== 'characterUpdateMaster' && roleName !== 'privateAssistant')) {
-                       parsedResult = { turnActions: [{ type: 'action', content: textContentString }] };
-                    } else {
-                       parsedResult = null;
-                    }
+                    parsedResult = null;
                 }
             } catch (e) {
                  parserError = `Error executing parser: ${e.message}`;
-                 if (roleType !== 'tool' || (roleName !== 'gameHost' && roleName !== 'drawingMaster' && roleName !== 'characterUpdateMaster' && roleName !== 'privateAssistant')) {
-                     parsedResult = { turnActions: [{ type: 'action', content: textContentString }] };
-                 } else {
-                     parsedResult = null;
-                 }
+                 parsedResult = null;
             }
         } else {
-             if (roleType === 'role' || roleType === 'temporary_role') {
-                  parsedResult = { turnActions: [{ type: 'action', content: textContentString }] };
-                  parserError = 'Parser not defined for role/temporary_role';
-             } else if (roleType === 'tool' && (roleName === 'gameHost' || roleName === 'drawingMaster' || roleName === 'characterUpdateMaster' || roleName === 'privateAssistant')) {
-                  parsedResult = dataToParse;
-                  parserError = null;
-             }
-             else {
-                 parsedResult = textContentString;
-                 parserError = `Parser not defined for tool ${toolNameMap[roleName] || roleName}`;
-             }
+             parsedResult = dataToParse;
+             parserError = `Parser not defined for ${roleName}`;
         }
 
+        if (parserError && parsedResult === null && (roleType === 'role' || roleType === 'temporary_role')) {
+             parsedResult = { formattedText: textContentString, nextRoleToAct: null };
+        } else if (parserError && parsedResult === null) {
+        }
         return { parsedResult, parserError, rawText: textContentString };
     },
-
      _formatCharacterUpdateMasterDisplay: (parsedResult) => {
         if (!parsedResult || typeof parsedResult !== 'object') {
             return "[无法格式化角色更新：无效的解析结果]";
         }
-
-        let memoryString = `--- 更新后记忆 (${parsedResult.updatedCharacterMemory?.characterName || '未知角色'}) ---\n`;
-        if (Array.isArray(parsedResult.updatedCharacterMemory?.memoryEntries)) {
-            parsedResult.updatedCharacterMemory.memoryEntries.forEach(entry => {
-                memoryString += `${entry.contextOrDate || '未知时间'}: ${entry.description || '无描述'}\n`;
-            });
-        } else {
-            memoryString += "[无记忆条目]\n";
-        }
-
-        let settingString = `--- 更新后设定 (${parsedResult.updatedCharacterSettings?.characterName || '未知角色'} @ ${parsedResult.updatedCharacterSettings?.updateTime || '未知时间'}) ---\n`;
-        const settings = parsedResult.updatedCharacterSettings;
-        if (settings && typeof settings === 'object') {
-             settingString += `角色名称: ${settings.characterName || '未提供'}\n`;
-             settingString += `更新时间: ${settings.updateTime || '未提供'}\n`;
-
-            if (settings.baseInfo) {
-                settingString += "[基本信息]\n";
-                settingString += `  性别: ${settings.baseInfo.gender || '未提供'}\n`;
-                settingString += `  身份: ${settings.baseInfo.identity || '未提供'}\n`;
-                settingString += `  年龄: ${settings.baseInfo.age || '未提供'}\n`;
-                if (settings.baseInfo.extra) settingString += `  补充: ${settings.baseInfo.extra}\n`;
-            }
-            if (settings.present) {
-                settingString += "[当前特征]\n";
-                if (Array.isArray(settings.present.personality)) {
-                    settingString += "  性格特点:\n";
-                    settings.present.personality.forEach(p => {
-                        const examples = p.examples || {};
-                        settingString += `    - ${p.traitName || '未知特点'}: ${examples.dialogue || ''} / ${examples.action || ''} / ${examples.choice || ''}\n`;
-                    });
-                }
-                if (Array.isArray(settings.present.physicalFeatures)) {
-                    settingString += "  外貌特征:\n";
-                    settings.present.physicalFeatures.forEach(f => settingString += `    - ${f}\n`);
-                }
-            }
-            if (Array.isArray(settings.socialConnections)) {
-                settingString += "[社交关系]\n";
-                settings.socialConnections.forEach(c => {
-                    settingString += `  - ${c.name || '未知名称'}:\n`;
-                    settingString += `    关系/看法: ${c.relationship || '未提供'}\n`;
-                    settingString += `    了解信息: ${c.fullUnderstanding || '未提供'}\n`;
-                });
-            }
-            if (settings.supplementaryInfo) {
-                settingString += "[补充信息]\n";
-                settingString += `  ${settings.supplementaryInfo}\n`;
-            }
-        } else {
-            settingString += "[无设定信息]\n";
-        }
-
-        return memoryString.trim() + uiChatModule.CHARACTER_SETTINGS_SEPARATOR + settingString.trim();
+        return parsedResult.formattedUpdate || "[角色更新：缺少 formattedUpdate 字段]";
      },
-
      _getFormattedDisplayText: (parsedResult, roleType, roleName, parserError) => {
-        if (roleName === 'privateAssistant') {
-            if (parsedResult && typeof parsedResult.responseContent === 'string') {
-                return `私人助理：\n${parsedResult.responseContent}`;
-            } else if (parserError) {
-                return `[私人助理错误: ${parserError}]`;
-            } else {
-                 return "[私人助理: 未知错误或无效结果]";
-            }
-        }
-
         if (parserError && !parsedResult) {
             return `[${roleName} 解析错误: ${parserError}]`;
         }
         if (!parsedResult) {
              return "[无法格式化: 无解析结果]";
         }
-
         if (roleType === 'role' || roleType === 'temporary_role') {
-            if (!parsedResult.turnActions || !Array.isArray(parsedResult.turnActions)) {
-                 return parsedResult.text || (typeof parsedResult === 'string' ? parsedResult : "[角色/临时角色: 无有效动作]");
-            }
-            return parsedResult.turnActions.map(action => {
-                if (action.type === 'speech') {
-                    return `“${action.content || ''}”`;
-                } else if (action.type === 'action') {
-                    return action.content || '';
-                }
-                return action.content || '';
-            }).join('\n');
+             return parsedResult.formattedText || (typeof parsedResult === 'string' ? parsedResult : "[角色/临时角色: 无有效文本]");
         } else if (roleType === 'tool') {
             if (roleName === 'writingMaster') {
                  return parsedResult.description || (typeof parsedResult === 'string' ? parsedResult : "[写作大师: 无描述]");
             } else if (roleName === 'gameHost') {
-
-                return '';
+                 return '';
             } else if (roleName === 'drawingMaster') {
                  return "[图片绘制]";
             } else if (roleName === 'characterUpdateMaster') {
-                 return uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-            }
-            else {
-                return parsedResult.text || (typeof parsedResult === 'string' ? parsedResult : JSON.stringify(parsedResult)) || `[未知工具: ${roleName}]`;
+                 return parsedResult.formattedUpdate || "[角色更新: 无格式化文本]";
+            } else if (roleName === 'privateAssistant') {
+                 return parsedResult.responseContent || "[私人助理: 无响应内容]";
+            } else {
+                return parsedResult.text || (typeof parsedResult === 'string' ? JSON.stringify(parsedResult) : JSON.stringify(parsedResult)) || `[未知工具: ${roleName}]`;
             }
         } else {
             return "[未知角色类型]";
         }
     },
-
     _appendMessageAndScroll: (messageObject) => {
         const messageElement = uiChatModule.displayChatMessageElement(messageObject);
         if (!messageElement) {
             _logAndDisplayError("Failed to create message element from object: " + JSON.stringify(messageObject), '_appendMessageAndScroll');
             return null;
         }
-
         elementsModule.chatArea.appendChild(messageElement);
         updateChatContextCache();
         return messageElement;
     },
-
     _handlePostResponseActions: async (messageContainer, roleName, roleType, parsedResult, parserError, targetRoleName = null) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
-
         if (roleName === 'gameHost') {
             if (messageContainer) {
                 const messageId = messageContainer.dataset.messageId;
@@ -216,37 +123,58 @@ const uiChatModule = {
                      uiChatModule._renderGameHostContent(messageContainer, messageObject.activeView || 'time');
                 }
             }
-
             if (!parserError && parsedResult && chatroomDetails) {
-                const updatedCharName = parsedResult.updatedCharacterInfo?.characterName;
-                if (updatedCharName) {
-                    const formattedDetailedState = _formatObjectToCustomString(parsedResult.updatedCharacterInfo || {});
-                    if (!chatroomDetails.config.roleDetailedStates) chatroomDetails.config.roleDetailedStates = {};
-                    chatroomDetails.config.roleDetailedStates[updatedCharName] = formattedDetailedState;
-                    apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
+                 const updatedCharName = parsedResult.processedCharacterInfo?.characterName;
+                 if (updatedCharName) {
+                     const charInfo = parsedResult.processedCharacterInfo;
 
+                     const formatItemsToText = (items) => Array.isArray(items) ? items.join(', ') : (items || '无');
+                     let charDetailText = '';
+                     charDetailText += `Demeanor: ${formatItemsToText(charInfo.demeanorItems)}\n`;
+                     charDetailText += `Outerwear: ${formatItemsToText(charInfo.outerwearItems)}\n`;
+                     charDetailText += `Underwear: ${formatItemsToText(charInfo.underwearItems)}\n`;
+                     charDetailText += `Accessories: ${formatItemsToText(charInfo.accessories)}\n`;
+                     charDetailText += `Short Status: ${formatItemsToText(charInfo.shortTermStatusItems)}\n`;
+                     charDetailText += `Long Status: ${formatItemsToText(charInfo.longTermStatusItems)}\n`;
+                     charDetailText += `Pose: ${formatItemsToText(charInfo.actionPoseItems)}\n`;
+                     charDetailText += `Action: ${formatItemsToText(charInfo.currentActionItems)}\n`;
+                     charDetailText += `Other Status: ${formatItemsToText(charInfo.otherCharacterStatusItems)}`;
+
+                     if (!chatroomDetails.config.roleDetailedStates) chatroomDetails.config.roleDetailedStates = {};
+                     chatroomDetails.config.roleDetailedStates[updatedCharName] = `${updatedCharName}：\n${charDetailText.trim()}`;
+                     apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
                     const roleData = chatroomDetails.roles.find(r => r.name === updatedCharName);
                     const drawingTemplate = roleData?.drawingTemplate;
                     const drawingMasterEnabled = stateModule.config.toolSettings.drawingMaster?.enabled;
-
                     if (drawingTemplate && drawingTemplate.trim() !== '' && drawingMasterEnabled) {
-                        apiModule.triggerRoleResponse('drawingMaster');
+                         apiModule.triggerRoleResponse('drawingMaster');
                     }
                 }
-
                 const addRoles = parsedResult.addRoles || [];
                 const removeRoles = parsedResult.removeRoles || [];
-
                 if (Array.isArray(addRoles)) {
                      for (const nameToAdd of addRoles) {
                          try {
                              if (typeof nameToAdd !== 'string' || nameToAdd.trim() === '') continue;
                              const trimmedName = nameToAdd.trim();
                              if (trimmedName === "管理员") continue;
-
                              const roleStates = chatroomDetails.config.roleStates || {};
                              if (roleStates[trimmedName] !== undefined) {
                                  await uiChatModule.selectRoleState(trimmedName, uiChatModule.ROLE_STATE_ACTIVE);
+                             const isPermanent = chatroomDetails.roles.some(r => r.name === trimmedName);
+                             if (isPermanent) {
+                                 if (!chatroomDetails.config.roleVisibility) {
+                                     chatroomDetails.config.roleVisibility = {};
+                                 }
+                                 if (chatroomDetails.config.roleVisibility[trimmedName] !== true) {
+                                     chatroomDetails.config.roleVisibility[trimmedName] = true;
+                                     apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
+                                     uiChatModule.updateRoleButtonsList();
+                                     if (document.getElementById('role-list-page')?.classList.contains('active')) {
+                                         uiSettingsModule.updateChatroomRolePage();
+                                     }
+                                 }
+                             }
                              } else {
                                   const added = await uiChatModule.addTemporaryRole(trimmedName);
                                   if (added) {
@@ -259,14 +187,12 @@ const uiChatModule = {
                          }
                      }
                 }
-
                  if (Array.isArray(removeRoles)) {
                      for (const nameToRemove of removeRoles) {
                          try {
                              if (typeof nameToRemove !== 'string' || nameToRemove.trim() === '') continue;
                              const trimmedName = nameToRemove.trim();
                              if (trimmedName === "管理员") continue;
-
                              const roleStates = chatroomDetails.config.roleStates || {};
                              if (roleStates[trimmedName] !== undefined) {
                                  const isPermanent = chatroomDetails.roles.some(r => r.name === trimmedName);
@@ -281,18 +207,12 @@ const uiChatModule = {
                          }
                      }
                  }
-
             }
         } else if ((roleType === 'role' || roleType === 'temporary_role') && !parserError) {
-            let nextRoleToAct = null;
-            if (parsedResult && typeof parsedResult === 'object' && parsedResult.nextRoleToAct) {
-                 nextRoleToAct = parsedResult.nextRoleToAct;
-            }
-
+             let nextRoleToAct = parsedResult?.nextRoleToAct;
             if (stateModule.config.toolSettings.gameHost?.enabled) {
                  apiModule.triggerRoleResponse('gameHost');
             }
-
             if (nextRoleToAct && chatroomDetails && chatroomDetails.config.roleStates) {
                  const targetRoleState = chatroomDetails.config.roleStates[nextRoleToAct];
                  if (targetRoleState !== undefined) {
@@ -307,8 +227,8 @@ const uiChatModule = {
                      _logAndDisplayError(`Role ${roleName} specified next role ${nextRoleToAct}, but it was not found in the room's role states.`, '_handlePostResponseActions');
                  }
             }
-        } else if (roleName === 'drawingMaster' && parsedResult) {
-            const rawJsonText = messageContainer?.dataset?.rawJsonText || JSON.stringify(parsedResult);
+        } else if (roleName === 'drawingMaster' && parsedResult && !parserError) {
+            const rawJsonText = messageContainer?.dataset?.rawJsonText || JSON.stringify(parsedResult || {});
             try {
                  const naiPayload = await apiModule._prepareNovelAiPayload(parsedResult, rawJsonText);
                  if (naiPayload) {
@@ -319,60 +239,50 @@ const uiChatModule = {
                  _logAndDisplayError(`Error preparing or queuing NovelAI request: ${e.message}`, '_handlePostResponseActions');
             }
          } else if (roleName === 'characterUpdateMaster' && parsedResult && !parserError) {
-            const characterName = parsedResult.updatedCharacterMemory?.characterName || parsedResult.updatedCharacterSettings?.characterName;
-            if (!characterName) {
-                 _logAndDisplayError(`CharacterUpdateMaster failed to find target character name`, '_handlePostResponseActions');
-            }
-
+             const characterNameMatch = parsedResult.formattedUpdate?.match(/--- 更新后记忆 \((.*?)\) ---/);
+             const characterName = characterNameMatch ? characterNameMatch[1] : null;
+             if (characterName && chatroomDetails && chatroomDetails.config.roleDetailedStates) {
+             } else if (!characterName) {
+                  _logAndDisplayError(`CharacterUpdateMaster failed to find target character name in formattedUpdate`, '_handlePostResponseActions');
+             }
          }
-
         uiChatModule.updateChatroomHistoryDisplay();
         uiChatModule.triggerDebouncedHistorySave();
     },
-
     displayAIResponse: (responseData, roleName, targetRoleName = null) => {
-
         const timestamp = Date.now();
         let roleType = 'unknown';
         const chatroomDetails = stateModule.currentChatroomDetails;
-
         if (roleName && toolNameMap.hasOwnProperty(roleName)) {
             roleType = 'tool';
         } else if (chatroomDetails && roleName && chatroomDetails.config?.roleStates && (roleName in chatroomDetails.config.roleStates)) {
              const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
              roleType = isPermanent ? 'role' : 'temporary_role';
         }
-
         if (roleType === 'unknown') {
              _logAndDisplayError(`Could not determine role type for ${roleName} in displayAIResponse.`, 'displayAIResponse');
              return;
         }
-
 
         let messageObject;
         let messageContainer = null;
         let parsedResult = null;
         let parserError = null;
         let rawJson = responseData.text_content || '';
-
         if (responseData.error) {
             _logAndDisplayError(`Backend error for ${roleName}: ${responseData.error}`, 'displayAIResponse');
              return;
-
         } else if (roleName !== 'drawingMaster') {
             const msgId = uiChatModule._generateMessageId();
             const parseOutput = uiChatModule._parseAIResponse(rawJson, roleName, roleType);
             parsedResult = parseOutput.parsedResult;
             parserError = parseOutput.parserError;
 
-
             if (roleName === 'privateAssistant' && parserError) {
                  _logAndDisplayError(`Parser error for privateAssistant (will be retried): ${parserError}`, 'displayAIResponse');
                  return;
             }
-
             const formattedTextForHistory = uiChatModule._getFormattedDisplayText(parsedResult, roleType, roleName, parserError);
-
             messageObject = {
                 id: msgId,
                 timestamp: timestamp,
@@ -390,16 +300,12 @@ const uiChatModule = {
             stateModule.currentChatHistoryData.push(messageObject);
             messageContainer = uiChatModule._appendMessageAndScroll(messageObject);
         } else {
-
              const parseOutput = uiChatModule._parseAIResponse(rawJson, roleName, roleType);
              parsedResult = parseOutput.parsedResult;
              parserError = parseOutput.parserError;
-
              if (parserError && parsedResult === null) {
                  _logAndDisplayError(`Drawing Master response parsing error: ${parserError}`, 'displayAIResponse');
-
              }
-
              apiModule._prepareNovelAiPayload(parsedResult, rawJson).then(naiPayload => {
                  if (naiPayload) {
                      apiModule.addNaiRequestToQueue(naiPayload);
@@ -407,13 +313,10 @@ const uiChatModule = {
              }).catch(e => {
                   _logAndDisplayError(`Error preparing or queuing NovelAI request: ${e.message}`, 'displayAIResponse');
              });
-
              return;
         }
-
         uiChatModule._handlePostResponseActions(messageContainer, roleName, roleType, parsedResult, parserError, targetRoleName);
     },
-
     formatStateObjectToText: (stateObj) => {
         if (!stateObj || typeof stateObj !== 'object') return '[Invalid state object]';
         let text = '';
@@ -428,12 +331,10 @@ const uiChatModule = {
         }
         return text.trim() || '[Empty state object]';
     },
-
     _createRoleNameButtonElement: (roleName, sourceType, messageContainer) => {
         const roleNameButton = document.createElement('div');
         roleNameButton.className = 'std-button role-name-button-above-bubble';
         let buttonText = '';
-
         if (roleName === 'privateAssistant') { buttonText = '‍💼'; }
         else if (roleName === 'characterUpdateMaster') { buttonText = '📇'; }
         else if (roleName === 'gameHost') { buttonText = '🎲'; }
@@ -445,20 +346,16 @@ const uiChatModule = {
             buttonText = bottomButton ? bottomButton.textContent : (roleName ? roleName.charAt(0).toUpperCase() : (sourceType === 'user' ? 'U' : 'AI'));
         }
         roleNameButton.textContent = buttonText;
-
         return roleNameButton;
     },
-
     _createMessageActionsElement: (sourceType, roleType, roleName, messageContainer) => {
         const messageActionsContainer = document.createElement('div');
         messageActionsContainer.className = 'message-actions-container';
-
         if (sourceType === 'ai') {
             const toggleButton = document.createElement('div');
             toggleButton.className = 'std-button message-action-button toggle-raw-button';
             toggleButton.textContent = '🔄';
             messageActionsContainer.appendChild(toggleButton);
-
 
             const messageId = messageContainer.dataset.messageId;
             const hasImage = stateModule.tempImageUrls[messageId];
@@ -468,7 +365,6 @@ const uiChatModule = {
                 redrawButton.textContent = '🖌️';
                 messageActionsContainer.appendChild(redrawButton);
             }
-
             if (roleName === 'characterUpdateMaster') {
                 const saveButton = document.createElement('div');
                 saveButton.className = 'std-button message-action-button save-character-update-button';
@@ -476,143 +372,104 @@ const uiChatModule = {
                 messageActionsContainer.appendChild(saveButton);
             }
         }
-
         const deleteButton = document.createElement('div');
         deleteButton.className = 'std-button message-action-button delete-button';
         deleteButton.textContent = '✕';
         messageActionsContainer.appendChild(deleteButton);
-
         return messageActionsContainer;
     },
-
     _handleGameHostViewChange: (event) => {
          const button = event.currentTarget;
          const messageContainer = button.closest('.message-container');
          const viewToShow = button.dataset.view;
          if (!messageContainer || !viewToShow) return;
-
          const messageId = messageContainer.dataset.messageId;
          const messageObject = stateModule.currentChatHistoryData.find(msg => msg.id === messageId);
          if (!messageObject) return;
-
          messageObject.activeView = viewToShow;
          uiChatModule._renderGameHostContent(messageContainer, viewToShow);
          uiChatModule.triggerDebouncedHistorySave();
     },
-
      _createValueBlock: (value) => {
-         if (value === null || value === undefined || value === '') return '';
+         if (value === null || value === undefined || value === '' || value === '无') return '';
          const span = document.createElement('span');
          span.className = 'value-block';
          span.textContent = String(value);
          return span.outerHTML;
      },
-
     _formatGameHostContent: (parsedResult, view) => {
         const createBlock = uiChatModule._createValueBlock;
         let content = '';
-
-        if (!parsedResult || typeof parsedResult !== 'object') {
-            return createBlock('[Invalid Data]');
+        if (!parsedResult || typeof parsedResult !== 'object' || !parsedResult.processedSceneContext || !parsedResult.processedCharacterInfo) {
+            return createBlock('[Invalid Data Format]');
         }
-
-        const sceneContext = parsedResult.sceneContext;
-        const characterInfo = parsedResult.updatedCharacterInfo;
+        const scene = parsedResult.processedSceneContext;
+        const charInfo = parsedResult.processedCharacterInfo;
         const icons = {
              map: '🗺️', people: '👥', name: '✨', demeanor: '😐', clothing: '👕', underwear: '👙',
-             accessories: '💍', pose: '🤸', statusLong: '⚕️', statusShort: '🩹', action: '⚡'
+             accessories: '💍', pose: '🤸', statusLong: '⚕️', statusShort: '🩹', action: '⚡',
+             sceneOther: 'ℹ️', charOther: '📝'
         };
 
-        const filterDefaults = (val) => val !== '无' && val !== '未设定' && val !== '';
+        const renderItems = (items, icon = '') => {
+            if (!Array.isArray(items) || items.length === 0) return '';
+            let itemHTML = '';
+            items.forEach(item => { itemHTML += createBlock(item); });
+            return `<div>${icon ? `<span class="icon">${icon}</span>` : ''}${itemHTML}</div>`;
+        };
 
         switch (view) {
             case 'time':
-                content = `<div>${createBlock(sceneContext?.time || '[Time Unavailable]')}</div>`;
+                content = renderItems(scene.timeItems, '');
                 break;
             case 'location':
-                let locLine = `<div><span class="icon">${icons.map}</span>${createBlock(sceneContext?.location || '[Unknown Location]')}</div>`;
-                let posLines = '';
-                if (Array.isArray(sceneContext?.characterPositions)) {
-                    posLines = sceneContext.characterPositions.map(p =>
-                        `<div>${createBlock(`${p.name || 'Unknown'}: ${p.relativePosition || 'Unknown'}`)}</div>`
-                    ).join('');
-                } else {
-                    posLines = `<div>${createBlock('[Positions Unavailable]')}</div>`;
-                }
-                content = locLine + posLines;
+                content += renderItems(scene.locationItems, icons.map);
+                content += renderItems(scene.characterPositionItems, icons.people);
+                content += renderItems(scene.otherSceneInfoItems, icons.sceneOther);
                 break;
             case 'character':
-                if (!characterInfo) {
-                    content = `<div>${createBlock('[Character Info Unavailable]')}</div>`;
-                    break;
-                }
-                content += `<div><span class="icon">${icons.name}</span>${createBlock(characterInfo.characterName || '[Unknown Name]')}</div>`;
-                if (characterInfo.demeanor) content += `<div><span class="icon">${icons.demeanor}</span>${createBlock(characterInfo.demeanor)}</div>`;
-
-                let clothingItems = [];
-                if (characterInfo.clothing?.outerwear) {
-                     Object.values(characterInfo.clothing.outerwear).filter(filterDefaults).forEach(item => clothingItems.push(createBlock(item)));
-                }
-                if (clothingItems.length > 0) content += `<div><span class="icon">${icons.clothing}</span>${clothingItems.join(' ')}</div>`;
-
-                let underwearItems = [];
-                 if (characterInfo.clothing?.underwear) {
-                     Object.values(characterInfo.clothing.underwear).filter(filterDefaults).forEach(item => underwearItems.push(createBlock(item)));
+                 if (!charInfo) {
+                     content = `<div>${createBlock('[Character Info Unavailable]')}</div>`;
+                     break;
                  }
-                 if (underwearItems.length > 0) content += `<div><span class="icon">${icons.underwear}</span>${underwearItems.join(' ')}</div>`;
-
-                let accessoriesItems = [];
-                if (Array.isArray(characterInfo.accessories)) {
-                     characterInfo.accessories.filter(filterDefaults).forEach(item => accessoriesItems.push(createBlock(item)));
-                }
-                 if (accessoriesItems.length > 0) content += `<div><span class="icon">${icons.accessories}</span>${accessoriesItems.join(' ')}</div>`;
-
-                let poseItems = [];
-                if (Array.isArray(characterInfo.actionPose)) {
-                    characterInfo.actionPose.filter(filterDefaults).forEach(item => poseItems.push(createBlock(item)));
-                }
-                if (poseItems.length > 0) content += `<div><span class="icon">${icons.pose}</span>${poseItems.join(' ')}</div>`;
-
-                if (characterInfo.shortTermStatus) content += `<div><span class="icon">${icons.statusShort}</span>${createBlock(characterInfo.shortTermStatus)}</div>`;
-                if (characterInfo.longTermStatus) content += `<div><span class="icon">${icons.statusLong}</span>${createBlock(characterInfo.longTermStatus)}</div>`;
-                if (characterInfo.currentAction) content += `<div><span class="icon">${icons.action}</span>${createBlock(characterInfo.currentAction)}</div>`;
-
-                break;
+                 content += `<div><span class="icon">${icons.name}</span>${createBlock(charInfo.characterName || '[Unknown Name]')}</div>`;
+                 content += renderItems(charInfo.demeanorItems, icons.demeanor);
+                 content += renderItems(charInfo.outerwearItems, icons.clothing);
+                 content += renderItems(charInfo.underwearItems, icons.underwear);
+                 content += renderItems(charInfo.accessories, icons.accessories);
+                 content += renderItems(charInfo.actionPoseItems, icons.pose);
+                 content += renderItems(charInfo.shortTermStatusItems, icons.statusShort);
+                 content += renderItems(charInfo.longTermStatusItems, icons.statusLong);
+                 content += renderItems(charInfo.currentActionItems, icons.action);
+                 content += renderItems(charInfo.otherCharacterStatusItems, icons.charOther);
+                 break;
             default:
                 content = `<div>${createBlock('[Unknown View]')}</div>`;
         }
-        return content;
+        return content || `<div>${createBlock('[No relevant data]')}</div>`;
     },
-
     _renderGameHostContent: (messageContainer, viewToShow) => {
          const contentDiv = messageContainer.querySelector('.game-host-content');
          const controlsDiv = messageContainer.querySelector('.game-host-controls');
 
-         const editButton = messageContainer.querySelector('.edit-button');
-
          if (!contentDiv || !controlsDiv) return;
-
          const messageId = messageContainer.dataset.messageId;
          const messageObject = stateModule.currentChatHistoryData.find(msg => msg.id === messageId);
-
-         if (!messageObject || messageObject.parserError) {
+         if (!messageObject || messageObject.parserError || !messageObject.parsedResult?.processedSceneContext || !messageObject.parsedResult?.processedCharacterInfo) {
               contentDiv.innerHTML = uiChatModule._createValueBlock(messageObject?.parserError ? `[Parse Error: ${messageObject.parserError}]` : "[Cannot load data]");
-
-
               controlsDiv.querySelectorAll('.game-host-view-button').forEach(btn => btn.classList.remove('active'));
               return;
          }
 
-         contentDiv.innerHTML = uiChatModule._formatGameHostContent(messageObject.parsedResult, viewToShow);
+         const formattedContent = uiChatModule._formatGameHostContent(messageObject.parsedResult, viewToShow);
+         contentDiv.innerHTML = formattedContent;
          messageContainer.dataset.activeView = viewToShow;
-
 
 
          controlsDiv.querySelectorAll('.game-host-view-button').forEach(btn => {
              btn.classList.toggle('active', btn.dataset.view === viewToShow);
          });
     },
-
     showImageViewer: (imageSrc) => {
         if (!imageSrc || !elementsModule.imageViewerPage || !elementsModule.imageViewerContent) {
             return;
@@ -620,7 +477,6 @@ const uiChatModule = {
         elementsModule.imageViewerContent.src = imageSrc;
         elementsModule.imageViewerPage.classList.add('active');
     },
-
     hideImageViewer: () => {
         if (!elementsModule.imageViewerPage || !elementsModule.imageViewerContent) {
              return;
@@ -628,22 +484,18 @@ const uiChatModule = {
         elementsModule.imageViewerPage.classList.remove('active');
         elementsModule.imageViewerContent.src = '';
     },
-
     handleSetBackgroundClick: (event) => {
          const button = event.target.closest('.set-background-button');
          if (!button) return;
          const msgCont = button.closest('.message-container');
          if (!msgCont) return;
-
          const messageId = msgCont.dataset.messageId;
          const imageUrl = stateModule.tempImageUrls[messageId];
          const activeRoomName = stateModule.config.activeChatRoomName;
-
          if (!activeRoomName) {
              _logAndDisplayError("Cannot set background, no active chatroom.", "handleSetBackgroundClick");
              return;
          }
-
          if (imageUrl) {
              apiModule.setBackgroundImage(activeRoomName, imageUrl);
              uiChatModule.hideAllMessageActions();
@@ -651,16 +503,13 @@ const uiChatModule = {
               _logAndDisplayError("Cannot set background, image URL not found.", "handleSetBackgroundClick");
          }
     },
-
     handleDownloadImageLongPress: (event) => {
          const button = event.target.closest('.set-background-button');
          if (!button) return;
          const msgCont = button.closest('.message-container');
          if (!msgCont) return;
-
          const messageId = msgCont.dataset.messageId;
          const imageUrl = stateModule.tempImageUrls[messageId];
-
          if (imageUrl) {
              const a = document.createElement('a');
              a.href = imageUrl;
@@ -673,19 +522,26 @@ const uiChatModule = {
               _logAndDisplayError("Cannot download, image URL not found.", "handleDownloadImageLongPress");
          }
     },
-
     handleRedrawClick: async (msgCont) => {
         const messageId = msgCont.dataset.messageId;
         if (!messageId) return;
-
         const messageObject = stateModule.currentChatHistoryData.find(msg => msg.id === messageId);
-        if (!messageObject || !messageObject.naiPayloadSource || messageObject.roleName !== 'drawingMaster') {
-            _logAndDisplayError(`Cannot redraw: Original Drawing Master data not found for message ${messageId}.`, 'handleRedrawClick');
+        if (!messageObject || messageObject.roleName !== 'drawingMaster') {
+            _logAndDisplayError(`Cannot redraw: Message ${messageId} not found or not a Drawing Master message.`, 'handleRedrawClick');
             return;
         }
-
+        const rawJson = messageObject.rawJson;
+        if (!rawJson) {
+             _logAndDisplayError(`Cannot redraw: Raw JSON not found for message ${messageId}.`, 'handleRedrawClick');
+             return;
+        }
+        const { parsedResult, parserError } = uiChatModule._parseAIResponse(rawJson, 'drawingMaster', 'tool');
+        if (parserError) {
+             _logAndDisplayError(`Failed to re-parse for redraw: ${parserError}`, 'handleRedrawClick');
+             return;
+        }
         try {
-            const naiPayload = await apiModule._prepareNovelAiPayload(messageObject.naiPayloadSource, messageObject.rawJson);
+            const naiPayload = await apiModule._prepareNovelAiPayload(parsedResult, rawJson);
             if (naiPayload) {
                 apiModule.addNaiRequestToQueue(naiPayload, messageId);
             }
@@ -695,7 +551,6 @@ const uiChatModule = {
             uiChatModule.hideAllMessageActions();
         }
     },
-
     displayChatMessageElement: (messageObject) => {
         if (!messageObject || !messageObject.id) {
             return null;
@@ -704,7 +559,6 @@ const uiChatModule = {
             id, timestamp, sourceType, roleName, roleType, targetRoleName,
             speechActionText, rawJson, parsedResult, displayMode, parserError, activeView, naiPayloadSource
         } = messageObject;
-
         const messageContainer = document.createElement('div');
         messageContainer.className = `message-container`;
         messageContainer.dataset.messageId = id;
@@ -715,19 +569,25 @@ const uiChatModule = {
         messageContainer.dataset.roleType = roleType;
         const currentActiveView = activeView || (roleName === 'gameHost' ? 'time' : undefined);
         if (currentActiveView) messageContainer.dataset.activeView = currentActiveView;
-        if (naiPayloadSource) messageContainer.dataset.naiPayloadSource = JSON.stringify(naiPayloadSource);
+        if (naiPayloadSource && typeof naiPayloadSource === 'object') messageContainer.dataset.naiPayloadSource = JSON.stringify(naiPayloadSource);
+        else if (naiPayloadSource) messageContainer.dataset.naiPayloadSource = naiPayloadSource;
         if (rawJson) messageContainer.dataset.rawJsonText = rawJson;
-
         const roleNameButton = uiChatModule._createRoleNameButtonElement(roleName, sourceType, messageContainer);
         messageContainer.appendChild(roleNameButton);
-
         const messageDiv = document.createElement('div');
         messageDiv.className = sourceType === 'user' ? 'user-message' : 'ai-response';
         const isGameHost = roleName === 'gameHost' && sourceType === 'ai';
         const isDrawingMaster = roleName === 'drawingMaster' && sourceType === 'ai';
         const isPrivateAssistant = roleName === 'privateAssistant' && sourceType === 'ai';
-
+        const isCharacterUpdateMaster = roleName === 'characterUpdateMaster' && sourceType === 'ai';
+        const isStandardRole = (roleType === 'role' || roleType === 'temporary_role') && sourceType === 'ai';
         let hasImage = false;
+        let formattedTextToDisplay = speechActionText;
+        if (parsedResult) {
+             if (isStandardRole && parsedResult.formattedText) formattedTextToDisplay = parsedResult.formattedText;
+             else if (isCharacterUpdateMaster && parsedResult.formattedUpdate) formattedTextToDisplay = parsedResult.formattedUpdate;
+             else if (isPrivateAssistant && parsedResult.responseContent) formattedTextToDisplay = parsedResult.responseContent;
+        }
         if (isGameHost) {
              messageDiv.innerHTML = '';
              const controlsDiv = document.createElement('div');
@@ -741,22 +601,17 @@ const uiChatModule = {
                  controlsDiv.appendChild(btn);
              });
              messageDiv.appendChild(controlsDiv);
-
              const contentDiv = document.createElement('div');
              contentDiv.className = 'game-host-content';
              messageDiv.appendChild(contentDiv);
-
-
              const rawDiv = document.createElement('div');
              rawDiv.className = 'game-host-raw';
              rawDiv.style.display = 'none';
              rawDiv.textContent = rawJson || '';
              messageDiv.appendChild(rawDiv);
-
              if (displayMode === 'raw') {
                  controlsDiv.style.display = 'none';
                  contentDiv.style.display = 'none';
-
                  rawDiv.style.display = 'block';
              } else {
                  uiChatModule._renderGameHostContent(messageContainer, currentActiveView);
@@ -766,42 +621,27 @@ const uiChatModule = {
              if (imageUrl) {
                  const img = document.createElement('img');
                  img.src = imageUrl;
-                 img.alt = speechActionText || "[AI Generated Image]";
+                 img.alt = formattedTextToDisplay || "[AI Generated Image]";
                  img.addEventListener('click', (event) => uiChatModule.showImageViewer(event.target.src));
                  messageDiv.innerHTML = '';
                  messageDiv.appendChild(img);
                  hasImage = true;
              } else {
-                 messageDiv.textContent = speechActionText || "[Image Loading or Error]";
-             }
-        } else if (isPrivateAssistant) {
-             if (displayMode === 'raw') {
-                 messageDiv.textContent = rawJson || '';
-             } else {
-                  if (parserError) {
-                       messageDiv.textContent = `[私人助理错误: ${parserError}]`;
-                  } else if (parsedResult && typeof parsedResult.responseContent === 'string') {
-                       messageDiv.textContent = parsedResult.responseContent;
-                  } else {
-                       messageDiv.textContent = "[私人助理: 无有效内容]";
-                  }
+                 messageDiv.textContent = formattedTextToDisplay || "[Image Loading or Error]";
              }
         } else if (displayMode === 'raw' && sourceType === 'ai') {
              messageDiv.textContent = rawJson || '';
         } else {
-             messageDiv.textContent = speechActionText;
+             messageDiv.textContent = formattedTextToDisplay;
         }
         messageContainer.appendChild(messageDiv);
-
         const messageActionsContainer = uiChatModule._createMessageActionsElement(sourceType, roleType, roleName, messageContainer);
-
         if (hasImage && messageActionsContainer) {
              let backgroundButton = messageActionsContainer.querySelector('.set-background-button');
              if (!backgroundButton) {
                  backgroundButton = document.createElement('div');
                  backgroundButton.className = 'std-button message-action-button set-background-button';
                  backgroundButton.textContent = '🖼️';
-
                  const redrawBtn = messageActionsContainer.querySelector('.redraw-button');
                  if(redrawBtn) {
                       messageActionsContainer.insertBefore(backgroundButton, redrawBtn);
@@ -815,16 +655,12 @@ const uiChatModule = {
                  }
              }
         }
-
         messageContainer.appendChild(messageActionsContainer);
-
         return messageContainer;
     },
-
      toggleRawJsonDisplay: (msgCont) => {
          const messageId = msgCont.dataset.messageId;
          if (msgCont.dataset.sourceType !== 'ai' || !messageId) return;
-
          const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === messageId);
          if (messageIndex === -1) {
              _logAndDisplayError(`Cannot find message data for ID ${messageId} during toggleRawJsonDisplay.`, 'toggleRawJsonDisplay');
@@ -834,26 +670,19 @@ const uiChatModule = {
          const roleName = messageObject.roleName;
          const isGameHost = roleName === 'gameHost';
          const isDrawingMaster = roleName === 'drawingMaster';
-         const isPrivateAssistant = roleName === 'privateAssistant';
-
          const div = msgCont.querySelector('.ai-response');
-         const editButton = msgCont.querySelector('.edit-button');
          if (!div) return;
-
          const currentMode = messageObject.displayMode;
          const rawTextContent = messageObject.rawJson || '';
-
          if (currentMode === 'formatted') {
              messageObject.displayMode = 'raw';
              msgCont.dataset.displayMode = 'raw';
              if (isGameHost) {
                   const controlsDiv = div.querySelector('.game-host-controls');
                   const contentDiv = div.querySelector('.game-host-content');
-
                   const rawDiv = div.querySelector('.game-host-raw');
                   if (controlsDiv) controlsDiv.style.display = 'none';
                   if (contentDiv) contentDiv.style.display = 'none';
-
                   if (rawDiv) {
                       rawDiv.textContent = rawTextContent;
                       rawDiv.style.display = 'block';
@@ -861,18 +690,18 @@ const uiChatModule = {
              } else {
                  div.textContent = rawTextContent;
              }
-
          } else {
              messageObject.displayMode = 'formatted';
              msgCont.dataset.displayMode = 'formatted';
              const parsedResult = messageObject.parsedResult;
              const parserError = messageObject.parserError;
              const formattedText = uiChatModule._getFormattedDisplayText(parsedResult, messageObject.roleType, roleName, parserError);
-
              if (isGameHost) {
                   const controlsDiv = div.querySelector('.game-host-controls');
+                  const contentDiv = div.querySelector('.game-host-content');
                   const rawDiv = div.querySelector('.game-host-raw');
                   if (controlsDiv) controlsDiv.style.display = 'flex';
+                  if (contentDiv) contentDiv.style.display = '';
                   if (rawDiv) rawDiv.style.display = 'none';
                   uiChatModule._renderGameHostContent(msgCont, messageObject.activeView || 'time');
              } else if (isDrawingMaster) {
@@ -887,25 +716,13 @@ const uiChatModule = {
                   } else {
                       div.textContent = formattedText || "[Image Loading or Error]";
                   }
-
-             } else if (isPrivateAssistant) {
-                  if (parserError) {
-                       div.textContent = `[私人助理错误: ${parserError}]`;
-                  } else if (parsedResult && typeof parsedResult.responseContent === 'string') {
-                       div.textContent = parsedResult.responseContent;
-                  } else {
-                       div.textContent = "[私人助理: 无有效内容]";
-                  }
              } else {
                    div.textContent = formattedText;
-
              }
          }
-
          updateChatContextCache();
          uiChatModule.triggerDebouncedHistorySave();
      },
-
     findBottomRoleButton: (roleName) => {
         if (!roleName) return null;
         const btns = elementsModule.roleButtonsListContainer.querySelectorAll('.role-button-container > .std-button');
@@ -914,7 +731,6 @@ const uiChatModule = {
         }
         return null;
     },
-
     toggleMessageActions: (msgCont) => {
         const ac = msgCont.querySelector('.message-actions-container');
         if (ac) {
@@ -928,7 +744,6 @@ const uiChatModule = {
             }
         }
     },
-
     hideAllMessageActions: () => {
         if (stateModule.activeMessageActions) {
             const ac = stateModule.activeMessageActions.querySelector('.message-actions-container');
@@ -936,29 +751,28 @@ const uiChatModule = {
             stateModule.activeMessageActions = null;
         }
     },
-
     toggleMessageEditMode: (msgCont) => {
         const div = msgCont.querySelector('.user-message') || msgCont.querySelector('.ai-response');
         const roleName = msgCont.dataset.roleName;
         const isGameHost = roleName === 'gameHost';
-        const isPrivateAssistant = roleName === 'privateAssistant';
+        const isCharacterUpdateMaster = roleName === 'characterUpdateMaster';
         const displayMode = msgCont.dataset.displayMode;
-
         if (!div) return;
-
         let targetElement = div;
+        let isEditingRaw = false;
         if (isGameHost && displayMode !== 'raw') {
              return;
         } else if (isGameHost && displayMode === 'raw') {
              targetElement = msgCont.querySelector('.game-host-raw');
              if (!targetElement) targetElement = div;
+             isEditingRaw = true;
         } else if (roleName === 'drawingMaster' && displayMode === 'formatted') {
              return;
+        } else if (displayMode === 'raw' && msgCont.dataset.sourceType === 'ai') {
+             isEditingRaw = true;
         }
-
         const isEditing = targetElement.getAttribute('contenteditable') === 'true';
         const messageId = msgCont.dataset.messageId;
-
         if (isEditing) {
             targetElement.removeAttribute('contenteditable');
             targetElement.style.backgroundColor = '';
@@ -976,29 +790,14 @@ const uiChatModule = {
                  return;
              }
             const messageObject = stateModule.currentChatHistoryData[messageIndex];
-
             uiChatModule.hideAllMessageActions();
-            const mode = messageObject.displayMode;
             let editText = '';
-
-            if (isGameHost && mode !== 'raw') {
-                 return;
-            } else if (isPrivateAssistant && mode === 'formatted') {
-                editText = messageObject.parsedResult?.responseContent ?? '[无法加载私人助理内容]';
-            } else if (mode === 'raw' && messageObject.sourceType === 'ai') {
-                 editText = messageObject.rawJson || '';
-                 if (isGameHost) {
-                    targetElement = msgCont.querySelector('.game-host-raw');
-                    if (!targetElement) targetElement = div;
-                 }
+            if (isEditingRaw) {
+                editText = messageObject.rawJson || '';
+            } else if (isCharacterUpdateMaster) {
+                 editText = messageObject.parsedResult?.formattedUpdate || messageObject.speechActionText || '';
             } else {
                  editText = messageObject.speechActionText || '';
-                 if (editText === "[图片绘制]" && messageObject.roleName === 'drawingMaster') {
-                      editText = messageObject.rawJson || "";
-                      messageObject.displayMode = 'raw';
-                      msgCont.dataset.displayMode = 'raw';
-                      targetElement = div;
-                 }
             }
 
             targetElement.innerText = editText;
@@ -1008,7 +807,6 @@ const uiChatModule = {
             try { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(targetElement); range.collapse(false); selection.removeAllRanges(); selection.addRange(range); } catch(e) {}
             const blurH = () => uiChatModule.saveEditedMessage(msgCont);
             const keydownH = (e) => uiChatModule.handleEnterKeyInEditMode(e, msgCont);
-
             if (targetElement._blurHandler) targetElement.removeEventListener('blur', targetElement._blurHandler);
             if (targetElement._keydownHandler) targetElement.removeEventListener('keydown', targetElement._keydownHandler);
             targetElement.addEventListener('blur', blurH);
@@ -1018,164 +816,146 @@ const uiChatModule = {
             stateModule.editingMessageContainer = msgCont;
         }
     },
-
     handleEnterKeyInEditMode: (e, msgCont) => {
-
     },
-
     saveEditedMessage: (msgCont) => {
         if (!msgCont) return;
         const roleName = msgCont.dataset.roleName;
+        const roleType = msgCont.dataset.roleType;
+        const sourceType = msgCont.dataset.sourceType;
         const isGameHost = roleName === 'gameHost';
+        const isCharacterUpdateMaster = roleName === 'characterUpdateMaster';
         const isPrivateAssistant = roleName === 'privateAssistant';
         const displayMode = msgCont.dataset.displayMode;
         let targetElement;
-
+        let wasEditingRaw = false;
         if (isGameHost && displayMode !== 'raw') {
-             return;
+            return;
         } else if (isGameHost && displayMode === 'raw') {
-             targetElement = msgCont.querySelector('.game-host-raw');
-        }
-        else {
+            targetElement = msgCont.querySelector('.game-host-raw');
+            wasEditingRaw = true;
+        } else if (displayMode === 'raw' && sourceType === 'ai') {
+            targetElement = msgCont.querySelector('.ai-response');
+            wasEditingRaw = true;
+        } else {
             targetElement = msgCont.querySelector('.user-message') || msgCont.querySelector('.ai-response');
         }
-
         if (!targetElement || targetElement.getAttribute('contenteditable') !== 'true') {
-             if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
-             return;
+            if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
+            return;
         }
-
-        const newTxt = targetElement.innerText;
+        const newText = targetElement.innerText;
         const messageId = msgCont.dataset.messageId;
         let changed = false;
-
         const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === messageId);
-         if (messageIndex === -1) {
-             targetElement.removeAttribute('contenteditable');
-             targetElement.style.backgroundColor = '';
-             if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
-             _logAndDisplayError(`Failed to save edit: Cannot find message ID ${messageId}`, 'saveEditedMessage');
-             return;
-         }
+        if (messageIndex === -1) {
+            targetElement.removeAttribute('contenteditable');
+            targetElement.style.backgroundColor = '';
+            if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
+            _logAndDisplayError(`Failed to save edit: Cannot find message ID ${messageId}`, 'saveEditedMessage');
+            return;
+        }
         const messageObject = stateModule.currentChatHistoryData[messageIndex];
-        const mode = messageObject.displayMode;
-        const wasRaw = mode === 'raw';
-
-        if (isGameHost && mode !== 'raw') {
-             return;
-        } else if (isPrivateAssistant && mode === 'formatted') {
-             if (messageObject.parsedResult?.responseContent !== newTxt) {
-                 messageObject.speechActionText = `私人助理：\n${newTxt}`;
-                 if(messageObject.parsedResult) messageObject.parsedResult.responseContent = newTxt;
-                 targetElement.textContent = newTxt;
-                 changed = true;
-             }
-        } else if (mode === 'raw' && messageObject.sourceType === 'ai') {
-             const currentRaw = messageObject.rawJson || '';
-             if (currentRaw !== newTxt) {
-                 messageObject.rawJson = newTxt;
-                 const { parsedResult, parserError } = uiChatModule._parseAIResponse(newTxt, messageObject.roleName, messageObject.roleType);
-                 messageObject.parsedResult = parsedResult;
-                 messageObject.parserError = parserError;
-                 messageObject.speechActionText = uiChatModule._getFormattedDisplayText(parsedResult, messageObject.roleType, roleName, parserError);
-                 changed = true;
-             }
-        } else {
-            const previousSpeechActionText = messageObject.speechActionText;
-            if (previousSpeechActionText !== newTxt) {
-                messageObject.speechActionText = newTxt;
-                targetElement.textContent = newTxt;
+        if (wasEditingRaw) {
+            const currentRaw = messageObject.rawJson || '';
+            if (currentRaw !== newText) {
+                messageObject.rawJson = newText;
+                const { parsedResult, parserError } = uiChatModule._parseAIResponse(newText, roleName, roleType);
+                messageObject.parsedResult = parsedResult;
+                messageObject.parserError = parserError;
+                messageObject.speechActionText = uiChatModule._getFormattedDisplayText(parsedResult, roleType, roleName, parserError);
+                messageObject.displayMode = 'formatted';
+                msgCont.dataset.displayMode = 'formatted';
                 changed = true;
             }
-        }
-
-        targetElement.removeAttribute('contenteditable');
-        targetElement.style.backgroundColor = '';
-         if (targetElement._blurHandler) targetElement.removeEventListener('blur', targetElement._blurHandler);
-         if (targetElement._keydownHandler) targetElement.removeEventListener('keydown', targetElement._keydownHandler);
-         delete targetElement._blurHandler;
-         delete targetElement._keydownHandler;
-        if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
-
-
-        if (changed && wasRaw && !isPrivateAssistant) {
-             messageObject.displayMode = 'formatted';
-             msgCont.dataset.displayMode = 'formatted';
-             const mainDiv = msgCont.querySelector('.ai-response');
-             if (roleName === 'drawingMaster') {
-                const imageUrl = stateModule.tempImageUrls[messageId];
-                if (imageUrl) {
-                    const img = document.createElement('img'); img.src = imageUrl; img.alt = messageObject.speechActionText;
-                    img.addEventListener('click', (event) => uiChatModule.showImageViewer(event.target.src));
-                    mainDiv.innerHTML = ''; mainDiv.appendChild(img);
-                } else { mainDiv.textContent = messageObject.speechActionText || "[Image Loading or Error]"; }
-             } else if (isGameHost) {
-                const controlsDiv = mainDiv.querySelector('.game-host-controls');
-                const rawDiv = mainDiv.querySelector('.game-host-raw');
-                if (controlsDiv) controlsDiv.style.display = 'flex';
-                if (rawDiv) rawDiv.style.display = 'none';
-                uiChatModule._renderGameHostContent(msgCont, messageObject.activeView || 'time');
-             } else {
-                 mainDiv.textContent = messageObject.speechActionText;
-             }
-        } else if (changed && wasRaw && isPrivateAssistant) {
-             messageObject.displayMode = 'formatted';
-             msgCont.dataset.displayMode = 'formatted';
-             const mainDiv = msgCont.querySelector('.ai-response');
-              if (messageObject.parserError) {
-                   mainDiv.textContent = `[私人助理错误: ${messageObject.parserError}]`;
-              } else if (messageObject.parsedResult && typeof messageObject.parsedResult.responseContent === 'string') {
-                   mainDiv.textContent = messageObject.parsedResult.responseContent;
-              } else {
-                   mainDiv.textContent = "[私人助理: 无有效内容]";
+        } else {
+             let currentDisplayValue = '';
+              if (isCharacterUpdateMaster) {
+                  currentDisplayValue = messageObject.parsedResult?.formattedUpdate || messageObject.speechActionText || '';
+              } else if (isPrivateAssistant) {
+                   currentDisplayValue = messageObject.parsedResult?.responseContent || messageObject.speechActionText || '';
+              }
+              else {
+                  currentDisplayValue = messageObject.speechActionText || '';
+              }
+              if (currentDisplayValue !== newText) {
+                  messageObject.speechActionText = newText;
+                  if (isCharacterUpdateMaster && messageObject.parsedResult) {
+                      messageObject.parsedResult.formattedUpdate = newText;
+                  } else if (isPrivateAssistant && messageObject.parsedResult) {
+                      messageObject.parsedResult.responseContent = newText;
+                  } else if (roleType === 'role' || roleType === 'temporary_role') {
+                        if(messageObject.parsedResult) messageObject.parsedResult.formattedText = newText;
+                  } else if (roleName === 'writingMaster') {
+                       if(messageObject.parsedResult) messageObject.parsedResult.description = newText;
+                  }
+                  targetElement.textContent = messageObject.speechActionText;
+                  changed = true;
               }
         }
-
+        targetElement.removeAttribute('contenteditable');
+        targetElement.style.backgroundColor = '';
+        if (targetElement._blurHandler) targetElement.removeEventListener('blur', targetElement._blurHandler);
+        if (targetElement._keydownHandler) targetElement.removeEventListener('keydown', targetElement._keydownHandler);
+        delete targetElement._blurHandler;
+        delete targetElement._keydownHandler;
+        if (stateModule.editingMessageContainer === msgCont) stateModule.editingMessageContainer = null;
+        if (changed && wasEditingRaw) {
+             const mainDiv = msgCont.querySelector('.ai-response');
+             if (isGameHost) {
+                 const controlsDiv = mainDiv.querySelector('.game-host-controls');
+                 const rawDiv = mainDiv.querySelector('.game-host-raw');
+                 if (controlsDiv) controlsDiv.style.display = 'flex';
+                 if (rawDiv) rawDiv.style.display = 'none';
+                 uiChatModule._renderGameHostContent(msgCont, messageObject.activeView || 'time');
+             } else if (roleName === 'drawingMaster') {
+                  const imageUrl = stateModule.tempImageUrls[messageId];
+                  if (imageUrl) {
+                      const img = document.createElement('img'); img.src = imageUrl; img.alt = messageObject.speechActionText;
+                      img.addEventListener('click', (event) => uiChatModule.showImageViewer(event.target.src));
+                      mainDiv.innerHTML = ''; mainDiv.appendChild(img);
+                  } else { mainDiv.textContent = messageObject.speechActionText || "[Image Loading or Error]"; }
+             } else {
+                  mainDiv.textContent = messageObject.speechActionText;
+             }
+        }
         if (changed) {
             updateChatContextCache();
             uiChatModule.updateChatroomHistoryDisplay();
             uiChatModule.triggerDebouncedHistorySave();
         }
     },
-
     deleteMessage: (msgCont) => {
         const messageId = msgCont.dataset.messageId;
         if (!messageId) {
              return;
         }
-
         const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === messageId);
          if (messageIndex > -1) {
              stateModule.currentChatHistoryData.splice(messageIndex, 1);
          }
         msgCont.remove();
-
         if (stateModule.tempImageUrls[messageId]) {
              delete stateModule.tempImageUrls[messageId];
              const imgIndex = stateModule.displayedImageOrder.indexOf(messageId);
              if (imgIndex > -1) stateModule.displayedImageOrder.splice(imgIndex, 1);
              stateModule.displayedImageCount--;
         }
-
         updateChatContextCache();
         uiChatModule.updateChatroomHistoryDisplay();
         uiChatModule.triggerDebouncedHistorySave();
     },
-
     deleteMessageAndBelow: (msgCont) => {
          const messageId = msgCont.dataset.messageId;
          if (!messageId) {
              return;
          }
-
          const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === messageId);
          if (messageIndex === -1) {
              return;
          }
-
          const messagesToRemove = stateModule.currentChatHistoryData.slice(messageIndex);
          const messageIdsToRemove = messagesToRemove.map(msg => msg.id);
-
          const allMessageElements = Array.from(elementsModule.chatArea.children);
          for (let i = allMessageElements.length - 1; i >= 0; i--) {
              const el = allMessageElements[i];
@@ -1184,7 +964,6 @@ const uiChatModule = {
                  el.remove();
              }
          }
-
          messagesToRemove.forEach(msg => {
              if (stateModule.tempImageUrls[msg.id]) {
                  delete stateModule.tempImageUrls[msg.id];
@@ -1193,14 +972,11 @@ const uiChatModule = {
                  stateModule.displayedImageCount--;
              }
          });
-
          stateModule.currentChatHistoryData.splice(messageIndex);
-
          updateChatContextCache();
          uiChatModule.updateChatroomHistoryDisplay();
          uiChatModule.triggerDebouncedHistorySave();
     },
-
     clearChatArea: () => {
         elementsModule.chatArea.innerHTML = '';
         stateModule.currentChatHistoryData = [];
@@ -1209,27 +985,27 @@ const uiChatModule = {
         stateModule.displayedImageOrder = [];
         uiChatModule._removePendingActionButton();
     },
-
     triggerDebouncedHistorySave: () => {
         clearTimeout(stateModule.historySaveDebounceTimer);
         stateModule.historySaveDebounceTimer = setTimeout(() => {
             uiChatModule.saveChatHistoryToServer();
         }, stateModule.historySaveDebounceDelay);
     },
-
     saveChatHistoryToServer: async () => {
         const roomName = stateModule.config.activeChatRoomName;
         if (!roomName) return;
-
         const historyToSave = stateModule.currentChatHistoryData.map(msg => {
-             let savedParsedResult;
-             try {
-                 savedParsedResult = msg.parsedResult ? JSON.stringify(msg.parsedResult) : null;
-             } catch (e) {
-                  savedParsedResult = JSON.stringify({ error: `Serialization failed: ${e.message}` });
-                  _logAndDisplayError(`Failed to stringify parsedResult for msg ${msg.id}: ${e.message}`, 'saveChatHistoryToServer');
+             let savedParsedResult = null;
+             if (msg.parsedResult && typeof msg.parsedResult === 'object') {
+                try {
+                    savedParsedResult = JSON.stringify(msg.parsedResult);
+                } catch (e) {
+                     savedParsedResult = JSON.stringify({ error: `Serialization failed: ${e.message}` });
+                     _logAndDisplayError(`Failed to stringify parsedResult for msg ${msg.id}: ${e.message}`, 'saveChatHistoryToServer');
+                }
+             } else if (msg.parsedResult) {
+                 savedParsedResult = String(msg.parsedResult);
              }
-
             const savedMsg = {
                 id: msg.id,
                 timestamp: msg.timestamp,
@@ -1246,16 +1022,10 @@ const uiChatModule = {
                 naiPayloadSource: msg.naiPayloadSource ? JSON.stringify(msg.naiPayloadSource) : null
              };
 
-
              if (savedMsg.naiPayloadSource === 'null') delete savedMsg.naiPayloadSource;
-
-
-             if (msg.roleName === 'drawingMaster' && msg.sourceType === 'ai' && msg.speechActionText === '[图片绘制]' && !msg.parserError) {
-
-             }
-             return savedMsg;
+             if (savedMsg.parsedResult === null || savedMsg.parsedResult === 'null') delete savedMsg.parsedResult;
+            return savedMsg;
         });
-
         try {
             const response = await fetch(`/history/${encodeURIComponent(roomName)}`, {
                 method: 'POST',
@@ -1270,7 +1040,6 @@ const uiChatModule = {
             _logAndDisplayError(`Error saving history for ${roomName}: ${error.message}`, 'saveChatHistoryToServer');
         }
     },
-
     loadChatHistory: async (roomName) => {
         uiChatModule.clearChatArea();
         if (!roomName) return;
@@ -1285,10 +1054,8 @@ const uiChatModule = {
         } catch (error) {
              _logAndDisplayError(`Error loading history for ${roomName}: ${error.message}`, 'loadChatHistory');
         }
-
         stateModule.currentChatHistoryData = [];
         const frag = document.createDocumentFragment();
-
         historyData.forEach(msg => {
              if (!msg || typeof msg !== 'object') {
                  return;
@@ -1306,7 +1073,6 @@ const uiChatModule = {
              } else if (msg.parsedResult !== undefined && msg.parsedResult !== null) {
                  parsedResult = msg.parsedResult;
              }
-
              let naiPayloadSource = null;
               if (msg.naiPayloadSource && typeof msg.naiPayloadSource === 'string') {
                   try {
@@ -1317,7 +1083,6 @@ const uiChatModule = {
               } else if (msg.naiPayloadSource) {
                    naiPayloadSource = msg.naiPayloadSource;
               }
-
 
              const messageObject = {
                 id: msg.id || uiChatModule._generateMessageId(),
@@ -1334,55 +1099,49 @@ const uiChatModule = {
                 activeView: msg.activeView || (msg.roleName === 'gameHost' ? 'time' : undefined),
                 naiPayloadSource: naiPayloadSource
              };
-
              if (messageObject.roleName === 'drawingMaster' && messageObject.sourceType === 'ai' && !messageObject.parserError && !naiPayloadSource && parsedResult) {
                   messageObject.naiPayloadSource = parsedResult;
              }
-
-
-             if (messageObject.roleName === 'characterUpdateMaster' && messageObject.displayMode === 'raw') {
-                  messageObject.speechActionText = uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-             } else if (messageObject.roleName === 'characterUpdateMaster' && messageObject.displayMode === 'formatted') {
-                 messageObject.speechActionText = uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-             }
-
 
             stateModule.currentChatHistoryData.push(messageObject);
             const el = uiChatModule.displayChatMessageElement(messageObject);
             if (el) frag.appendChild(el);
         });
-
         elementsModule.chatArea.appendChild(frag);
-
         if (elementsModule.chatArea.scrollHeight > elementsModule.chatArea.clientHeight) {
              elementsModule.chatArea.scrollTop = elementsModule.chatArea.scrollHeight;
         }
-
         await updateChatContextCache();
         uiChatModule.updateChatroomHistoryDisplay();
     },
-
     updateChatroomHistoryDisplay: () => {
         let historyText = "";
         const lines = [];
         stateModule.currentChatHistoryData.forEach(messageObject => {
              const roleType = messageObject.roleType;
              const roleName = messageObject.roleName;
+             let displayContent = messageObject.speechActionText || '';
+             if (messageObject.parsedResult) {
+                 if ((roleType === 'role' || roleType === 'temporary_role') && messageObject.parsedResult.formattedText) {
+                     displayContent = messageObject.parsedResult.formattedText;
+                 } else if (roleName === 'characterUpdateMaster' && messageObject.parsedResult.formattedUpdate) {
+                     displayContent = messageObject.parsedResult.formattedUpdate;
+                 } else if (roleName === 'privateAssistant' && messageObject.parsedResult.responseContent) {
+                      displayContent = messageObject.parsedResult.responseContent;
+                 }
+             }
              if (roleType === 'role' || roleType === 'temporary_role' || (roleType === 'tool' && roleName === 'privateAssistant')) {
                  const actorName = roleName || (messageObject.sourceType === 'user' ? 'User' : 'AI');
-                 let content = (messageObject.speechActionText || '').trim();
+                 let content = (displayContent || '').trim();
                  if (content && content !== "[图片绘制]") {
-                    if(roleName === 'privateAssistant' && content.startsWith('私人助理：\n')) {
+                    if(roleName === 'privateAssistant') {
                         lines.push(content);
-                    } else if (roleName !== 'privateAssistant') {
+                    } else {
                         lines.push(`${actorName}：\n${content}`);
                     }
                  }
-             } else if (roleName === 'gameHost' && messageObject.sourceType === 'ai') {
-                 const statement = messageObject.parsedResult?.actionOutcome?.statement;
-                 if (statement && typeof statement === 'string' && statement.trim() !== '') {
-                     lines.push(`[结果]: ${statement.trim()}`);
-                 }
+             } else if (roleName === 'gameHost' && messageObject.sourceType === 'ai' && messageObject.parsedResult && !messageObject.parserError) {
+
              }
         });
         historyText = lines.join('\n');
@@ -1390,49 +1149,41 @@ const uiChatModule = {
             elementsModule.chatroomHistoryDisplay.value = historyText;
         }
     },
-
     getLatestRoleStateText: (name) => {
         if (stateModule.chatContextCache) {
              return stateModule.chatContextCache.roleDetailedStates[name] || `[${name} state not in cache]`;
         }
         return `[${name} state unavailable - cache empty]`;
     },
-
     toggleRunPause: function() {
         const wasPaused = stateModule.config.isRunPaused;
         stateModule.config.isRunPaused = !stateModule.config.isRunPaused;
         elementsModule.runPauseButton.textContent = stateModule.config.isRunPaused ? '▶' : '◼';
-
         const triggerList = elementsModule.activeRoleTriggerList;
         if (triggerList) triggerList.style.display = 'none';
-
         if (typeof mainModule !== 'undefined' && mainModule.triggerDebouncedSave) {
             mainModule.triggerDebouncedSave();
         }
-
         if (wasPaused && !stateModule.config.isRunPaused) {
             const chatroomDetails = stateModule.currentChatroomDetails;
-
             if (chatroomDetails && chatroomDetails.config?.roleStates) {
                 const roleStates = chatroomDetails.config.roleStates;
                 const activeRoles = Object.entries(roleStates)
                     .filter(([name, state]) => state === uiChatModule.ROLE_STATE_ACTIVE)
                     .map(([name, state]) => name);
-
                 if (activeRoles.length === 1) {
                     apiModule.triggerRoleResponse(activeRoles[0]);
                 } else if (activeRoles.length > 1) {
                     uiChatModule.showActiveRoleTriggerList(activeRoles);
                 }
             }
-
             if (stateModule.config.toolSettings.gameHost?.enabled) {
                 apiModule.triggerRoleResponse('gameHost');
             }
-
             const lastMessage = stateModule.currentChatHistoryData[stateModule.currentChatHistoryData.length - 1];
             if (lastMessage && lastMessage.sourceType === 'user') {
-                 const text = lastMessage.speechActionText;
+                 let text = lastMessage.speechActionText;
+                 if(lastMessage.parsedResult?.formattedText) text = lastMessage.parsedResult.formattedText;
                  const writingMasterEnabled = stateModule.config.toolSettings.writingMaster?.enabled;
                  if (text && writingMasterEnabled) {
                      const keywords = ['看', '听', '闻', '模', '尝'];
@@ -1447,11 +1198,9 @@ const uiChatModule = {
             uiChatModule._removePendingActionButton();
         }
     },
-
     showActiveRoleTriggerList: (activeRoleNames) => {
         const listContainer = elementsModule.activeRoleTriggerList;
         if (!listContainer) return;
-
         listContainer.innerHTML = '';
         activeRoleNames.forEach(roleName => {
             const button = document.createElement('div');
@@ -1464,10 +1213,8 @@ const uiChatModule = {
             });
             listContainer.appendChild(button);
         });
-
         listContainer.style.display = 'flex';
     },
-
     setPauseState: function(shouldPause) {
         if (shouldPause && !stateModule.config.isRunPaused) {
             uiChatModule.toggleRunPause();
@@ -1475,7 +1222,6 @@ const uiChatModule = {
             uiChatModule.toggleRunPause();
         }
     },
-
     toggleRoleList: () => {
         stateModule.config.isRoleListVisible = !stateModule.config.isRoleListVisible;
         elementsModule.roleButtonsListContainer.style.display = stateModule.config.isRoleListVisible ? 'flex' : 'none';
@@ -1486,18 +1232,37 @@ const uiChatModule = {
             uiChatModule.hideRoleStateButtons();
         }
     },
+    handleRoleDefaultStateLongPress: (roleName) => {
+        const chatroomDetails = stateModule.currentChatroomDetails;
+        if (!chatroomDetails || !chatroomDetails.config || !chatroomDetails.config.roleVisibility) {
+            return;
+        }
+        const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
+        if (!isPermanent || roleName === "管理员") return;
 
+        chatroomDetails.config.roleVisibility[roleName] = false;
+        apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
+        uiChatModule.updateRoleButtonsList();
+
+        const settingsRoleListPageActive = document.getElementById('role-list-page')?.classList.contains('active');
+        if (settingsRoleListPageActive) {
+             const checkbox = elementsModule.roleListContainer.querySelector(`.role-visibility-checkbox[data-role-name="${roleName}"]`);
+             if (checkbox) {
+                 checkbox.checked = false;
+             }
+        }
+        uiChatModule.hideRoleStateButtons();
+    },
     updateRoleButtonsList: () => {
         const frag = document.createDocumentFragment();
         const chatroomDetails = stateModule.currentChatroomDetails;
         const usedChars = new Set();
         const roleDataForButtons = [];
-
         if (chatroomDetails && chatroomDetails.config?.roleStates) {
             const roleStates = chatroomDetails.config.roleStates;
+            const roleVisibility = chatroomDetails.config.roleVisibility || {};
             const permanentRoles = new Set(chatroomDetails.roles.map(r => r.name));
             const allRoleNames = Object.keys(roleStates);
-
             const sortedRoleNames = allRoleNames.sort((a, b) => {
                 const isTempA = !permanentRoles.has(a);
                 const isTempB = !permanentRoles.has(b);
@@ -1507,10 +1272,14 @@ const uiChatModule = {
                 if (b === "管理员") return 1;
                 return a.localeCompare(b);
             });
-
             sortedRoleNames.forEach(name => {
                  if (name === "管理员") return;
-                 const isTemporary = !permanentRoles.has(name);
+                 const isPermanent = permanentRoles.has(name);
+                 const isVisible = roleVisibility[name] ?? true;
+                 if (isPermanent && !isVisible) {
+                     return;
+                 }
+                 const isTemporary = !isPermanent;
                  const char1 = name.charAt(0).toUpperCase();
                  let charToUse = null;
                  if (!usedChars.has(char1)) {
@@ -1527,7 +1296,6 @@ const uiChatModule = {
                  }
                  roleDataForButtons.push({ name, char: charToUse, isTemporary });
             });
-
             roleDataForButtons.forEach(({ name, char, isTemporary }) => {
                 const cont = document.createElement('div'); cont.className = 'role-button-container';
                 const btn = document.createElement('div'); btn.className = 'std-button'; btn.textContent = char; btn.dataset.roleName = name;
@@ -1536,12 +1304,9 @@ const uiChatModule = {
                     btn.style.color = '#3a3a3a';
                     btn.style.borderColor = '#3a3a3a';
                 }
-
                 cont.appendChild(btn);
                 const statesDiv = document.createElement('div'); statesDiv.className = 'role-state-buttons'; statesDiv.dataset.roleName = name;
-
                 const statesToShow = [uiChatModule.ROLE_STATE_DEFAULT, uiChatModule.ROLE_STATE_ACTIVE, uiChatModule.ROLE_STATE_USER_CONTROL, uiChatModule.ROLE_STATE_UPDATE];
-
                 statesToShow.forEach(s => {
                     const sBtn = document.createElement('div'); sBtn.className = 'std-button role-state-button';
                     sBtn.textContent = s;
@@ -1555,7 +1320,6 @@ const uiChatModule = {
         }
         elementsModule.roleButtonsListContainer.innerHTML = '';
         elementsModule.roleButtonsListContainer.appendChild(frag);
-
         const roleButtonContainers = elementsModule.roleButtonsListContainer.querySelectorAll('.role-button-container');
         roleButtonContainers.forEach(container => {
             const mainButton = container.querySelector('.std-button:not(.role-state-button)');
@@ -1563,7 +1327,7 @@ const uiChatModule = {
             const roleName = mainButton.dataset.roleName;
             const roleInfo = roleDataForButtons.find(r => r.name === roleName);
             const roleIsTemporary = roleInfo ? roleInfo.isTemporary : false;
-
+            const isPermanent = !roleIsTemporary;
             const mainShortPress = () => uiChatModule.toggleRoleStateButtons(roleName);
             const mainLongPress = () => {
                 if (!elementsModule.settingsPanel.classList.contains('active')) {
@@ -1575,7 +1339,6 @@ const uiChatModule = {
                  uiChatModule.hideRoleStateButtons();
             };
             if (mainButton) eventListenersModule._setupLongPressListener(mainButton, mainShortPress, mainLongPress, false);
-
             stateButtons.forEach(sBtn => {
                 const state = sBtn.dataset.state;
                 const isDisabled = sBtn.classList.contains('edit-disabled');
@@ -1588,17 +1351,16 @@ const uiChatModule = {
                     };
                 } else if (!isDisabled && state === uiChatModule.ROLE_STATE_DEFAULT && roleIsTemporary) {
                      stateLongPress = () => uiChatModule.deleteTemporaryRole(roleName, true);
+                } else if (!isDisabled && state === uiChatModule.ROLE_STATE_DEFAULT && isPermanent) {
+                     stateLongPress = () => uiChatModule.handleRoleDefaultStateLongPress(roleName);
                 }
-
                 if (sBtn) eventListenersModule._setupLongPressListener(sBtn, stateShortPress, stateLongPress, false);
             });
         });
-
         roleDataForButtons.forEach(({ name }) => {
             uiChatModule.updateRoleStateButtonVisual(name);
         });
     },
-
     toggleRoleStateButtons: (name) => {
         const div = document.querySelector(`.role-state-buttons[data-role-name="${name}"]`);
         if (div) {
@@ -1612,27 +1374,21 @@ const uiChatModule = {
             }
         }
     },
-
     hideRoleStateButtons: () => {
         document.querySelectorAll('.role-state-buttons.active').forEach(el => el.classList.remove('active'));
         stateModule.activeRoleStateButtons = null;
         const triggerList = elementsModule.activeRoleTriggerList;
         if (triggerList) triggerList.style.display = 'none';
     },
-
     selectRoleState: async (name, state) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails || !chatroomDetails.config.roleStates) return;
         const currentStates = chatroomDetails.config.roleStates;
-
         if (state === uiChatModule.ROLE_STATE_UPDATE) {
-
             const isPermanent = chatroomDetails.roles.some(r => r.name === name);
-
             if (!isPermanent) {
                 const newRoleData = { name: name, setting: "", memory: "", drawingTemplate: "" };
                 const createSuccess = await apiModule.createRole(chatroomDetails.config.name, newRoleData);
-
                 if (createSuccess) {
                     await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
                     uiChatModule.updateRoleButtonsList();
@@ -1651,7 +1407,8 @@ const uiChatModule = {
             const updatePayload = { roleStates: currentStates };
             if (!chatroomDetails.config.roleDetailedStates) chatroomDetails.config.roleDetailedStates = {};
             updatePayload.roleDetailedStates = chatroomDetails.config.roleDetailedStates;
-
+            if (!chatroomDetails.config.roleVisibility) chatroomDetails.config.roleVisibility = {};
+            updatePayload.roleVisibility = chatroomDetails.config.roleVisibility;
             const success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, updatePayload);
             if (success) {
                 uiChatModule.updateRoleStateButtonVisual(name);
@@ -1663,17 +1420,14 @@ const uiChatModule = {
                  alert(`保存角色 ${name} 状态失败`);
             }
         }
-
         uiChatModule.hideRoleStateButtons();
     },
-
 
     handleDefaultStateLongPress: async (roleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails || roleName === "管理员") return;
         const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
         if (!isPermanent) return;
-
 
         const newStates = { ...chatroomDetails.config.roleStates };
         delete newStates[roleName];
@@ -1683,12 +1437,20 @@ const uiChatModule = {
             delete newDetailedStates[roleName];
             updatePayload.roleDetailedStates = newDetailedStates;
         }
+        if (chatroomDetails.config.roleVisibility && roleName in chatroomDetails.config.roleVisibility) {
+             const newVisibility = { ...chatroomDetails.config.roleVisibility };
+             delete newVisibility[roleName];
+             updatePayload.roleVisibility = newVisibility;
+        }
 
         const success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, updatePayload);
         if (success) {
             chatroomDetails.config.roleStates = newStates;
             if (updatePayload.roleDetailedStates) {
                 chatroomDetails.config.roleDetailedStates = updatePayload.roleDetailedStates;
+            }
+            if (updatePayload.roleVisibility) {
+                 chatroomDetails.config.roleVisibility = updatePayload.roleVisibility;
             }
             uiChatModule.updateRoleButtonsList();
             uiSettingsModule.updateChatroomRolePage();
@@ -1697,10 +1459,8 @@ const uiChatModule = {
             _logAndDisplayError(`Failed to remove role ${roleName} from states`, "handleDefaultStateLongPress");
             alert(`移除角色 ${roleName} 失败`);
         }
-
         uiChatModule.hideRoleStateButtons();
     },
-
     updateRoleStateButtonVisual: (name) => {
         const div = document.querySelector(`.role-state-buttons[data-role-name="${name}"]`);
         const chatroomDetails = stateModule.currentChatroomDetails;
@@ -1716,18 +1476,15 @@ const uiChatModule = {
             });
         }
     },
-
     createAndEditMessageForRole: (roleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails) { _logAndDisplayError("请先选择一个激活的聊天室。", "createAndEditMessageForRole"); return; }
-
         const roleState = chatroomDetails.config.roleStates?.[roleName];
         if (roleState === undefined) {
              _logAndDisplayError(`角色 "${roleName}" 不在当前聊天室。`, "createAndEditMessageForRole"); return;
         }
         const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
         const roleType = isPermanent ? 'role' : 'temporary_role';
-
         const msgId = uiChatModule._generateMessageId();
         const timestamp = Date.now();
         const messageObject = {
@@ -1749,7 +1506,6 @@ const uiChatModule = {
             uiChatModule.toggleMessageEditMode(msgCont);
         }
     },
-
     createAdminMessage: () => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails) {
@@ -1777,7 +1533,6 @@ const uiChatModule = {
             uiChatModule.toggleMessageEditMode(msgCont);
         }
     },
-
     addTemporaryRole: async (roleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails) {
@@ -1793,24 +1548,23 @@ const uiChatModule = {
             _logAndDisplayError(`添加失败：名称 "${trimmedName}" 已存在于当前聊天室。`, 'addTemporaryRole');
             return false;
         }
-
         const newStates = { ...chatroomDetails.config.roleStates, [trimmedName]: uiChatModule.ROLE_STATE_ACTIVE };
         const updatePayload = { roleStates: newStates };
         if (!chatroomDetails.config.roleDetailedStates) chatroomDetails.config.roleDetailedStates = {};
         updatePayload.roleDetailedStates = { ...chatroomDetails.config.roleDetailedStates, [trimmedName]: "" };
-
+        if (!chatroomDetails.config.roleVisibility) chatroomDetails.config.roleVisibility = {};
+        updatePayload.roleVisibility = { ...chatroomDetails.config.roleVisibility };
         const success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, updatePayload);
-
         if (success) {
              chatroomDetails.config.roleStates = newStates;
              chatroomDetails.config.roleDetailedStates = updatePayload.roleDetailedStates;
+             chatroomDetails.config.roleVisibility = updatePayload.roleVisibility;
              return true;
         } else {
              _logAndDisplayError(`Failed to add temporary role ${trimmedName} via API`, 'addTemporaryRole');
              return false;
         }
     },
-
     deleteTemporaryRole: async (roleName, confirmDeletion = true) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails) {
@@ -1830,11 +1584,8 @@ const uiChatModule = {
             _logAndDisplayError(`删除失败：临时角色 "${roleName}" 不存在于状态中。`, 'deleteTemporaryRole');
             return false;
         }
-
         if (confirmDeletion) {
-
         }
-
 
         const newStates = { ...chatroomDetails.config.roleStates };
         delete newStates[roleName];
@@ -1844,13 +1595,19 @@ const uiChatModule = {
             delete newDetailedStates[roleName];
             updatePayload.roleDetailedStates = newDetailedStates;
         }
-
+        if (chatroomDetails.config.roleVisibility && roleName in chatroomDetails.config.roleVisibility) {
+             const newVisibility = { ...chatroomDetails.config.roleVisibility };
+             delete newVisibility[roleName];
+             updatePayload.roleVisibility = newVisibility;
+        }
         const success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, updatePayload);
-
         if (success) {
             chatroomDetails.config.roleStates = newStates;
             if (updatePayload.roleDetailedStates) {
                 chatroomDetails.config.roleDetailedStates = updatePayload.roleDetailedStates;
+            }
+            if (updatePayload.roleVisibility) {
+                 chatroomDetails.config.roleVisibility = updatePayload.roleVisibility;
             }
             uiChatModule.updateRoleButtonsList();
             uiSettingsModule.updateChatroomRolePage();
@@ -1860,25 +1617,18 @@ const uiChatModule = {
             _logAndDisplayError(`Failed to delete temporary role ${roleName} via API`, 'deleteTemporaryRole');
             return false;
         }
-
     },
-
     handleNovelAiResponse: (responseData, originalDrawingMasterData, rawJsonText, targetMessageId = null) => {
-
         if (responseData.error) {
              _logAndDisplayError(`NovelAI Error: ${responseData.error}`, 'handleNovelAiResponse');
              return;
         }
-
         if (!responseData.imageDataUrl) {
              _logAndDisplayError("[NovelAI returned unknown response or no image data]", 'handleNovelAiResponse');
              return;
         }
-
         const imageUrl = responseData.imageDataUrl;
-
         if (targetMessageId) {
-
              const msgCont = document.querySelector(`.message-container[data-message-id="${targetMessageId}"]`);
              if (msgCont) {
                  const imgElement = msgCont.querySelector('.ai-response img');
@@ -1888,7 +1638,6 @@ const uiChatModule = {
                  } else {
                       _logAndDisplayError(`Image element not found in message ${targetMessageId} for replacement.`, 'handleNovelAiResponse');
                  }
-
                  const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === targetMessageId);
                  if (messageIndex > -1) {
                      stateModule.currentChatHistoryData[messageIndex].timestamp = Date.now();
@@ -1899,14 +1648,11 @@ const uiChatModule = {
              } else {
                   _logAndDisplayError(`Could not find target message ${targetMessageId} for redraw.`, 'handleNovelAiResponse');
              }
-
         } else {
-
              const msgId = uiChatModule._generateMessageId();
              const timestamp = Date.now();
              const roleName = 'drawingMaster';
              const roleType = 'tool';
-
              const messageObject = {
                 id: msgId,
                 timestamp: timestamp,
@@ -1921,9 +1667,7 @@ const uiChatModule = {
                 parserError: null,
                 naiPayloadSource: originalDrawingMasterData || null
              };
-
              stateModule.tempImageUrls[msgId] = imageUrl;
-
              stateModule.displayedImageCount++;
              stateModule.displayedImageOrder.push(msgId);
              const MAX_IMAGES = 20;
@@ -1932,10 +1676,8 @@ const uiChatModule = {
                 delete stateModule.tempImageUrls[oldestMsgId];
                 stateModule.displayedImageCount--;
              }
-
             stateModule.currentChatHistoryData.push(messageObject);
             const messageContainer = uiChatModule._appendMessageAndScroll(messageObject);
-
             if (messageContainer) {
                  const actionsContainer = messageContainer.querySelector('.message-actions-container');
                  if (actionsContainer) {
@@ -1968,57 +1710,47 @@ const uiChatModule = {
             uiChatModule.triggerDebouncedHistorySave();
         }
     },
-
     saveCharacterUpdate: async (messageContainer) => {
         if (!messageContainer) return;
         const messageId = messageContainer.dataset.messageId;
         const chatroomDetails = stateModule.currentChatroomDetails;
-
         const messageIndex = stateModule.currentChatHistoryData.findIndex(msg => msg.id === messageId);
         if (messageIndex === -1 || stateModule.currentChatHistoryData[messageIndex].roleName !== 'characterUpdateMaster') {
              _logAndDisplayError(`Cannot save character update: Message ${messageId} not found or not a character update message.`, 'saveCharacterUpdate');
             return;
         }
-
         const messageObject = stateModule.currentChatHistoryData[messageIndex];
         const parsedResult = messageObject.parsedResult;
-        if (!parsedResult || messageObject.parserError) {
-             _logAndDisplayError(`Cannot save character update: Parsed result for message ${messageId} is invalid or contains errors.`, 'saveCharacterUpdate');
+        if (!parsedResult || messageObject.parserError || !parsedResult.formattedUpdate) {
+             _logAndDisplayError(`Cannot save character update: Parsed result for message ${messageId} is invalid, contains errors, or lacks formattedUpdate.`, 'saveCharacterUpdate');
              return;
         }
-
         const targetRoleName = messageObject.targetRoleName;
         if (!chatroomDetails || !targetRoleName) {
              _logAndDisplayError(`Cannot save character update: Active chatroom details or target role name is missing.`, 'saveCharacterUpdate');
             return;
         }
-
         const roleIndex = chatroomDetails.roles.findIndex(r => r.name === targetRoleName);
         if (roleIndex === -1) {
             _logAndDisplayError(`Cannot save character update: Target role ${targetRoleName} not found in chatroom roles (might be temporary).`, 'saveCharacterUpdate');
              alert(`无法保存：目标角色 ${targetRoleName} 是临时角色或已被删除。`);
             return;
         }
-
         const roleToUpdate = chatroomDetails.roles[roleIndex];
-        const displayText = uiChatModule._formatCharacterUpdateMasterDisplay(parsedResult);
-        const parts = displayText.split(uiChatModule.CHARACTER_SETTINGS_SEPARATOR);
-
+        const formattedUpdateString = parsedResult.formattedUpdate;
+        const parts = formattedUpdateString.split(uiChatModule.CHARACTER_SETTINGS_SEPARATOR);
         if (parts.length === 2) {
-             let memoryString = parts[0].replace(/^---\s*更新后记忆.*?---\s*\n?/, '').trim();
-             let settingString = parts[1].replace(/^---\s*更新后设定.*?---\s*\n?/, '').trim();
-
-             const currentMemory = roleToUpdate.memory || "";
+             let newMemoryPart = parts[0].replace(/^---\s*更新后记忆.*?---\s*\n?/, '').trim();
+             let newSettingString = parts[1].replace(/^---\s*更新后设定.*?---\s*\n?/, '').trim();
+             const currentMemory = roleToUpdate.memory || '';
+             const combinedMemory = currentMemory ? `${currentMemory}\n${newMemoryPart}` : newMemoryPart;
 
              const updatedRoleData = {
                  ...roleToUpdate,
-                 memory: currentMemory ? `${currentMemory}\n${memoryString}` : memoryString,
-                 setting: settingString
+                 memory: combinedMemory,
+                 setting: newSettingString
              };
-
-
              const success = await apiModule.updateRole(chatroomDetails.config.name, targetRoleName, updatedRoleData);
-
              if(success) {
                  Object.assign(roleToUpdate, updatedRoleData);
                  uiChatModule.hideAllMessageActions();
@@ -2026,33 +1758,26 @@ const uiChatModule = {
                  if (roleDetailOpen && stateModule.currentRole === targetRoleName) {
                     uiSettingsModule.loadRoleSettings(targetRoleName, roleToUpdate, false);
                  }
-
-
-
              } else {
                   _logAndDisplayError(`Failed to save character update for ${targetRoleName} via API`, 'saveCharacterUpdate');
                   alert(`保存角色 ${targetRoleName} 更新失败。`);
              }
-
         } else {
-             _logAndDisplayError(`Output format error for CharacterUpdateMaster message ${messageId}, cannot save.`, 'saveCharacterUpdate');
+             _logAndDisplayError(`Output format error for CharacterUpdateMaster message ${messageId}, cannot save. Formatted string: ${formattedUpdateString}`, 'saveCharacterUpdate');
         }
     },
-
     showLoadingSpinner: () => {
         if (elementsModule.loadingSpinner) {
             elementsModule.loadingSpinner.style.display = 'block';
             elementsModule.loadingSpinner.classList.add('spinning');
         }
     },
-
     hideLoadingSpinner: () => {
         if (elementsModule.loadingSpinner) {
             elementsModule.loadingSpinner.style.display = 'none';
             elementsModule.loadingSpinner.classList.remove('spinning');
         }
     },
-
     showRetryIndicator: () => {
         const spinner = elementsModule.loadingSpinner;
         if (spinner) {
@@ -2062,12 +1787,10 @@ const uiChatModule = {
             }, 200);
         }
     },
-
     _createPendingActionButton: (roleName) => {
         const container = elementsModule.pendingActionButtonContainer;
         if (!container) return;
         uiChatModule._removePendingActionButton();
-
         const button = document.createElement('div');
         button.className = 'std-button';
         button.textContent = '💬';
@@ -2076,10 +1799,8 @@ const uiChatModule = {
             uiChatModule.createAndEditMessageForRole(roleName);
             uiChatModule._removePendingActionButton();
         });
-
         container.appendChild(button);
     },
-
     _removePendingActionButton: () => {
         const container = elementsModule.pendingActionButtonContainer;
         if (container) {
