@@ -342,6 +342,7 @@
          #shared-database-instruction-settings,
          #chatroom-main-prompt-settings,
          #drawing-master-main-prompt-settings,
+         #drawing-master-novel-content-settings,
          #game-host-main-prompt-settings,
          #writing-master-main-prompt-settings,
          #character-update-master-main-prompt-settings,
@@ -351,6 +352,7 @@
          #chatroom-override-general-main-prompt,
          #chatroom-override-drawingMaster-tool-database-instruction,
          #chatroom-override-drawingMaster-main-prompt,
+         #chatroom-override-drawingMaster-novel-content,
          #chatroom-override-gameHost-tool-database-instruction,
          #chatroom-override-gameHost-main-prompt,
          #chatroom-override-writingMaster-tool-database-instruction,
@@ -1029,6 +1031,20 @@
             background-color: transparent;
         }
 
+        .button-group-horizontal {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .button-group-horizontal > .settings-menu-item {
+            flex-grow: 1;
+            margin-bottom: 0;
+        }
+        .button-group-horizontal > input[type="file"] {
+             display: none;
+        }
+
     </style>
 </head>
 <body>
@@ -1222,7 +1238,6 @@
                     <div class="settings-group error-log-settings">
                         <label for="error-log-display" class="settings-label">错误信息 (仅运行时)</label>
                         <textarea id="error-log-display" class="settings-textarea" readonly></textarea>
-                        <div id="clear-error-log-button" class="settings-menu-item">清空错误日志</div>
                         <div id="copy-error-log-button" class="settings-menu-item">复制错误信息</div>
                         <div id="clear-all-config-button" class="settings-menu-item" style="color: red; border-color: red;">清空全部配置 (危险)</div>
                         <div id="export-config-button" class="settings-menu-item">导出完整配置 (ZIP)</div>
@@ -1240,7 +1255,11 @@
                  </div>
                   <div class="settings-section">
                     <div class="settings-group role-list">
-
+                        <div class="button-group-horizontal">
+                           <div id="add-chatroom-role-button" class="settings-menu-item">十 添加角色</div>
+                           <input type="file" id="import-role-file" style="display: none;" accept=".json">
+                           <div id="import-role-button" class="settings-menu-item">导入角色</div>
+                        </div>
                         <div id="role-list-container">
                         </div>
                     </div>
@@ -1267,8 +1286,6 @@
                         <input type="text" id="role-drawing-template-settings" class="settings-input" autocomplete="off">
 
                         <div id="export-role-button" class="settings-menu-item" style="margin-top: 15px;">导出此角色</div>
-                        <input type="file" id="import-role-file" style="display: none;" accept=".json">
-                        <div id="import-role-button" class="settings-menu-item">导入此角色</div>
                     </div>
                  </div>
              </div>
@@ -1338,7 +1355,11 @@
                  </div>
                   <div class="settings-section">
                     <div class="settings-group chat-room-directory">
-                        <div id="add-chatroom-button" class = "settings-menu-item">十</div>
+                        <div class="button-group-horizontal">
+                           <div id="add-chatroom-button" class="settings-menu-item">十 添加聊天室</div>
+                           <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip">
+                           <div id="import-chatroom-button" class="settings-menu-item">导入 (ZIP)</div>
+                        </div>
                         <div id="chatroom-list-container">
                         </div>
                     </div>
@@ -1379,12 +1400,13 @@
                         <label for="public-info-textarea" class="settings-label">公共信息 (当前聊天室)</label>
                         <textarea id="public-info-textarea" class="settings-textarea"></textarea>
 
+                        <label for="chatroom-user-setting" class="settings-label">User (当前聊天室)</label>
+                        <input type="text" id="chatroom-user-setting" class="settings-input">
+
                          <div class="chatroom-management-grid">
                             <div id="rename-chatroom-button" class="settings-menu-item">重命名</div>
                             <div id="delete-chatroom-button" class="settings-menu-item" style="color: red; border-color: red;">删除</div>
                             <div id="export-chatroom-button" class="settings-menu-item">导出 (ZIP)</div>
-                            <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip">
-                            <div id="import-chatroom-button" class="settings-menu-item">导入 (ZIP)</div>
                         </div>
                     </div>
                  </div>
@@ -1434,6 +1456,9 @@
 
                         <label for="drawing-master-main-prompt-settings" class="settings-label">主提示词</label>
                         <textarea id="drawing-master-main-prompt-settings" class="settings-textarea"></textarea>
+
+                        <label for="drawing-master-novel-content-settings" class="settings-label">原著小说 (绘图大师)</label>
+                        <textarea id="drawing-master-novel-content-settings" class="settings-textarea"></textarea>
                     </div>
                  </div>
              </div>
@@ -1636,6 +1661,8 @@
                          <textarea id="chatroom-override-drawingMaster-tool-database-instruction" class="settings-textarea"></textarea>
                          <label for="chatroom-override-drawingMaster-main-prompt" class="settings-label">主提示词</label>
                          <textarea id="chatroom-override-drawingMaster-main-prompt" class="settings-textarea"></textarea>
+                         <label for="chatroom-override-drawingMaster-novel-content" class="settings-label">原著小说 (绘图大师)</label>
+                         <textarea id="chatroom-override-drawingMaster-novel-content" class="settings-textarea"></textarea>
                      </div>
                  </div>
              </div>

@@ -11,7 +11,7 @@ const defaultConfig = {
     sharedDatabaseInstruction: "",
     mainPrompt: "",
     toolSettings: {
-        drawingMaster: { responseSchemaJson: '', responseSchemaParserJs: '', toolDatabaseInstruction: '', enabled: false, model: '', mainPrompt: '' },
+        drawingMaster: { responseSchemaJson: '', responseSchemaParserJs: '', toolDatabaseInstruction: '', enabled: false, model: '', mainPrompt: '', novelContent: '' },
         gameHost: { responseSchemaJson: '', responseSchemaParserJs: '', toolDatabaseInstruction: '', enabled: false, model: '', mainPrompt: '' },
         writingMaster: { responseSchemaJson: '', responseSchemaParserJs: '', toolDatabaseInstruction: '', enabled: false, model: '', mainPrompt: '' },
         characterUpdateMaster: { responseSchemaJson: '', responseSchemaParserJs: '', toolDatabaseInstruction: '', enabled: false, model: '', mainPrompt: '' },
@@ -53,7 +53,8 @@ const defaultChatroomOverrideSettings = {
         responseSchemaJson: "",
         responseSchemaParserJs: "",
         toolDatabaseInstruction: "",
-        mainPrompt: ""
+        mainPrompt: "",
+        novelContent: ""
     },
     gameHost: {
         enabled: false,
@@ -335,6 +336,18 @@ const configModule = {
         Object.keys(defaultConfig).forEach(key => {
              if (!(key in loadedConfig)) {
                  loadedConfig[key] = JSON.parse(JSON.stringify(defaultConfig[key]));
+             } else if (key === 'toolSettings') {
+                 Object.keys(defaultConfig.toolSettings).forEach(toolKey => {
+                      if (!(toolKey in loadedConfig.toolSettings)) {
+                          loadedConfig.toolSettings[toolKey] = JSON.parse(JSON.stringify(defaultConfig.toolSettings[toolKey]));
+                      } else {
+                          Object.keys(defaultConfig.toolSettings[toolKey]).forEach(subKey => {
+                               if (!(subKey in loadedConfig.toolSettings[toolKey])) {
+                                   loadedConfig.toolSettings[toolKey][subKey] = JSON.parse(JSON.stringify(defaultConfig.toolSettings[toolKey][subKey]));
+                               }
+                          });
+                      }
+                 });
              }
         });
 
@@ -477,23 +490,44 @@ const placeholderModule = {
         if (typeof text !== 'string') return text;
 
         const localExcludePlaceholders = [...excludePlaceholders];
-        if (context?.currentRoleNameForPayload === 'drawingMaster') {
-            if (!localExcludePlaceholders.includes('{{原著小说}}')) {
-                localExcludePlaceholders.push('{{原著小说}}');
-            }
-        }
 
         function wrapWithTag(tagName, content) {
             const safeContent = content || '';
             return `<${tagName}>\n${tagName}:\n${safeContent}\n</${tagName}>`;
         }
+        function wrapWithDynamicTag(tagName, roleName, content) {
+            const safeContent = content || '';
+            const dynamicTagName = `${roleName}_${tagName}`;
+            return `<${dynamicTagName}>\n${dynamicTagName}:\n${safeContent}\n</${dynamicTagName}>`;
+        }
+
         const cachedContext = context?.cachedContext;
         if (!cachedContext) return text;
 
         let novelOriginalNovel = "[原著小说未生成]";
         if (!localExcludePlaceholders.includes('{{原著小说}}') && text.includes('{{原著小说}}')) {
-            novelOriginalNovel = getOriginalNovelTextForPayload();
+            if (context?.currentRoleNameForPayload === 'drawingMaster') {
+                const details = stateModule.currentChatroomDetails;
+                const globalConfig = stateModule.config.toolSettings.drawingMaster;
+                let overrideEnabled = false;
+                let overrideContent = '';
+                if (details && details.config && details.config.overrideSettings && details.config.overrideSettings.drawingMaster) {
+                    const overrideSettings = details.config.overrideSettings.drawingMaster;
+                    if (overrideSettings.enabled) {
+                        overrideEnabled = true;
+                        overrideContent = overrideSettings.novelContent || '';
+                    }
+                }
+                if (overrideEnabled) {
+                    novelOriginalNovel = overrideContent || '[绘图大师原著小说(覆盖)为空]';
+                } else {
+                    novelOriginalNovel = globalConfig?.novelContent || '[绘图大师原著小说(全局)为空]';
+                }
+            } else {
+                novelOriginalNovel = getOriginalNovelTextForPayload();
+            }
         }
+
         let rawMainPromptText = context.mainPrompt || '[主提示词为空]';
         let processedMainPromptText = rawMainPromptText;
         if (!localExcludePlaceholders.includes('{{主提示词}}') && text.includes('{{主提示词}}')) {
@@ -506,21 +540,22 @@ const placeholderModule = {
 
         let roleplayRuleText = stateModule.currentChatroomDetails?.config?.roleplayRules || '[扮演规则为空]';
         let publicInfoText = stateModule.currentChatroomDetails?.config?.publicInfo || '[公共信息为空]';
+        let userValue = stateModule.currentChatroomDetails?.config?.user || '[user未设置]';
         let latestMessageContentText = cachedContext?.latestMessageContent || '[无最新消息]';
         let roleSettingValue = '[未设定]';
         let roleMemoryValue = '[未设定]';
         let currentRoleDetailedStateValue = '[无详细状态]';
         let roleNameValue = context.currentRoleNameForPayload || '[未知角色]';
         const isCharacterUpdater = context.roleType === 'tool' && context.currentRoleNameForPayload === 'characterUpdateMaster';
-        const targetRoleName = context.targetRoleNameForTool;
+        const targetRoleNameValue = context.targetRoleNameForTool || '[无目标角色]';
         const targetRoleData = context.targetRoleData;
         const currentRoleData = context.roleData;
         if (isCharacterUpdater) {
             roleNameValue = toolNameMap['characterUpdateMaster'];
-            if (targetRoleName && targetRoleData) {
-                roleSettingValue = targetRoleData.setting || `[${targetRoleName} 设定未获取]`;
-                roleMemoryValue = targetRoleData.memory || `[${targetRoleName} 记忆未获取]`;
-                currentRoleDetailedStateValue = cachedContext?.roleDetailedStates?.[targetRoleName] || `[${targetRoleName} 无详细状态]`;
+            if (targetRoleNameValue !== '[无目标角色]' && targetRoleData) {
+                roleSettingValue = targetRoleData.setting || `[${targetRoleNameValue} 设定未获取]`;
+                roleMemoryValue = targetRoleData.memory || `[${targetRoleNameValue} 记忆未获取]`;
+                currentRoleDetailedStateValue = cachedContext?.roleDetailedStates?.[targetRoleNameValue] || `[${targetRoleNameValue} 无详细状态]`;
             } else {
                 roleSettingValue = '[无目标角色设定]';
                 roleMemoryValue = '[无目标角色记忆]';
@@ -546,31 +581,37 @@ const placeholderModule = {
         }
         let rawFormattedHistory = cachedContext?.formattedHistory || '';
         const rawNonSilentRoleSettingsValue = cachedContext?.nonSilentRoleSettingsValue;
-        const joinedSettings = rawNonSilentRoleSettingsValue ? rawNonSilentRoleSettingsValue.split('\n\n').join('\n---\n') : '[无激活角色设定]';
         const rawNonSilentRoleDetailedStatesValue = cachedContext?.nonSilentRoleDetailedStatesValue;
-        const joinedDetailedStates = rawNonSilentRoleDetailedStatesValue ? rawNonSilentRoleDetailedStatesValue.split('\n\n').join('\n---\n') : '[无激活角色详细状态]';
         const wrappedOriginalNovel = wrapWithTag('OriginalNovel', novelOriginalNovel);
         const wrappedRoleplayRule = wrapWithTag('RoleplayRules', roleplayRuleText);
         const wrappedPublicInfo = wrapWithTag('PublicInfo', publicInfoText);
         const wrappedMainPrompt = wrapWithTag('MainPrompt', processedMainPromptText);
         const wrappedLatestMessage = wrapWithTag('LatestMessage', latestMessageContentText);
+        const wrappedHistory = wrapWithTag('History', rawFormattedHistory);
+        const wrappedSettingsCollection = wrapWithTag('CharacterSettingsCollection', rawNonSilentRoleSettingsValue);
+        const wrappedStatesCollection = wrapWithTag('CharacterStatesCollection', rawNonSilentRoleDetailedStatesValue);
+        const wrappedWorldInfo = wrapWithTag('WorldInfo', cachedContext?.worldInfo || '[世界信息未获取]');
+        const triggeringCharacterNameValue = context?.triggeringCharacterName || '[触发绘图的角色未知]';
 
         const replacements = {
             '{{角色名称}}': roleNameValue,
+            '{{目标角色名称}}': targetRoleNameValue,
             '{{角色名称集}}': cachedContext?.nonSilentRolesValue || '[无激活角色]',
             '{{最新角色}}': cachedContext?.lastActor || '[最近行动者未知]',
-            '{{角色设定}}': wrapWithTag('CharacterSetting', roleSettingValue),
-            '{{角色记忆}}': wrapWithTag('CharacterMemory', roleMemoryValue),
-            '{{角色状态}}': wrapWithTag('CharacterState', currentRoleDetailedStateValue),
-            '{{消息记录}}': wrapWithTag('History', rawFormattedHistory),
+            '{{角色设定}}': wrapWithDynamicTag('Setting', roleNameValue, roleSettingValue),
+            '{{角色记忆}}': wrapWithDynamicTag('Memory', roleNameValue, roleMemoryValue),
+            '{{角色状态}}': wrapWithDynamicTag('State', roleNameValue, currentRoleDetailedStateValue),
+            '{{消息记录}}': wrappedHistory,
             '{{最新消息}}': wrappedLatestMessage,
-            '{{角色设定集}}': wrapWithTag('CharacterSettingsCollection', joinedSettings),
-            '{{角色状态集}}': wrapWithTag('CharacterStatesCollection', joinedDetailedStates),
-            '{{世界信息}}': wrapWithTag('WorldInfo', cachedContext?.worldInfo || '[世界信息未获取]'),
+            '{{角色设定集}}': wrappedSettingsCollection,
+            '{{角色状态集}}': wrappedStatesCollection,
+            '{{世界信息}}': wrappedWorldInfo,
             '{{原著小说}}': wrappedOriginalNovel,
             '{{扮演规则}}': wrappedRoleplayRule,
             '{{公共信息}}': wrappedPublicInfo,
             '{{主提示词}}': wrappedMainPrompt,
+            '{{绘图角色}}': triggeringCharacterNameValue,
+            '{{user}}': userValue,
         };
 
         let replacedString = text;
@@ -766,7 +807,7 @@ async function updateChatContextCache() {
         }
     }
 
-    newCache.formattedHistory = historyLines.join('\n');
+    newCache.formattedHistory = historyLines.join('\n---\n');
 
     const nonSilentRoleNames = Object.entries(newCache.roleStates)
         .filter(([name, state]) => [uiChatModule.ROLE_STATE_ACTIVE, uiChatModule.ROLE_STATE_USER_CONTROL].includes(state || uiChatModule.ROLE_STATE_DEFAULT))
@@ -774,17 +815,21 @@ async function updateChatContextCache() {
     newCache.nonSilentRolesValue = nonSilentRoleNames.join(',') || '[无激活角色]';
     newCache.nonSilentRoleSettingsValue = nonSilentRoleNames.map(rName => {
         const roleData = allRolesInRoom.find(r => r.name === rName);
-        return roleData?.setting || `[${rName} 设定未获取或为临时角色]`;
-    }).join('\n\n') || '[无激活角色设定]';
-    newCache.nonSilentRoleDetailedStatesValue = nonSilentRoleNames.map(rName =>
-         newCache.roleDetailedStates[rName] || `[${rName} 无详细状态]`
-    ).join('\n\n') || '[无激活角色详细状态]';
+        const settingContent = roleData?.setting || `[${rName} 设定未获取或为临时角色]`;
+        const tagName = `${rName}_Setting`;
+        return `<${tagName}>\n${tagName}:\n${settingContent}\n</${tagName}>`;
+    }).join('\n---\n') || '[无激活角色设定]';
+    newCache.nonSilentRoleDetailedStatesValue = nonSilentRoleNames.map(rName => {
+        const stateContent = newCache.roleDetailedStates[rName] || `[${rName} 无详细状态]`;
+        const tagName = `${rName}_State`;
+        return `<${tagName}>\n${tagName}:\n${stateContent}\n</${tagName}>`;
+    }).join('\n---\n') || '[无激活角色详细状态]';
 
     stateModule.chatContextCache = newCache;
     if (typeof uiSettingsModule !== 'undefined') uiSettingsModule.updateWorldInfoDisplay();
 }
 
-const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTool = null) => {
+const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTool = null, triggeringCharacterName = null) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
     let modelToUse = '';
     let specificResponseSchema = null;
@@ -887,6 +932,9 @@ const _prepareRoleOrToolContext = async (roleName, roleType, targetRoleNameForTo
         targetRoleData: targetRoleData,
         cachedContext: stateModule.chatContextCache
     };
+    if (triggeringCharacterName) {
+        context.triggeringCharacterName = triggeringCharacterName;
+    }
     return context;
 };
 
@@ -927,6 +975,9 @@ const _buildApiPayload = async (context) => {
     }));
     if (context.targetRoleNameForTool) {
         basePayload.targetRoleNameForTool = context.targetRoleNameForTool;
+    }
+    if (context.triggeringCharacterName) {
+         basePayload.triggeringCharacterName = context.triggeringCharacterName;
     }
 
     const finalPayload = await placeholderModule.replacePlaceholders(
@@ -991,14 +1042,14 @@ const _performApiCall = async (apiKey, payload, roleName, targetRoleNameForTool 
     return result;
 };
 const apiModule = {
-    _sendGeminiRequestWithRetry: async (roleName, roleType, targetRoleNameForTool = null) => {
+    _sendGeminiRequestWithRetry: async (roleName, roleType, targetRoleNameForTool = null, triggeringCharacterName = null) => {
         let lastError = null;
         let context = null;
         let finalPayload = null;
         let apiKeyUsed = null;
 
         try {
-            context = await _prepareRoleOrToolContext(roleName, roleType, targetRoleNameForTool);
+            context = await _prepareRoleOrToolContext(roleName, roleType, targetRoleNameForTool, triggeringCharacterName);
             if (!context) {
                 if (roleType === 'tool' && !stateModule.config.toolSettings[roleName]?.enabled) {
                      return;
@@ -1373,10 +1424,10 @@ const apiModule = {
             alert(`拉取模型列表失败！\n${lastError?.message || '未知错误'}`);
         }
     },
-    sendSingleMessageForRoleImpl: async (roleName, roleType, targetRoleNameForTool = null) => {
-        await apiModule._sendGeminiRequestWithRetry(roleName, roleType, targetRoleNameForTool);
+    sendSingleMessageForRoleImpl: async (roleName, roleType, targetRoleNameForTool = null, triggeringCharacterName = null) => {
+        await apiModule._sendGeminiRequestWithRetry(roleName, roleType, targetRoleNameForTool, triggeringCharacterName);
     },
-    triggerRoleResponse: (roleName) => {
+    triggerRoleResponse: (roleName, triggeringCharacterName = null) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
         if (!chatroomDetails || !chatroomDetails.config) return;
         let roleType = 'unknown';
@@ -1407,14 +1458,14 @@ const apiModule = {
                     _logAndDisplayError("无法触发响应：上下文缓存为空。", 'triggerRoleResponse');
                     return;
                 }
-                apiModule._triggerRoleResponseInternal(roleName, roleType);
+                apiModule._triggerRoleResponseInternal(roleName, roleType, triggeringCharacterName);
              });
         } else {
-             apiModule._triggerRoleResponseInternal(roleName, roleType);
+             apiModule._triggerRoleResponseInternal(roleName, roleType, triggeringCharacterName);
         }
     },
-    _triggerRoleResponseInternal: (roleName, roleType) => {
-        apiModule.sendSingleMessageForRoleImpl(roleName, roleType);
+    _triggerRoleResponseInternal: (roleName, roleType, triggeringCharacterName = null) => {
+        apiModule.sendSingleMessageForRoleImpl(roleName, roleType, null, triggeringCharacterName);
     },
     triggerCharacterUpdateForRole: (targetRoleName) => {
         const chatroomDetails = stateModule.currentChatroomDetails;
@@ -1766,6 +1817,9 @@ const apiModule = {
                      toolDatabaseInstruction: toolConfig.toolDatabaseInstruction || '',
                      mainPrompt: toolConfig.mainPrompt || ''
                  };
+                 if (toolName === 'drawingMaster') {
+                     dataToExport.toolSettings[toolName].novelContent = toolConfig.novelContent || '';
+                 }
             }
         });
         const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -1819,6 +1873,9 @@ const apiModule = {
                                      stateModule.config.toolSettings[toolName].responseSchemaParserJs = importedTool.responseSchemaParserJs || '';
                                      stateModule.config.toolSettings[toolName].toolDatabaseInstruction = importedTool.toolDatabaseInstruction || '';
                                      stateModule.config.toolSettings[toolName].mainPrompt = importedTool.mainPrompt || '';
+                                      if (toolName === 'drawingMaster' && importedTool.novelContent) {
+                                          stateModule.config.toolSettings.drawingMaster.novelContent = importedTool.novelContent;
+                                      }
                                  }
                              }
                         });

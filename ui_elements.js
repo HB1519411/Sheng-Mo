@@ -16,7 +16,6 @@ const elementsModule = {
     chatArea: null,
     chatContainer: null,
     errorLogDisplay: null,
-    clearErrorLogButton: null,
     copyErrorLogButton: null,
     clearAllConfigButton: null,
     exportConfigButton: null,
@@ -42,6 +41,9 @@ const elementsModule = {
     worldInfoDisplay: null,
 
     roleListContainer: null,
+    addChatroomRoleButton: null,
+    importRoleFile: null,
+    importRoleButton: null,
     roleDetailHeaderTitle: null,
     roleDetailpage: null,
     roleInstructionTextarea: null,
@@ -49,9 +51,6 @@ const elementsModule = {
     roleStateTextarea: null,
     roleDrawingTemplateSettings: null,
     exportRoleButton: null,
-    importRoleFile: null,
-    importRoleButton: null,
-
 
     toolListMenuItems: null,
     toolListPage: null,
@@ -63,6 +62,7 @@ const elementsModule = {
     drawingMasterEnabledSettings: null,
     drawingMasterModelSettings: null,
     drawingMasterMainPromptSettings: null,
+    drawingMasterNovelContentSettings: null,
 
     gameHostPage: null,
     gameHostResponseSchemaJsonSettings: null,
@@ -108,6 +108,8 @@ const elementsModule = {
     chatRoomDirectoryPage: null,
     addChatroomButton: null,
     chatroomListContainer: null,
+    importChatroomFile: null,
+    importChatroomButton: null,
 
     chatRoomDetailPage: null,
     chatroomDetailHeaderTitle: null,
@@ -118,8 +120,7 @@ const elementsModule = {
     renameChatroomButton: null,
     deleteChatroomButton: null,
     exportChatroomButton: null,
-    importChatroomFile: null,
-    importChatroomButton: null,
+    chatroomUserSetting: null,
 
     chatroomRolePage: null,
     chatroomNovelPage: null,
@@ -141,6 +142,7 @@ const elementsModule = {
     chatroomOverrideDrawingMasterResponseSchemaParserJs: null,
     chatroomOverrideDrawingMasterToolDatabaseInstruction: null,
     chatroomOverrideDrawingMasterMainPrompt: null,
+    chatroomOverrideDrawingMasterNovelContent: null,
 
     chatroomOverrideGameHostPage: null,
     chatroomOverrideGameHostEnabled: null,
@@ -245,7 +247,6 @@ const elementsModule = {
         this.chatArea = document.getElementById('chat-area');
         this.chatContainer = document.getElementById('chat-container');
         this.errorLogDisplay = document.getElementById('error-log-display');
-        this.clearErrorLogButton = document.getElementById('clear-error-log-button');
         this.copyErrorLogButton = document.getElementById('copy-error-log-button');
         this.clearAllConfigButton = document.getElementById('clear-all-config-button');
         this.exportConfigButton = document.getElementById('export-config-button');
@@ -271,6 +272,9 @@ const elementsModule = {
         this.worldInfoDisplay = document.getElementById('world-info-display');
 
         this.roleListContainer = document.getElementById('role-list-container');
+        this.addChatroomRoleButton = document.getElementById('add-chatroom-role-button');
+        this.importRoleFile = document.getElementById('import-role-file');
+        this.importRoleButton = document.getElementById('import-role-button');
         this.roleDetailHeaderTitle = document.getElementById('role-detail-header-title');
         this.roleDetailpage = document.getElementById('role-detail-page');
         this.roleInstructionTextarea = document.getElementById('role-instruction-textarea');
@@ -278,9 +282,6 @@ const elementsModule = {
         this.roleStateTextarea = document.getElementById('role-state-textarea');
         this.roleDrawingTemplateSettings = document.getElementById('role-drawing-template-settings');
         this.exportRoleButton = document.getElementById('export-role-button');
-        this.importRoleFile = document.getElementById('import-role-file');
-        this.importRoleButton = document.getElementById('import-role-button');
-
 
         this.toolListMenuItems = document.querySelectorAll('#tool-list-container .tool-item');
         this.toolListPage = document.getElementById('tool-list-page');
@@ -292,6 +293,7 @@ const elementsModule = {
         this.drawingMasterEnabledSettings = document.getElementById('drawing-master-enabled-settings');
         this.drawingMasterModelSettings = document.getElementById('drawing-master-model-settings');
         this.drawingMasterMainPromptSettings = document.getElementById('drawing-master-main-prompt-settings');
+        this.drawingMasterNovelContentSettings = document.getElementById('drawing-master-novel-content-settings');
 
         this.gameHostPage = document.getElementById('game-host-page');
         this.gameHostResponseSchemaJsonSettings = document.getElementById('game-host-response-schema-json-settings');
@@ -337,6 +339,8 @@ const elementsModule = {
         this.chatRoomDirectoryPage = document.getElementById('chat-room-directory-page');
         this.addChatroomButton = document.getElementById('add-chatroom-button');
         this.chatroomListContainer = document.getElementById('chatroom-list-container');
+        this.importChatroomFile = document.getElementById('import-chatroom-file');
+        this.importChatroomButton = document.getElementById('import-chatroom-button');
 
         this.chatRoomDetailPage = document.getElementById('chat-room-detail-page');
         this.chatroomDetailHeaderTitle = document.getElementById('chatroom-detail-header-title');
@@ -347,8 +351,7 @@ const elementsModule = {
         this.renameChatroomButton = document.getElementById('rename-chatroom-button');
         this.deleteChatroomButton = document.getElementById('delete-chatroom-button');
         this.exportChatroomButton = document.getElementById('export-chatroom-button');
-        this.importChatroomFile = document.getElementById('import-chatroom-file');
-        this.importChatroomButton = document.getElementById('import-chatroom-button');
+        this.chatroomUserSetting = document.getElementById('chatroom-user-setting');
 
         this.chatroomRolePage = document.getElementById('role-list-page');
         this.chatroomNovelPage = document.getElementById('story-mode-page');
@@ -371,6 +374,7 @@ const elementsModule = {
         this.chatroomOverrideDrawingMasterResponseSchemaParserJs = document.getElementById('chatroom-override-drawingMaster-response-schema-parser-js');
         this.chatroomOverrideDrawingMasterToolDatabaseInstruction = document.getElementById('chatroom-override-drawingMaster-tool-database-instruction');
         this.chatroomOverrideDrawingMasterMainPrompt = document.getElementById('chatroom-override-drawingMaster-main-prompt');
+        this.chatroomOverrideDrawingMasterNovelContent = document.getElementById('chatroom-override-drawingMaster-novel-content');
 
         this.chatroomOverrideGameHostPage = document.getElementById('chatroom-override-gameHost-page');
         this.chatroomOverrideGameHostEnabled = document.getElementById('chatroom-override-gameHost-enabled');

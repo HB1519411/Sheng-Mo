@@ -10,8 +10,7 @@
     "管理员": "默",
     "远坂凛": "默",
     "间桐樱": "默",
-    "阿尔托莉雅·潘德拉贡": "默",
-    "神秘魔术师": "活"
+    "阿尔托莉雅·潘德拉贡": "默"
   },
   "roleDetailedStates": {
     "[最近行动者未知]": "Demeanor: \nOuterwear: \nUnderwear: \nAccessories: \nShort Status: \nLong Status: \nPose: \nAction: \nOther Status:",
@@ -19,8 +18,7 @@
     "管理员": "Demeanor: \nOuterwear: 肥宅快乐衫, 居家短裤, 人字拖\nUnderwear: 宽松内裤\nAccessories: 黑框眼镜\nShort Status: 瘫坐, 摸鱼\nLong Status: 资深游戏玩家, 重度拖延症\nPose: 双手离开键盘, 伸懒腰\nAction: 启动游戏, 调整座椅\nOther Status:",
     "远坂凛": "",
     "间桐樱": "",
-    "阿尔托莉雅·潘德拉贡": "",
-    "神秘魔术师": ""
+    "阿尔托莉雅·潘德拉贡": ""
   },
   "novelCurrentSegmentIds": {
     "novel-1743735405235-2zapdzh": 510
@@ -41,7 +39,8 @@
       "model": "",
       "responseSchemaJson": "",
       "responseSchemaParserJs": "",
-      "toolDatabaseInstruction": ""
+      "toolDatabaseInstruction": "",
+      "novelContent": ""
     },
     "gameHost": {
       "enabled": true,
@@ -81,5 +80,6 @@
     "远坂凛": true,
     "间桐樱": true,
     "阿尔托莉雅·潘德拉贡": true
-  }
+  },
+  "user": ""
 }

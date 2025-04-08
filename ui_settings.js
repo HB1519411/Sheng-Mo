@@ -75,6 +75,7 @@ const uiSettingsModule = {
             }
             uiSettingsModule.loadRoleplayRulesSetting();
             uiSettingsModule.loadPublicInfoSetting();
+            uiSettingsModule.loadChatroomUserSetting();
         } else if (sectionId === 'general-config-page') {
             uiSettingsModule.loadOriginalNovelLengthSetting();
             uiSettingsModule.loadChatroomModelSetting();
@@ -256,12 +257,6 @@ const uiSettingsModule = {
         }
         container.innerHTML = '';
 
-        const addRoleButton = document.createElement('div');
-        addRoleButton.id = 'add-chatroom-role-button';
-        addRoleButton.className = 'settings-menu-item';
-        addRoleButton.textContent = '十 添加角色';
-        addRoleButton.addEventListener('click', () => uiSettingsModule.addChatroomRole());
-        container.appendChild(addRoleButton);
 
         const roleStates = chatroomDetails.config.roleStates || {};
         const permanentRoles = new Set(chatroomDetails.roles.map(r => r.name));
@@ -326,7 +321,7 @@ const uiSettingsModule = {
         });
 
         if (elementsModule.exportRoleButton) elementsModule.exportRoleButton.style.display = isReadOnly ? 'none' : 'block';
-        if (elementsModule.importRoleButton) elementsModule.importRoleButton.style.display = 'block';
+
     },
 
     saveRoleSettings: async () => {
@@ -407,10 +402,6 @@ const uiSettingsModule = {
                     uiSettingsModule.closeCurrentSection('role-detail-page');
                 }
                 updateChatContextCache();
-                stateModule.currentChatHistoryData = stateModule.currentChatHistoryData.filter(msg => msg.roleName !== roleName);
-                if (stateModule.config.activeChatRoomName) {
-                    uiChatModule.saveChatHistoryToServer();
-                }
             } else {
                 _logAndDisplayError(`Failed to delete role ${roleName}`, 'deleteChatroomRole');
                 alert(`删除角色 ${roleName} 失败`);
@@ -689,6 +680,7 @@ const uiSettingsModule = {
             if (document.getElementById('current-chatroom-settings-page').classList.contains('active')) {
                  uiSettingsModule.loadRoleplayRulesSetting();
                  uiSettingsModule.loadPublicInfoSetting();
+                 uiSettingsModule.loadChatroomUserSetting();
             }
 
             stateModule.currentNovelId = null;
@@ -878,6 +870,9 @@ const uiSettingsModule = {
 
     loadGodSettings: (godName) => {
         const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'toolDatabaseInstruction', 'enabled', 'model', 'mainPrompt'];
+        if (godName === 'drawingMaster') {
+            settings.push('novelContent');
+        }
         const toolConfig = stateModule.config.toolSettings[godName];
 
         settings.forEach(type => {
@@ -921,6 +916,9 @@ const uiSettingsModule = {
             stateModule.config.toolSettings[godName] = {};
         }
         const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'toolDatabaseInstruction', 'enabled', 'model', 'mainPrompt'];
+        if (godName === 'drawingMaster') {
+            settings.push('novelContent');
+        }
         settings.forEach(type => {
             const camelCaseType = type.charAt(0).toUpperCase() + type.slice(1);
              let elementIdSuffix = 'Settings';
@@ -943,23 +941,29 @@ const uiSettingsModule = {
     },
 
     displayErrorLog: (errorMessages) => {
-         if (Array.isArray(errorMessages)) {
 
-         } else if (elementsModule.errorLogDisplay) {
-
-         }
     },
 
     clearErrorLogDisplay: () => {
 
-        if (elementsModule.errorLogDisplay) {
-
-        }
-
     },
 
     copyErrorLog: () => {
+        const logContent = elementsModule.errorLogDisplay?.value;
+        if (logContent && navigator.clipboard) {
+            navigator.clipboard.writeText(logContent).then(() => {
 
+            }).catch(err => {
+                _logAndDisplayError(`Failed to copy error log: ${err}`, 'copyErrorLog');
+
+                alert('Failed to copy error log. See console.');
+            });
+        } else if (!logContent) {
+            _logAndDisplayError('Error log is empty, nothing to copy.', 'copyErrorLog');
+        } else {
+            _logAndDisplayError('Clipboard API not available.', 'copyErrorLog');
+            alert('Clipboard API not available in this browser.');
+        }
     },
 
     clearAllConfiguration: async () => {
@@ -1866,6 +1870,33 @@ const uiSettingsModule = {
         }
     },
 
+    loadChatroomUserSetting: () => {
+        const input = elementsModule.chatroomUserSetting;
+        if (input) {
+             const details = stateModule.currentChatroomDetails;
+            if (details && details.config) {
+                input.value = details.config.user || "";
+                input.disabled = false;
+            } else {
+                input.value = "";
+                input.disabled = true;
+            }
+        }
+    },
+
+    saveChatroomUserSetting: () => {
+        const input = elementsModule.chatroomUserSetting;
+        const details = stateModule.currentChatroomDetails;
+        if (details && details.config && input) {
+            const newValue = input.value;
+            if (details.config.user !== newValue) {
+                details.config.user = newValue;
+                apiModule.triggerDebouncedChatroomConfigSave(details.config.name);
+                updateChatContextCache();
+            }
+        }
+    },
+
     loadPromptPresetSettings: () => {
         if (elementsModule.systemInstructionPresetSettings) {
             elementsModule.systemInstructionPresetSettings.value = stateModule.config.systemInstruction || '';
@@ -2062,8 +2093,8 @@ const uiSettingsModule = {
              const tempOption = selectElement.querySelector(`option[value="${selectedValue}"]`);
              if (tempOption && tempOption.text.includes('(Saved)')) {
                   tempOption.text = selectedValue;
-             }
-        }
+              }
+         }
     },
 
     saveToolMainPromptSetting: (toolName) => {
@@ -2085,6 +2116,10 @@ const uiSettingsModule = {
             dbInstructionKey = 'ToolDatabaseInstruction';
         }
         keys.push(dbInstructionKey);
+
+        if (sectionType === 'drawingMaster') {
+            keys.push('NovelContent');
+        }
 
         keys.forEach(keySuffix => {
             const elementId = `chatroomOverride${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)}${keySuffix}`;
@@ -2140,6 +2175,7 @@ const uiSettingsModule = {
         const schemaParser = elementsModule[`chatroomOverride${toolNameCapitalized}ResponseSchemaParserJs`];
         const toolDb = elementsModule[`chatroomOverride${toolNameCapitalized}ToolDatabaseInstruction`];
         const mainPrompt = elementsModule[`chatroomOverride${toolNameCapitalized}MainPrompt`];
+        const novelContent = (toolName === 'drawingMaster') ? elementsModule.chatroomOverrideDrawingMasterNovelContent : null;
 
         if(enabledCheckbox) enabledCheckbox.checked = settings.enabled || false;
         if(modelSelect) {
@@ -2156,6 +2192,7 @@ const uiSettingsModule = {
         if(schemaParser) schemaParser.value = settings.responseSchemaParserJs || '';
         if(toolDb) toolDb.value = settings.toolDatabaseInstruction || '';
         if(mainPrompt) mainPrompt.value = settings.mainPrompt || '';
+        if(novelContent) novelContent.value = settings.novelContent || '';
 
         if(enabledCheckbox) uiSettingsModule._toggleOverrideSectionInputs(toolName, enabledCheckbox.checked);
     },
@@ -2182,6 +2219,7 @@ const uiSettingsModule = {
         }
 
         let elementKey = key.charAt(0).toUpperCase() + key.slice(1);
+
         if(key === 'sharedDatabaseInstruction' && sectionType === 'general') {
              elementKey = 'SharedDatabaseInstruction';
         } else if (key === 'toolDatabaseInstruction' && sectionType !== 'general') {
@@ -2194,6 +2232,8 @@ const uiSettingsModule = {
              elementKey = 'ResponseSchemaParserJs';
         } else if (key === 'mainPrompt') {
              elementKey = 'MainPrompt';
+        } else if (key === 'novelContent' && sectionType === 'drawingMaster') {
+             elementKey = 'NovelContent';
         } else {
 
              return;

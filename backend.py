@@ -44,7 +44,7 @@ default_config = {
     "sharedDatabaseInstruction": "",
     "mainPrompt": "",
     "toolSettings": {
-        "drawingMaster": { "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model": "", "mainPrompt": ""},
+        "drawingMaster": { "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model": "", "mainPrompt": "", "novelContent": ""},
         "gameHost": { "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model": "", "mainPrompt": "" },
         "writingMaster": { "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model": "", "mainPrompt": "" },
         "characterUpdateMaster": { "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model": "", "mainPrompt": "" },
@@ -87,7 +87,8 @@ default_chatroom_override_settings = {
         "responseSchemaJson": "",
         "responseSchemaParserJs": "",
         "toolDatabaseInstruction": "",
-        "mainPrompt": ""
+        "mainPrompt": "",
+        "novelContent": ""
     },
     "gameHost": {
         "enabled": False,
@@ -127,6 +128,7 @@ default_chatroom_config = {
     "name": "",
     "roleplayRules": "",
     "publicInfo": "",
+    "user": "",
     "activeNovelIds": [],
     "roleStates": {"管理员": "默"},
     "roleDetailedStates": {},
@@ -706,7 +708,8 @@ def _update_chatroom_config(chatroom_name, updates):
         raise IOError(f"Failed to read chatroom config: {e}")
 
     for key, value in updates.items():
-        config_data[key] = value
+        if key in default_chatroom_config:
+            config_data[key] = value
 
     if "roleStates" not in config_data:
         config_data["roleStates"] = {}
@@ -716,7 +719,8 @@ def _update_chatroom_config(chatroom_name, updates):
         config_data["overrideSettings"] = default_chatroom_override_settings.copy()
     if "roleVisibility" not in config_data:
          config_data["roleVisibility"] = {}
-
+    if "user" not in config_data:
+         config_data["user"] = default_chatroom_config["user"]
 
     try:
         with open(config_path, 'w', encoding='utf-8') as f:
@@ -886,7 +890,11 @@ def import_chatroom_zip():
 
     try:
         os.makedirs(temp_extract_dir, exist_ok=True)
-        with zipfile.ZipFile(file.stream, 'r') as zf:
+
+        file_content = file.read()
+        zip_buffer = io.BytesIO(file_content)
+
+        with zipfile.ZipFile(zip_buffer, 'r') as zf:
             if CHATROOM_CONFIG_FILENAME not in [os.path.basename(f) for f in zf.namelist() if not f.endswith('/')]:
                  raise ValueError(f"ZIP file is missing '{CHATROOM_CONFIG_FILENAME}' at the root level")
 
@@ -908,8 +916,20 @@ def import_chatroom_zip():
 
             if "overrideSettings" not in room_config:
                  room_config["overrideSettings"] = default_chatroom_override_settings.copy()
+            else:
+                current_override_settings = room_config["overrideSettings"]
+                default_override_copy = default_chatroom_override_settings.copy()
+                for section, default_section_config in default_override_copy.items():
+                    if section not in current_override_settings:
+                        current_override_settings[section] = default_section_config
+                    else:
+                        for key, default_value in default_section_config.items():
+                            if key not in current_override_settings[section]:
+                                current_override_settings[section][key] = default_value
             if "roleVisibility" not in room_config:
                  room_config["roleVisibility"] = {}
+            if "user" not in room_config:
+                room_config["user"] = default_chatroom_config["user"]
 
 
             with open(config_path, 'w', encoding='utf-8') as f:
@@ -1046,8 +1066,20 @@ def import_full_config_zip():
                                      room_config = json.load(f)
                                      if "overrideSettings" not in room_config:
                                          room_config["overrideSettings"] = default_chatroom_override_settings.copy()
+                                     else:
+                                         current_override_settings = room_config["overrideSettings"]
+                                         default_override_copy = default_chatroom_override_settings.copy()
+                                         for section, default_section_config in default_override_copy.items():
+                                             if section not in current_override_settings:
+                                                 current_override_settings[section] = default_section_config
+                                             else:
+                                                 for key, default_value in default_section_config.items():
+                                                     if key not in current_override_settings[section]:
+                                                         current_override_settings[section][key] = default_value
                                      if "roleVisibility" not in room_config:
                                           room_config["roleVisibility"] = {}
+                                     if "user" not in room_config:
+                                         room_config["user"] = default_chatroom_config["user"]
                                      f.seek(0)
                                      json.dump(room_config, f, indent=2, ensure_ascii=False)
                                      f.truncate()
@@ -1243,6 +1275,10 @@ def get_chatroom_details(chatroom_name):
             if "roleVisibility" not in details["config"] or not isinstance(details["config"]["roleVisibility"], dict):
                  details["config"]["roleVisibility"] = {}
                  config_needs_update = True
+
+            if "user" not in details["config"]:
+                details["config"]["user"] = default_chatroom_config["user"]
+                config_needs_update = True
 
             current_visibility = details["config"]["roleVisibility"]
             for role_name in permanent_role_names:

@@ -176,6 +176,7 @@ const initializationModule = {
         uiSettingsModule.updateWorldInfoDisplay();
         uiSettingsModule.loadRoleplayRulesSetting();
         uiSettingsModule.loadPublicInfoSetting();
+        uiSettingsModule.loadChatroomUserSetting();
     },
 
     initializeConfig: async () => {
@@ -363,7 +364,6 @@ const eventListenersModule = {
 
 
 
-        elementsModule.clearErrorLogButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.clearErrorLogDisplay(); });
         elementsModule.copyErrorLogButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.copyErrorLog(); });
         elementsModule.clearAllConfigButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.clearAllConfiguration(); });
         elementsModule.exportConfigButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) window.location.href = '/export-full-config-zip'; });
@@ -432,6 +432,9 @@ const eventListenersModule = {
         elementsModule.toolListMenuItems.forEach(item => item.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.showSection(item.dataset.target); }));
         ['drawingMaster', 'gameHost', 'writingMaster', 'characterUpdateMaster', 'privateAssistant'].forEach(godName => {
             const settings = ['responseSchemaJson', 'responseSchemaParserJs', 'toolDatabaseInstruction', 'enabled', 'model', 'mainPrompt'];
+            if (godName === 'drawingMaster') {
+                 settings.push('novelContent');
+            }
             settings.forEach(settingType => {
                  let elementIdSuffix = 'Settings';
                  if (settingType === 'toolDatabaseInstruction') {
@@ -497,6 +500,7 @@ const eventListenersModule = {
         if (elementsModule.exportRoleButton) elementsModule.exportRoleButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.exportRole(); });
         if (elementsModule.importRoleButton) elementsModule.importRoleButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.importRole(); });
         if (elementsModule.importRoleFile) elementsModule.importRoleFile.addEventListener('change', uiSettingsModule.handleImportRoleFile);
+        if (elementsModule.addChatroomRoleButton) elementsModule.addChatroomRoleButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.addChatroomRole(); });
 
 
         elementsModule.addChatroomButton.addEventListener('click', () => { if (!stateModule.isCooldownActive) uiSettingsModule.addChatroom(); });
@@ -586,6 +590,10 @@ const eventListenersModule = {
         if (elementsModule.publicInfoTextarea) {
             elementsModule.publicInfoTextarea.addEventListener('change', uiSettingsModule.savePublicInfoSetting);
             elementsModule.publicInfoTextarea.addEventListener('input', uiSettingsModule.savePublicInfoSetting);
+        }
+        if (elementsModule.chatroomUserSetting) {
+             elementsModule.chatroomUserSetting.addEventListener('change', uiSettingsModule.saveChatroomUserSetting);
+             elementsModule.chatroomUserSetting.addEventListener('input', uiSettingsModule.saveChatroomUserSetting);
         }
 
 
@@ -755,12 +763,17 @@ const eventListenersModule = {
             const mainPrompt = elementsModule[`chatroomOverride${capSection}MainPrompt`];
             let dbInstructionKey = '';
             let dbElement = null;
+            let novelContentElement = null;
+
             if (sectionType === 'general') {
                  dbInstructionKey = 'sharedDatabaseInstruction';
                  dbElement = elementsModule.chatroomOverrideGeneralSharedDatabaseInstruction;
             } else {
                  dbInstructionKey = 'toolDatabaseInstruction';
                  dbElement = elementsModule[`chatroomOverride${capSection}ToolDatabaseInstruction`];
+            }
+            if (sectionType === 'drawingMaster') {
+                 novelContentElement = elementsModule.chatroomOverrideDrawingMasterNovelContent;
             }
 
             if (enabledCheckbox) enabledCheckbox.addEventListener('change', () => uiSettingsModule.saveChatroomOverrideEnabled(sectionType));
@@ -781,6 +794,10 @@ const eventListenersModule = {
                 mainPrompt.addEventListener('input', () => uiSettingsModule.saveChatroomOverrideSetting(sectionType, 'mainPrompt'));
                 mainPrompt.addEventListener('change', () => uiSettingsModule.saveChatroomOverrideSetting(sectionType, 'mainPrompt'));
             }
+             if (novelContentElement) {
+                 novelContentElement.addEventListener('input', () => uiSettingsModule.saveChatroomOverrideSetting(sectionType, 'novelContent'));
+                 novelContentElement.addEventListener('change', () => uiSettingsModule.saveChatroomOverrideSetting(sectionType, 'novelContent'));
+             }
         });
 
 
@@ -804,7 +821,7 @@ const eventListenersModule = {
              const isRuleButton = elementsModule.ruleButton?.contains(event.target);
              const isNameButton = event.target.closest('.role-name-button-above-bubble');
              const isPresetAction = event.target.closest('.prompt-preset-actions > .settings-menu-item') || event.target.closest('.prompt-preset-item .item-actions > .std-button');
-             const isChatroomMgmtButton = event.target.closest('#current-chatroom-settings-page .settings-menu-item');
+             const isChatroomMgmtButton = event.target.closest('#current-chatroom-settings-page .settings-menu-item') || event.target.closest('#chat-room-directory-page .settings-menu-item');
              const isRunPauseButton = elementsModule.runPauseButton.contains(event.target);
 
 
@@ -869,6 +886,35 @@ const eventListenersModule = {
                  }
              }
         });
+
+        elementsModule.roleButtonsListContainer.addEventListener('pointerdown', (event) => {
+            const stateButton = event.target.closest('.role-state-button');
+            if (stateButton && !stateButton._interactionListenersAttached) {
+                const roleName = stateButton.dataset.roleName;
+                const state = stateButton.dataset.state;
+                const isDisabled = stateButton.classList.contains('edit-disabled');
+                const stateShortPress = isDisabled ? null : () => uiChatModule.selectRoleState(roleName, state);
+                let stateLongPress = null;
+                if (!isDisabled && state === uiChatModule.ROLE_STATE_USER_CONTROL) {
+                    stateLongPress = () => {
+                        uiChatModule.createAndEditMessageForRole(roleName);
+                        uiChatModule.hideRoleStateButtons();
+                    };
+                } else if (!isDisabled && state === uiChatModule.ROLE_STATE_DEFAULT) {
+                    const chatroomDetails = stateModule.currentChatroomDetails;
+                    const isPermanent = chatroomDetails?.roles.some(r => r.name === roleName);
+                    if (!isPermanent) {
+                         stateLongPress = () => uiChatModule.deleteTemporaryRole(roleName, true);
+                    } else {
+                         stateLongPress = () => uiChatModule.handleRoleDefaultStateLongPress(roleName);
+                    }
+                } else if (!isDisabled && state === uiChatModule.ROLE_STATE_ACTIVE) {
+                     stateLongPress = () => uiChatModule.handleActivateButtonLongPress(roleName);
+                }
+                eventListenersModule._setupLongPressListener(stateButton, stateShortPress, stateLongPress, false);
+                stateButton._interactionListenersAttached = true;
+            }
+        }, true);
 
 
     }

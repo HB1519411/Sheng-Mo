@@ -31,21 +31,22 @@ const uiChatModule = {
 
         let parsedResult = null;
         let parserError = null;
-        let dataToParse = null;
+
         if (typeof textContentString !== 'string' || textContentString.trim() === '') {
             return { parsedResult: null, parserError: "No valid text content", rawText: textContentString };
         }
-        try {
-            dataToParse = JSON.parse(textContentString);
-        } catch (e) {
-            return { parsedResult: null, parserError: `Failed to parse JSON: ${e.message}`, rawText: textContentString };
-        }
-        if (!dataToParse) {
-             return { parsedResult: null, parserError: "Empty after JSON parse", rawText: textContentString };
-        }
+
         if (parserJsCode) {
             try {
-                const responseJsonMock = { candidates: [{ content: { parts: [dataToParse] } }] };
+                const responseJsonMock = {
+                    candidates: [{
+                        content: {
+                            parts: [{
+                                text: textContentString
+                            }]
+                        }
+                    }]
+                };
                 const parserFunction = new Function('responseJson', parserJsCode);
                 parsedResult = parserFunction(responseJsonMock);
                 if (parsedResult && typeof parsedResult === 'object' && parsedResult.error) {
@@ -60,14 +61,27 @@ const uiChatModule = {
                  parsedResult = null;
             }
         } else {
-             parsedResult = dataToParse;
              parserError = `Parser not defined for ${roleName}`;
+             parsedResult = null;
+             try {
+                 const regexMatch = textContentString.match(/\{[\s\S]*\}/);
+                 if (regexMatch && regexMatch[0]) {
+                     parsedResult = JSON.parse(regexMatch[0]);
+                     parserError = null;
+                 } else {
+                     parserError += " and could not extract fallback JSON.";
+                 }
+             } catch(fallbackError){
+                  parserError += ` and fallback JSON parsing failed: ${fallbackError.message}`;
+                  parsedResult = null;
+             }
         }
 
         if (parserError && parsedResult === null && (roleType === 'role' || roleType === 'temporary_role')) {
              parsedResult = { formattedText: textContentString, nextRoleToAct: null };
-        } else if (parserError && parsedResult === null) {
+             parserError = null;
         }
+
         return { parsedResult, parserError, rawText: textContentString };
     },
      _formatCharacterUpdateMasterDisplay: (parsedResult) => {
@@ -127,7 +141,6 @@ const uiChatModule = {
                  const updatedCharName = parsedResult.processedCharacterInfo?.characterName;
                  if (updatedCharName) {
                      const charInfo = parsedResult.processedCharacterInfo;
-
                      const formatItemsToText = (items) => Array.isArray(items) ? items.join(', ') : (items || '无');
                      let charDetailText = '';
                      charDetailText += `Demeanor: ${formatItemsToText(charInfo.demeanorItems)}\n`;
@@ -139,7 +152,6 @@ const uiChatModule = {
                      charDetailText += `Pose: ${formatItemsToText(charInfo.actionPoseItems)}\n`;
                      charDetailText += `Action: ${formatItemsToText(charInfo.currentActionItems)}\n`;
                      charDetailText += `Other Status: ${formatItemsToText(charInfo.otherCharacterStatusItems)}`;
-
                      if (!chatroomDetails.config.roleDetailedStates) chatroomDetails.config.roleDetailedStates = {};
                      chatroomDetails.config.roleDetailedStates[updatedCharName] = `${updatedCharName}：\n${charDetailText.trim()}`;
                      apiModule.triggerDebouncedChatroomConfigSave(chatroomDetails.config.name);
@@ -147,11 +159,13 @@ const uiChatModule = {
                     const drawingTemplate = roleData?.drawingTemplate;
                     const drawingMasterEnabled = stateModule.config.toolSettings.drawingMaster?.enabled;
                     if (drawingTemplate && drawingTemplate.trim() !== '' && drawingMasterEnabled) {
-                         apiModule.triggerRoleResponse('drawingMaster');
+                         await updateChatContextCache();
+                         apiModule.triggerRoleResponse('drawingMaster', updatedCharName);
                     }
                 }
                 const addRoles = parsedResult.addRoles || [];
                 const removeRoles = parsedResult.removeRoles || [];
+                let roleStatesChanged = false;
                 if (Array.isArray(addRoles)) {
                      for (const nameToAdd of addRoles) {
                          try {
@@ -161,6 +175,7 @@ const uiChatModule = {
                              const roleStates = chatroomDetails.config.roleStates || {};
                              if (roleStates[trimmedName] !== undefined) {
                                  await uiChatModule.selectRoleState(trimmedName, uiChatModule.ROLE_STATE_ACTIVE);
+                                 roleStatesChanged = true;
                              const isPermanent = chatroomDetails.roles.some(r => r.name === trimmedName);
                              if (isPermanent) {
                                  if (!chatroomDetails.config.roleVisibility) {
@@ -180,6 +195,7 @@ const uiChatModule = {
                                   if (added) {
                                       await uiChatModule.selectRoleState(trimmedName, uiChatModule.ROLE_STATE_ACTIVE);
                                       uiChatModule.updateRoleButtonsList();
+                                      roleStatesChanged = true;
                                   }
                              }
                          } catch (addError) {
@@ -201,18 +217,41 @@ const uiChatModule = {
                                  } else {
                                       await uiChatModule.deleteTemporaryRole(trimmedName, false);
                                  }
+                                 roleStatesChanged = true;
                              }
                          } catch (removeError) {
                              _logAndDisplayError(`Error removing/deactivating role '${nameToRemove}' from game host: ${removeError.message}`, '_handlePostResponseActions');
                          }
                      }
                  }
+                 let nextRoleToAct = parsedResult?.nextRoleToAct;
+                 if (roleStatesChanged || nextRoleToAct) {
+                     await updateChatContextCache();
+                 }
+                 if (nextRoleToAct && chatroomDetails && chatroomDetails.config.roleStates) {
+                     const targetRoleState = chatroomDetails.config.roleStates[nextRoleToAct];
+                     if (targetRoleState !== undefined) {
+                         if (targetRoleState === uiChatModule.ROLE_STATE_ACTIVE) {
+                             apiModule.triggerRoleResponse(nextRoleToAct);
+                         } else if (targetRoleState === uiChatModule.ROLE_STATE_USER_CONTROL) {
+                             uiChatModule.setPauseState(true);
+                             uiChatModule._removePendingActionButton();
+                             uiChatModule._createPendingActionButton(nextRoleToAct);
+                         }
+                     } else {
+                         _logAndDisplayError(`Role ${roleName} specified next role ${nextRoleToAct}, but it was not found in the room's role states.`, '_handlePostResponseActions');
+                     }
+                 }
             }
         } else if ((roleType === 'role' || roleType === 'temporary_role') && !parserError) {
              let nextRoleToAct = parsedResult?.nextRoleToAct;
-            if (stateModule.config.toolSettings.gameHost?.enabled) {
+             let shouldTriggerGameHost = stateModule.config.toolSettings.gameHost?.enabled;
+             if (shouldTriggerGameHost || nextRoleToAct) {
+                 await updateChatContextCache();
+             }
+             if (shouldTriggerGameHost) {
                  apiModule.triggerRoleResponse('gameHost');
-            }
+             }
             if (nextRoleToAct && chatroomDetails && chatroomDetails.config.roleStates) {
                  const targetRoleState = chatroomDetails.config.roleStates[nextRoleToAct];
                  if (targetRoleState !== undefined) {
@@ -1177,8 +1216,14 @@ const uiChatModule = {
                     uiChatModule.showActiveRoleTriggerList(activeRoles);
                 }
             }
-            if (stateModule.config.toolSettings.gameHost?.enabled) {
-                apiModule.triggerRoleResponse('gameHost');
+            const gameHostEnabled = stateModule.config.toolSettings.gameHost?.enabled;
+            const lastActorName = stateModule.chatContextCache?.lastActor;
+            const roleStates = stateModule.currentChatroomDetails?.config?.roleStates;
+            if (gameHostEnabled && lastActorName && roleStates) {
+                const lastActorState = roleStates[lastActorName];
+                if (lastActorState === uiChatModule.ROLE_STATE_USER_CONTROL) {
+                    apiModule.triggerRoleResponse('gameHost');
+                }
             }
             const lastMessage = stateModule.currentChatHistoryData[stateModule.currentChatHistoryData.length - 1];
             if (lastMessage && lastMessage.sourceType === 'user') {
@@ -1353,6 +1398,8 @@ const uiChatModule = {
                      stateLongPress = () => uiChatModule.deleteTemporaryRole(roleName, true);
                 } else if (!isDisabled && state === uiChatModule.ROLE_STATE_DEFAULT && isPermanent) {
                      stateLongPress = () => uiChatModule.handleRoleDefaultStateLongPress(roleName);
+                } else if (!isDisabled && state === uiChatModule.ROLE_STATE_ACTIVE) {
+                     stateLongPress = () => uiChatModule.handleActivateButtonLongPress(roleName);
                 }
                 if (sBtn) eventListenersModule._setupLongPressListener(sBtn, stateShortPress, stateLongPress, false);
             });
@@ -1393,13 +1440,14 @@ const uiChatModule = {
                     await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
                     uiChatModule.updateRoleButtonsList();
                     uiSettingsModule.updateChatroomRolePage();
-                    updateChatContextCache();
+                    await updateChatContextCache();
                     apiModule.triggerCharacterUpdateForRole(name);
                 } else {
                     _logAndDisplayError(`Failed to convert temporary role ${name} to permanent before update.`, "selectRoleState");
                     alert(`创建永久角色文件失败，无法更新角色 ${name}`);
                 }
             } else {
+                await updateChatContextCache();
                 apiModule.triggerCharacterUpdateForRole(name);
             }
         } else {
@@ -1412,7 +1460,7 @@ const uiChatModule = {
             const success = await apiModule.updateChatroomConfig(chatroomDetails.config.name, updatePayload);
             if (success) {
                 uiChatModule.updateRoleStateButtonVisual(name);
-                updateChatContextCache();
+                await updateChatContextCache();
             } else {
                  await apiModule.fetchChatroomDetails(chatroomDetails.config.name);
                  uiChatModule.updateRoleStateButtonVisual(name);
@@ -1454,7 +1502,7 @@ const uiChatModule = {
             }
             uiChatModule.updateRoleButtonsList();
             uiSettingsModule.updateChatroomRolePage();
-            updateChatContextCache();
+            await updateChatContextCache();
         } else {
             _logAndDisplayError(`Failed to remove role ${roleName} from states`, "handleDefaultStateLongPress");
             alert(`移除角色 ${roleName} 失败`);
@@ -1611,7 +1659,7 @@ const uiChatModule = {
             }
             uiChatModule.updateRoleButtonsList();
             uiSettingsModule.updateChatroomRolePage();
-            updateChatContextCache();
+            await updateChatContextCache();
             return true;
         } else {
             _logAndDisplayError(`Failed to delete temporary role ${roleName} via API`, 'deleteTemporaryRole');
@@ -1806,5 +1854,12 @@ const uiChatModule = {
         if (container) {
             container.innerHTML = '';
         }
+    },
+    handleActivateButtonLongPress: (roleName) => {
+        if (stateModule.config.isRunPaused) {
+            uiChatModule.toggleRunPause();
+        }
+        apiModule.triggerRoleResponse(roleName);
+        uiChatModule.hideRoleStateButtons();
     },
 };
