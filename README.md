@@ -1,3 +1,4 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 # 绳墨 (ShengMo)
 
 **绳墨** 是一个运行在浏览器里的**本地化、多角色 AI 聊天室与互动小说平台**。
