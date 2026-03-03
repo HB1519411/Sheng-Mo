@@ -1,0 +1,119 @@
+<div id="role-list-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        聊天室角色
+        <div class="close-button std-button">✕</div>
+    </div>
+     <div class="settings-section">
+       <div class="settings-group role-list">
+           <div class="button-group-horizontal">
+              <div id="add-chatroom-role-button" class="settings-menu-item">十 添加角色</div>
+              <input type="file" id="import-role-file" style="display: none;" accept=".json">
+              <div id="import-role-button" class="settings-menu-item">导入角色</div>
+           </div>
+           <div id="role-list-container">
+           </div>
+       </div>
+    </div>
+</div>
+<div id="role-detail-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="role-detail-header-title">角色详情</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+     <div class="settings-section">
+       <div class="settings-group role-detail">
+           <div id="edit-role-setting-button" class="settings-menu-item">编辑详细设定</div>
+           <div id="edit-role-memory-button" class="settings-menu-item">编辑角色记忆</div>
+           <div id="edit-role-public-info-button" class="settings-menu-item">编辑公开信息</div>
+           <label for="role-drawing-template-settings" class="settings-label">绘图模板</label>
+           <input type="text" id="role-drawing-template-settings" class="settings-input" autocomplete="off">
+           <div id="export-role-button" class="settings-menu-item" style="margin-top: 15px;">导出此角色</div>
+       </div>
+    </div>
+</div>
+<div id="role-setting-detail-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="role-setting-detail-header-title">角色详细设定</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group">
+        </div>
+    </div>
+</div>
+<div id="role-memory-list-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="role-memory-list-header-title">角色记忆</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group">
+            <div id="add-memory-item-form">
+                 <label for="new-memory-time" class="settings-label">时间 (YYYY-MM-DD):</label>
+                 <input type="text" id="new-memory-time" class="settings-input">
+                 <label for="new-memory-content" class="settings-label">内容:</label>
+                 <textarea id="new-memory-content" class="settings-textarea" rows="3"></textarea>
+                 <div id="add-memory-button" class="settings-menu-item">添加记忆</div>
+            </div>
+            <div id="role-memory-list-container">
+            </div>
+        </div>
+    </div>
+</div>
+<div id="role-public-info-list-page" class="setting-page-template" style="flex-direction: column;">
+   <div class="settings-header">
+       <span id="role-public-info-list-header-title">角色公开信息</span>
+       <div class="close-button std-button">✕</div>
+   </div>
+   <div class="settings-section">
+       <div class="settings-group">
+           <div id="add-public-info-item-form">
+                <label for="new-public-info-keyword" class="settings-label">关键词:</label>
+                <input type="text" id="new-public-info-keyword" class="settings-input">
+                <label for="new-public-info-content" class="settings-label">内容:</label>
+                <textarea id="new-public-info-content" class="settings-textarea" rows="3"></textarea>
+                <div id="add-public-info-button" class="settings-menu-item">添加公开信息</div>
+           </div>
+           <div id="role-public-info-list-container">
+           </div>
+       </div>
+   </div>
+</div>
+<div id="knowledge-base-directory-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        知识库
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group knowledge-base-directory">
+            <div class="button-group-horizontal">
+                <div id="add-knowledge-group-button" class="settings-menu-item">添加知识组</div>
+                <input type="file" id="import-knowledge-json-file" style="display: none;" accept=".json">
+                <div id="import-knowledge-json-button" class="settings-menu-item">导入(JSON)</div>
+                <input type="file" id="import-knowledge-image-file" style="display: none;" accept="image/png">
+                <div id="import-knowledge-image-button" class="settings-menu-item">导入(图片)</div>
+            </div>
+            <div id="knowledge-group-list-container"></div>
+        </div>
+    </div>
+</div>
+<div id="knowledge-base-entries-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="knowledge-base-entries-header-title">知识条目</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group">
+            <div id="add-knowledge-entry-form">
+                <label for="new-knowledge-entry-name" class="settings-label">名称:</label>
+                <input type="text" id="new-knowledge-entry-name" class="settings-input">
+                <label for="new-knowledge-entry-keywords" class="settings-label">关键词 (逗号分隔):</label>
+                <input type="text" id="new-knowledge-entry-keywords" class="settings-input">
+                <label for="new-knowledge-entry-content" class="settings-label">内容:</label>
+                <textarea id="new-knowledge-entry-content" class="settings-textarea" rows="3"></textarea>
+                <div id="add-knowledge-entry-button" class="settings-menu-item">添加条目</div>
+            </div>
+            <div id="knowledge-entries-list-container"></div>
+        </div>
+    </div>
+</div>

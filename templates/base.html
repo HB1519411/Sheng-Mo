@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>绳墨</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+        });
+    </script>
+</head>
+<body>
+    {% block content %}{% endblock %}
+
+    <script src="/js/core/eventBus.js"></script>
+    <script src="/js/core/mutations.js"></script>
+    <script src="/js/state.js"></script>
+    <script src="/js/core/error_handler.js"></script>
+    <script src="/js/core/common_utils.js"></script>
+    <script src="/js/core/context_utils.js"></script>
+    <script src="/js/core/api_service.js"></script>
+    <script src="/js/core/incremental_update_handler.js"></script>
+    <script src="/js/core/transaction_manager.js"></script>
+    <script src="/js/core/api_main_trigger.js"></script>
+    <script src="/js/core/api_client_gemini_models.js"></script>
+    <script src="/js/core/api_client_novelai.js"></script>
+    <script src="/js/core/api_client_chatrooms.js"></script>
+    <script src="/js/core/api_client_config.js"></script>
+
+    <script src="/js/ui/elements.js"></script>
+    <script src="/js/ui/settings/settings_ui_helpers.js"></script>
+
+    <script src="/js/ui/chat/chat_parsing.js"></script>
+    <script src="/js/ui/chat/chat_utils_ui.js"></script>
+    <script src="/js/ui/chat/role_management_ui.js"></script>
+    <script src="/js/ui/chat/api_response_handler.js"></script>
+    <script src="/js/ui/chat/system_triggers.js"></script>
+    <script src="/js/ui/chat/message_bubble_factory.js"></script>
+    <script src="/js/ui/chat/partition_renderer.js"></script>
+    <script src="/js/ui/chat/message_actions_delegate.js"></script>
+    <script src="/js/ui/chat/message_actions_character.js"></script>
+    <script src="/js/ui/chat/message_actions_tools.js"></script>
+    <script src="/js/ui/chat/message_actions_impl.js"></script>
+    <script src="/js/ui/chat/chat_image_viewer.js"></script>
+    <script src="/js/ui/chat/chat_tool_specific_ui.js"></script>
+    <script src="/js/ui/chat/message_editor.js"></script>
+
+    <script src="/js/ui/novel/novel_events.js"></script>
+    <script src="/js/ui/novel/novel_main.js"></script>
+    <script src="/js/ui/novel/novel_bookshelf.js"></script>
+    <script src="/js/ui/novel/novel_content.js"></script>
+    <script src="/js/ui/novel/novel_toc.js"></script>
+    <script src="/js/ui/novel/novel_summary.js"></script>
+
+    <script src="/js/ui/settings/settings_page_manager.js"></script>
+    <script src="/js/ui/settings/partition_list_manager.js"></script>
+    <script src="/js/ui/settings/settings_api.js"></script>
+    <script src="/js/ui/settings/settings_prompt_presets.js"></script>
+    <script src="/js/ui/settings/settings_novelai.js"></script>
+    <script src="/js/ui/settings/settings_error_log.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_dir.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_current.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_identity_groups.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_roles.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_novels.js"></script>
+    <script src="/js/ui/settings/settings_events_list.js"></script>
+    <script src="/js/ui/settings/settings_knowledge_base_dir.js"></script>
+    <script src="/js/ui/settings/settings_knowledge_base_entries.js"></script>
+    <script src="/js/ui/settings/settings_role_detail.js"></script>
+    <script src="/js/ui/settings/settings_role_setting_detail.js"></script>
+    <script src="/js/ui/settings/settings_role_memory_list.js"></script>
+    <script src="/js/ui/settings/settings_role_public_info_list.js"></script>
+    <script src="/js/ui/settings/settings_tool_list.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_override_general_manager.js"></script>
+    <script src="/js/ui/settings/settings_chatroom_override_tools_manager.js"></script>
+    
+    <script src="/js/events.js"></script>
+    <script src="/js/init.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initializationModule.initializeConfig();
+        });
+    </script>
+</body>
+</html>

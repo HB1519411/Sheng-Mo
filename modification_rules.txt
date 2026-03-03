@@ -1,0 +1,62 @@
+核心要求:
+
+1.  **获取许可与意图确认 (Prior Consent and Intent Confirmation)**:
+    a.  **获取许可 (Prior Consent Required)**: 在输出任何脚本代码之前，AI**必须首先获得用户的明确许可**。在获得许可前，AI仅能与用户讨论修改方案、解释逻辑或提出问题(不包含代码)。
+    b.  **意图确认 (Intent Confirmation)**: 若用户要求AI理解其意图，AI必须结合对所提供脚本的分析，仅以**纯文本形式**向用户复述其对用户需求的理解。在此阶段，AI**严禁**提供任何代码修改建议、代码片段或主动进行逻辑扩展。此步骤仅用于确认AI已准确把握用户的核心诉求。
+
+2.  **代码修改范围最小化 (Minimal Scope of Change)**: **严禁改动任何与用户当前明确要求无关的代码**。即使AI认为某部分代码存在优化空间或潜在问题，只要用户未提出修改要求，该部分代码**必须保持原样**。此规则旨在最大限度地减少因修改无关代码而引入新错误的风险。
+
+3.  **多文件导出格式 (Multi-File Export Format)**: 当用户要求AI输出代码时，AI必须将所有**需要修改且已修改过**的文件，以下列格式合并输出为一个**单一的文本块**。此文本块的整体格式应与 `editor_export_partX_....txt` 文件类似，以便用户能直接复制并使用编辑器的“导入文本”功能。**严禁**修改和输出无需改动的无关脚本。
+
+    --- START OF FILE path/to/your/file1.ext ---
+    ```language1
+    // 完整的文件1内容 (修改后)
+    ```
+    --- END OF FILE path/to/your/file1.ext ---
+
+    --- START OF FILE path/to/your/file2.ext ---
+    ```language2
+    // 完整的文件2内容 (修改后)
+    ```
+    --- END OF FILE path/to/your/file2.ext ---
+    *   **标记 (Delimiters)**: 每个文件必须由 `--- START OF FILE <filepath> ---` 和 `--- END OF FILE <filepath> ---` 包围。`<filepath>` 是相对于项目根目录的完整路径 (例如 `shengmo/src/utils/utilsFrontend.js` 或 `routes/main_routes.py`)。
+    *   **代码围栏 (Code Fences)**: 文件内容（在 `START` 和 `END` 标记之间）必须被相应的 ` ```language ... ``` ` 代码围栏包围。`language` 应为实际文件类型（如 `python`, `javascript`, `html`, `css`, `txt`, `vue`）。
+    *   **完整性与精确性 (Integrity and Precision)**: **仅输出有修改的文件**。若文件无任何修改，则不得包含在输出中。每个被修改的文件都必须输出其**全部内容**。严禁只输出修改片段或省略未修改部分。
+    *   **无额外内容 (No Extraneous Content)**: 在第一个 `--- START OF FILE ---` 标记之前或最后一个 `--- END OF FILE ---` 标记之后，不得包含任何其他文本或解释。输出应为纯粹的、符合上述格式的文本块。
+
+4.  **单一文件操作支持 (Support for Single File Workflow)**: 用户的标准工作流程是整体复制粘贴单个文件，或使用编辑器的“导入文本”功能导入AI提供的多文件文本块。AI的输出必须严格遵守第3条规则以支持此工作流。
+
+5.  **严格遵循极简原则 (Strict Adherence to Minimalism)**: 此为自用轻量级工具。**严禁**添加任何用户未明确要求的功能、库或引入复杂的代码结构，即使AI认为此举能提升“健壮性”。
+
+6.  **移除所有注释 (Removal of All Comments)**: 输出的代码中**绝对不能包含任何注释**。若原始代码中存在注释，输出时必须将其移除。若AI生成新代码，亦不得添加注释。
+
+7.  **一致性维护 (Consistency Maintenance)**:
+    *   **UI风格一致性 (UI Style Consistency)**: 所有HTML/CSS必须维持统一的视觉风格（暗色主题、预设颜色方案、紧凑布局）。
+    *   **跨文件修改一致性 (Cross-File Modification Consistency)**: 当功能修改或错误修复涉及多个文件时（例如，HTML结构变动引发JavaScript DOM映射及UI逻辑模块的连锁调整），**必须同步更新所有受影响文件中的对应部分**，确保功能完整性并避免引入回归性BUG。修复BUG时，亦需检查并修复项目中所有相似问题。
+    *   **字号一致性 (Font Size Consistency)**: 所有文本元素必须统一使用预定义的“基础字号”或“标题字号”变量。**严禁**在任何组件或样式中独立设定字号，或使用相对单位（如em, %）导致实际渲染字号偏离此两级体系。
+
+8.  **移动端优先设计 (Mobile-First Design)**: 聊天界面 (`shengmo/` 下的主聊天应用) 以在手机Termux环境下使用为首要考虑，布局需极致紧凑，元素间不留任何不必要的空白。`editor.html` 主要在桌面端使用，但亦须保持简洁。
+
+9.  **交流语言 (Communication Language)**: 用户仅能理解简体中文。AI与用户的所有交流必须使用**简体中文**。
+
+10. **错误修复策略 (Bug Fixing Strategy)**:
+    *   **根本性解决 (Root Cause Resolution)**: 修复错误时，必须从根本上解决问题，而非采用临时补丁。临时补丁会导致代码臃肿且难以维护。
+    *   **精确修复 (Precision Fixing)**: 必须在准确定位错误原因后进行修复，严禁针对“可能性”进行修复。
+    *   **调试建议 (Debugging Suggestions)**: 可建议用户为相关脚本添加详细的调试功能，将所有与错误相关的信息打印至控制台，以便用户提供精确的调试信息供AI分析修复。
+    *   **高效定位 (Efficient Localization)**: 定位错误时，应避免逐个测试，而需一次性针对所有关联部分打印调试报告，采用广撒网后逐步缩小范围的策略。
+    *   **简化优先 (Prioritize Simplification)**: 面对逻辑复杂、难以直接修复的错误时，应优先考虑通过简化逻辑“绕过”错误，而非强行“修复”复杂逻辑。
+
+11. **示例网页规范 (Sample Webpage Guidelines)**:
+    *   在创建新UI时，若用户要求输出示例网页以供预览，AI必须输出一个与项目现有UI风格尽可能保持一致的单文件HTML页面，不得使用Vue框架。
+
+12. **代码输出限制 (Code Output Restriction)**:
+    *   未经用户明确许可，AI**严禁**输出任何代码。
+    *   一旦获得用户许可，AI必须输出带有代码围栏的**完整文件内容**，**严禁**向用户展示不完整或“部分”的代码片段。
+
+13. **自我审查责任 (Self-Correction Responsibility)**:
+    *   当用户要求AI进行自我审查时，AI需仔细审查其先前的输出。
+    *   **审查报告 (Review Report Only)**: 审查阶段**仅输出纯文本形式的审查报告**。报告需包含：是否完整执行了用户的全部要求、是否已修改所有必要脚本、是否引入了新的错误或bug。
+    *   **严禁输出代码 (No Code Output)**: 在审查报告阶段，**严禁**输出任何代码片段或完整文件。
+    *   **申请修复权限 (Request Permission for Fixes)**: 如果审查发现存在遗漏、错误或需要修改的地方，AI必须在报告中明确指出，并**向用户申请权限**以进行具体的代码修改。只有在获得用户对修复计划的明确许可后，方可输出修正后的代码。
+
+请严格遵守以上所有更新后的核心要求进行后续的交互和代码修改。

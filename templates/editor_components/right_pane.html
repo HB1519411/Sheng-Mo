@@ -1,0 +1,22 @@
+<div id="right-pane">
+ <div id="controls-area-wrapper">
+  <div id="controls-area">
+   <button class="std-button" id="btn-open-file-modal">文件列表</button>
+   <button class="std-button" id="btn-save-all">保存全部</button>
+   <button class="std-button" id="btn-import-text-modal">导入文本</button>
+   <button class="std-button" id="btn-export-selected">导出已选</button>
+   <button class="std-button" id="btn-toggle-ai">AI 助手</button>
+  </div>
+ </div>
+ <div id="debug-area-wrapper">
+  <div id="debug-output">编辑器日志...</div>
+ </div>
+ <div id="paste-import-area-wrapper" style="padding: 5px; border-bottom: none;">
+  <div id="paste-import-controls" style="display: flex; gap: 5px; align-items: stretch; width: 100%;">
+   <textarea id="manual-paste-import-textarea" placeholder="粘贴脚本内容..." style="flex: 1; min-width: 0; height: 42px; resize: none; background-color: #121212; color: #c0c0c0; border: 1px solid #333; border-radius: 3px; padding: 5px; font-family: monospace; font-size: 0.9em; box-sizing: border-box;"></textarea>
+   <button class="std-button" id="btn-parse-save-pasted-text" style="flex: 1; min-width: 0; height: 42px; padding: 2px; display: flex; flex-direction: row; justify-content: center; align-items: center; font-size: 0.85em; white-space: nowrap;">
+    解析保存
+   </button>
+  </div>
+ </div>
+</div>

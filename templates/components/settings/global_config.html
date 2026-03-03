@@ -1,0 +1,41 @@
+<div id="api-settings-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        API 设置
+        <div class="close-button std-button">✕</div>
+    </div>
+     <div id="api-settings-content-area" class="settings-section">
+     </div>
+</div>
+<div id="prompt-preset-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        提示词预设
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+    </div>
+</div>
+<div id="novelai-settings-page" class="setting-page-template" style="flex-direction: column;">
+   <div class="settings-header">
+       绘图设置
+       <div class="close-button std-button">✕</div>
+   </div>
+   <div class="settings-section">
+   </div>
+</div>
+<div id="error-log-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        报错日志
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+       <div class="settings-group error-log-settings">
+           <label for="error-log-display" class="settings-label">错误信息</label>
+           <textarea id="error-log-display" class="settings-textarea" readonly></textarea>
+           <div id="copy-error-log-button" class="settings-menu-item">复制错误信息</div>
+           <div id="clear-all-config-button" class="settings-menu-item" style="color: red; border-color: red;">清空全部配置 (危险)</div>
+           <div id="export-config-button" class="settings-menu-item">导出完整配置 (ZIP)</div>
+           <input type="file" id="import-config-file" style="display: none;" accept=".zip">
+           <div id="import-config-button" class="settings-menu-item">导入完整配置 (ZIP)</div>
+       </div>
+    </div>
+</div>

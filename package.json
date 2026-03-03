@@ -1,0 +1,22 @@
+{
+  "name": "shengmo-project",
+  "version": "1.0.0",
+  "description": "Shengmo TRPG and Novel Reader Application",
+  "main": "app.js",
+  "scripts": {
+    "postinstall": "node -e \"const fs = require('fs'); const path = require('path'); const src = path.join('node_modules', 'monaco-editor', 'min'); const dest = path.join('vendor', 'monaco-editor'); if (!fs.existsSync(src)) { console.error('ERROR: monaco-editor not found in node_modules. Run npm install first.'); process.exit(1); } fs.rmSync(dest, { recursive: true, force: true }); fs.mkdirSync(dest, { recursive: true }); fs.cpSync(src, dest, { recursive: true }); console.log('Monaco Editor files copied to vendor directory.');\"",
+    "start": "concurrently \"python -m backend\" \"python editor_backend.py\"",
+    "build:shengmo": "node build_shengmo.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "monaco-editor": "^0.44.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "terser": "^5.31.3",
+    "clean-css": "^5.3.3"
+  }
+}

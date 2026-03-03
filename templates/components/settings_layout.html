@@ -1,0 +1,39 @@
+<div id="settings-panel">
+    <div id="settings-main-page" class="setting-page-template active" style="flex-direction: column;">
+        <div class="settings-header">
+            设置
+        </div>
+        <div id="settings-menu" class="settings-section">
+            <div class="settings-menu-item" data-target="api-settings-page">API 设置</div>
+            <div class="settings-menu-item" data-target="prompt-preset-page">提示词预设</div>
+            <div class="settings-menu-item" data-target="novelai-settings-page">绘图设置</div>
+            <div class="settings-menu-item" data-target="error-log-page">报错日志</div>
+            <div class="settings-menu-item" data-target="chat-room-settings-page">聊天室设置</div>
+            <div class="settings-menu-item" data-target="tool-list-page">工具列表</div>
+            <div class="settings-menu-item" data-target="knowledge-base-directory-page">知识库</div>
+        </div>
+    </div>
+
+    {% include "components/settings/global_config.html" %}
+    
+    {% include "components/settings/role_and_knowledge.html" %}
+    
+    {% include "components/settings/chatroom_management.html" %}
+
+    {% include "components/settings/god_tools.html" %}
+</div>
+
+<div id="preset-selection-modal-overlay" class="preset-modal-overlay">
+    <div class="preset-modal-content">
+        <div class="preset-modal-header">
+            <span id="preset-modal-title">选择要导出的预设项</span>
+        </div>
+        <div class="preset-modal-body" id="preset-modal-list-container">
+            <!-- 动态生成复选框列表 -->
+        </div>
+        <div class="preset-modal-footer">
+            <button id="preset-modal-cancel-btn" class="std-button">取消</button>
+            <button id="preset-modal-confirm-btn" class="std-button">确认</button>
+        </div>
+    </div>
+</div>

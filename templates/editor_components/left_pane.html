@@ -1,0 +1,31 @@
+<div id="left-pane">
+ <div id="current-file-display-wrapper">
+  <span id="current-file-name-span">未选择文件</span>
+  <input id="editor-search-input" placeholder="搜索..." type="text"/>
+  <button id="editor-search-button">搜索</button>
+ </div>
+ <div id="editor-container"></div>
+ <div id="ai-chat-pane" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; background-color: #1e1e1e;">
+     <div class="ai-input-container">
+         <div id="ai-settings-menu" class="ai-settings-menu">
+             <div class="ai-settings-section-header">工作模式</div>
+             <div class="ai-settings-item" data-type="mode" data-value="edit">编辑模式</div>
+             <div class="ai-settings-item" data-type="mode" data-value="chat">聊天模式</div>
+             <div class="ai-settings-section-header">模型选择</div>
+             <div class="ai-settings-item" data-type="model" data-value="primary">主要模型</div>
+             <div class="ai-settings-item" data-type="model" data-value="secondary">辅助模型</div>
+             <div class="ai-settings-item" data-type="model" data-value="tertiary">备用模型</div>
+         </div>
+         <div id="ai-quick-menu" class="ai-quick-menu">
+             <div class="ai-quick-item" data-text="讲讲你的理解并给出修改方案，然后列出需要修改的全部脚本和具体定位，不要有代码。">1. 理解并修改... (无代码)</div>
+             <div class="ai-quick-item" data-text="授权你完成本次修改">2. 授权完成修改</div>
+             <div class="ai-quick-item" data-text="对本次修改进行自我审查">3. 自我审查</div>
+         </div>
+         <button id="btn-ai-settings" class="std-button ai-quick-button">⚙️</button>
+         <textarea id="ai-chat-input" class="ai-input-textarea" placeholder="输入消息..." rows="1"></textarea>
+         <button id="btn-ai-quick" class="std-button ai-quick-button">⚡</button>
+         <button id="btn-ai-send" class="std-button ai-send-button">发送</button>
+     </div>
+     <div id="ai-chat-history" style="flex-grow: 1; overflow-y: auto; padding: 10px 10px 60vh 10px; display: flex; flex-direction: column;"></div>
+ </div>
+</div>

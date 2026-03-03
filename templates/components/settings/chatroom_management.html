@@ -1,0 +1,108 @@
+<div id="chat-room-settings-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        聊天室设置
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div id="chat-room-settings-menu" class="settings-section">
+        <div class="settings-menu-item" data-target="general-config-page">通用配置</div>
+        <div class="settings-menu-item" data-target="chat-room-directory-page">聊天室目录</div>
+    </div>
+</div>
+<div id="general-config-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        通用配置
+        <div class="close-button std-button">✕</div>
+    </div>
+     <div class="settings-section">
+       <div class="settings-group general-config">
+       </div>
+    </div>
+</div>
+<div id="chat-room-directory-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        聊天室目录
+        <div class="close-button std-button">✕</div>
+    </div>
+     <div class="settings-section">
+       <div class="settings-group chat-room-directory">
+           <div class="button-group-horizontal">
+              <div id="add-chatroom-button" class="settings-menu-item">添加聊天室</div>
+              <input type="file" id="import-chatroom-file" style="display: none;" accept=".zip,.png,.jpg,.jpeg,.webp">
+              <div id="import-chatroom-button" class="settings-menu-item">导入 (图片卡/ZIP)</div>
+           </div>
+           <div id="chatroom-list-container">
+           </div>
+       </div>
+    </div>
+</div>
+<div id="chat-room-detail-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="chatroom-detail-header-title">聊天室详情 - 1</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div id="chatroom-settings-menu" class="settings-section">
+        <div class="settings-menu-item" data-target="current-chatroom-settings-page">当前聊天室/分区设置</div>
+        <div class="settings-menu-item" data-target="role-list-page">聊天室角色</div>
+        <div class="settings-menu-item" data-target="identity-groups-page">身份组设置</div>
+        <div class="settings-menu-item" data-target="story-mode-page">聊天室小说</div>
+        <div class="settings-menu-item" data-target="events-list-page">事件记录</div>
+    </div>
+</div>
+<div id="current-chatroom-settings-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        当前聊天室/分区设置
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+       <div class="settings-group current-chatroom-settings">
+       </div>
+    </div>
+</div>
+<div id="identity-groups-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="identity-groups-header-title">身份组设置</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group">
+            <div class="button-group-horizontal">
+                <div id="add-identity-group-button" class="settings-menu-item">添加身份组</div>
+            </div>
+            <div id="identity-groups-list-container">
+            </div>
+        </div>
+    </div>
+</div>
+<div id="story-mode-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        聊天室小说
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+       <div class="settings-group story-mode-list">
+           <div id="novel-list-container">
+           </div>
+       </div>
+    </div>
+</div>
+<div id="events-list-page" class="setting-page-template" style="flex-direction: column;">
+    <div class="settings-header">
+        <span id="events-list-header-title">事件记录</span>
+        <div class="close-button std-button">✕</div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-group">
+            <div id="add-event-item-form">
+                 <label for="new-event-time" class="settings-label">时间 (YYYY-MM-DD):</label>
+                 <input type="text" id="new-event-time" class="settings-input">
+                 <label for="new-event-characters" class="settings-label">参与角色 (逗号分隔):</label>
+                 <input type="text" id="new-event-characters" class="settings-input">
+                 <label for="new-event-content" class="settings-label">内容:</label>
+                 <textarea id="new-event-content" class="settings-textarea" rows="3"></textarea>
+                 <div id="add-event-button" class="settings-menu-item">添加事件</div>
+            </div>
+            <div id="events-list-container">
+            </div>
+        </div>
+    </div>
+</div>

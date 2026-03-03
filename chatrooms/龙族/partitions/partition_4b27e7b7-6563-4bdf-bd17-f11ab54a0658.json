@@ -1,0 +1,229 @@
+{
+  "version": 19,
+  "id": "4b27e7b7-6563-4bdf-bd17-f11ab54a0658",
+  "name": "曼蒂",
+  "roleplayRules": "",
+  "roleAliases": [
+    {
+      "name": "曼蒂",
+      "alias": "",
+      "state": "活"
+    }
+  ],
+  "script": "",
+  "activeNovelIds": [],
+  "novelCurrentChapterIndices": {
+    "novel-1769242811585-6h0fycs": 0
+  },
+  "history": [
+    {
+      "id": "msg-1772528285277-5nm0z8t",
+      "timestamp": 1772528350589,
+      "sourceType": "ai",
+      "roleName": "曼蒂",
+      "roleType": "role",
+      "targetRoleName": null,
+      "status": "completed",
+      "parsedResult": {
+        "actionFocus": "互动",
+        "nextCharacter": "曼蒂",
+        "processedCharacterInfo": {
+          "accessories": [
+            "黑色头戴式耳机"
+          ],
+          "actionPoseItems": [
+            "盘腿坐在椅子上",
+            "敲击键盘"
+          ],
+          "characterName": "曼蒂",
+          "currentPositionItems": [
+            "宿舍电脑桌前"
+          ],
+          "demeanorItems": [
+            "烦躁",
+            "全神贯注",
+            "不修边幅",
+            "厚颜无耻"
+          ],
+          "internalGoalItems": [
+            "今日: 在宿舍打游戏，熬过漫长的无聊时光，顺便等饭吃。 (不可见)",
+            "本轮: 打完这局游戏，发泄对队友的不满。 (不可见)"
+          ],
+          "outerwearItems": [
+            "白色宽大T恤",
+            "蓝色牛仔短裤",
+            "黑色连裤袜"
+          ],
+          "shortTermStatusItems": [
+            "散发",
+            "饥饿",
+            "口渴",
+            "暴躁"
+          ],
+          "underwearItems": [
+            "黑色运动文胸(不可见)",
+            "黑色平角内裤(不可见)"
+          ]
+        },
+        "processedSceneContext": {
+          "locationItems": [
+            "卡塞尔学院",
+            "学生宿舍"
+          ],
+          "timeItems": [
+            "2008-06-20",
+            "星期五",
+            "21:30",
+            "晚上"
+          ]
+        },
+        "processedTurnActions": [
+          {
+            "content": "又死啦！这帮坑货队友！老娘带不动啊！这可是晋级赛啊！",
+            "isIncluded": false,
+            "type": "thoughts"
+          },
+          {
+            "content": "狂躁地敲打着键盘，发出“噼里啪啦”的巨响，然后一把抓起桌上喝剩一半、早就没气的冰可乐，仰头猛灌了一大口。",
+            "isIncluded": true,
+            "type": "action"
+          },
+          {
+            "content": "“喂喂喂！上啊！对面那个菜鸡没大招了，你怂个什么劲儿啊！我奶奶上都比你打得好！”",
+            "isIncluded": true,
+            "type": "speech"
+          },
+          {
+            "content": "昏暗的宿舍里只亮着电脑屏幕的幽光，桌上惨不忍睹地堆满了吃剩的外卖披萨盒、几根啃得干干净净的猪肘子骨头和十几个空可乐罐。",
+            "isIncluded": false,
+            "type": "description"
+          },
+          {
+            "content": "这破网速，这破队友，还有这破学校的破日子。算了，眼看又要输了，今晚得去食堂摸点宵夜抚慰一下我受伤的心灵。",
+            "isIncluded": false,
+            "type": "thoughts"
+          },
+          {
+            "content": "烦躁地扯了扯宽大的领口，直接把穿着丝袜的双腿盘在电竞椅上，眼睛死死盯着屏幕上灰暗的死亡倒计时，手指在鼠标上无力地点击了两下。",
+            "isIncluded": true,
+            "type": "action"
+          },
+          {
+            "content": "“靠！GG了。这游戏没法玩了。”",
+            "isIncluded": true,
+            "type": "speech"
+          }
+        ]
+      },
+      "speechActionText": "狂躁地敲打着键盘，发出“噼里啪啦”的巨响，然后一把抓起桌上喝剩一半、早就没气的冰可乐，仰头猛灌了一大口。\n“喂喂喂！上啊！对面那个菜鸡没大招了，你怂个什么劲儿啊！我奶奶上都比你打得好！”\n烦躁地扯了扯宽大的领口，直接把穿着丝袜的双腿盘在电竞椅上，眼睛死死盯着屏幕上灰暗的死亡倒计时，手指在鼠标上无力地点击了两下。\n“靠！GG了。这游戏没法玩了。”",
+      "calculatedWorldTime": "2008-06-20",
+      "processedTurnActions": [
+        {
+          "content": "又死啦！这帮坑货队友！老娘带不动啊！这可是晋级赛啊！",
+          "isIncluded": false,
+          "type": "thoughts"
+        },
+        {
+          "content": "狂躁地敲打着键盘，发出“噼里啪啦”的巨响，然后一把抓起桌上喝剩一半、早就没气的冰可乐，仰头猛灌了一大口。",
+          "isIncluded": true,
+          "type": "action"
+        },
+        {
+          "content": "“喂喂喂！上啊！对面那个菜鸡没大招了，你怂个什么劲儿啊！我奶奶上都比你打得好！”",
+          "isIncluded": true,
+          "type": "speech"
+        },
+        {
+          "content": "昏暗的宿舍里只亮着电脑屏幕的幽光，桌上惨不忍睹地堆满了吃剩的外卖披萨盒、几根啃得干干净净的猪肘子骨头和十几个空可乐罐。",
+          "isIncluded": false,
+          "type": "description"
+        },
+        {
+          "content": "这破网速，这破队友，还有这破学校的破日子。算了，眼看又要输了，今晚得去食堂摸点宵夜抚慰一下我受伤的心灵。",
+          "isIncluded": false,
+          "type": "thoughts"
+        },
+        {
+          "content": "烦躁地扯了扯宽大的领口，直接把穿着丝袜的双腿盘在电竞椅上，眼睛死死盯着屏幕上灰暗的死亡倒计时，手指在鼠标上无力地点击了两下。",
+          "isIncluded": true,
+          "type": "action"
+        },
+        {
+          "content": "“靠！GG了。这游戏没法玩了。”",
+          "isIncluded": true,
+          "type": "speech"
+        }
+      ],
+      "statusProcessingSystemResult": {
+        "processedSceneContext": {
+          "timeItems": [
+            "2008-06-20",
+            "星期五",
+            "21:30",
+            "晚上"
+          ],
+          "locationItems": [
+            "卡塞尔学院",
+            "学生宿舍"
+          ]
+        },
+        "processedCharacterInfo": {
+          "characterName": "曼蒂",
+          "internalGoalItems": [
+            "今日: 在宿舍打游戏，熬过漫长的无聊时光，顺便等饭吃。 (不可见)",
+            "本轮: 打完这局游戏，发泄对队友的不满。 (不可见)"
+          ],
+          "demeanorItems": [
+            "烦躁",
+            "全神贯注",
+            "不修边幅",
+            "厚颜无耻"
+          ],
+          "outerwearItems": [
+            "白色宽大T恤",
+            "蓝色牛仔短裤",
+            "黑色连裤袜"
+          ],
+          "underwearItems": [
+            "黑色运动文胸(不可见)",
+            "黑色平角内裤(不可见)"
+          ],
+          "accessories": [
+            "黑色头戴式耳机"
+          ],
+          "shortTermStatusItems": [
+            "散发",
+            "饥饿",
+            "口渴",
+            "暴躁"
+          ],
+          "actionPoseItems": [
+            "盘腿坐在椅子上",
+            "敲击键盘"
+          ],
+          "currentPositionItems": [
+            "宿舍电脑桌前"
+          ]
+        }
+      },
+      "godsEyeAnalysisResult": null,
+      "activeView": "time",
+      "drawingMasterContext": {
+        "originalParsedData": {
+          "generalTagsString": "1girl, solo, night, indoors, dorm_room | 曼蒂, 1girl, messy_hair, long_hair, annoyed, sitting, legs_crossed, playing_video_games, white_t-shirt, blue_denim_shorts, black_pantyhose, gaming_chair, headphones, keyboard, mouse, computer, hungry",
+          "characterTags": []
+        },
+        "triggeringCharacterName": "曼蒂"
+      },
+      "drawingMasterResult": {
+        "hasImage": true
+      },
+      "drawingMasterError": null
+    }
+  ],
+  "currentNovelId": "novel-1769242811585-6h0fycs",
+  "lastViewedNovelId": "novel-1769242811585-6h0fycs",
+  "isSwitchable": false,
+  "autoTriggerNextCharacter": false,
+  "allowCrossPartitionHistoryAccess": false
+}

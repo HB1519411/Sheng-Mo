@@ -1,0 +1,706 @@
+#settings-panel,
+.setting-page-template {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: inherit;
+    z-index: 10;
+    overflow-y: auto;
+}
+.setting-page-template.active,
+#settings-panel.active {
+    display: flex;
+}
+.settings-header {
+    text-align: center;
+    color: var(--highlight-text-color);
+    margin-bottom: var(--margin-medium);
+    padding-bottom: var(--padding-small);
+    border-bottom: 1px solid var(--border-color-dark);
+    position: relative;
+    height: var(--button-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.close-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+.settings-section {
+    box-sizing: border-box;
+    width: 100%;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-bottom: 60vh;
+}
+.settings-group {
+    margin-bottom: var(--margin-large);
+    padding: 0 var(--padding-large);
+}
+.settings-label {
+    display: block;
+    margin-bottom: var(--margin-small);
+    color: #ddd;
+    font-weight: bold;
+}
+.settings-input,
+.settings-textarea,
+.settings-select,
+.settings-menu-item {
+    width: 100%;
+    margin-bottom: var(--margin-medium);
+    border: 1px solid var(--border-color-medium);
+    background-color: var(--input-bg-color);
+    color: var(--secondary-text-color);
+    box-sizing: border-box;
+    padding: var(--padding-medium) var(--padding-large);
+    cursor: pointer;
+    text-align: left;
+    border-radius: var(--border-radius-medium);
+    display: block;
+    font-size: 1em;
+    font-family: inherit;
+}
+.settings-menu-item:hover {
+    background-color: var(--button-hover-bg-color);
+}
+.settings-textarea {
+    height: 100px;
+    font-family: monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    resize: vertical;
+}
+#error-log-display {
+    height: 200px;
+    font-size: 0.8em;
+}
+#history-display,
+#world-info-display {
+     height: 150px;
+     font-size: 0.8em;
+     white-space: pre;
+}
+#novelai-last-prompt-display {
+     height: 150px;
+     font-size: 0.8em;
+     white-space: pre-wrap;
+     background-color: #303030;
+}
+#roleplay-rules-textarea,
+#public-info-textarea,
+#script-textarea,
+ #system-instruction-preset-settings,
+ #shared-database-instruction-settings,
+ #chatroom-main-prompt-settings,
+ #drawing-master-main-prompt-settings,
+ #drawing-master-novel-content-settings,
+ #game-host-main-prompt-settings,
+ #writing-master-main-prompt-settings,
+ #character-update-master-main-prompt-settings,
+ #private-assistant-main-prompt-settings,
+ #novel-summary-master-main-prompt-settings,
+ #chatroom-override-general-shared-database-instruction,
+ #chatroom-override-general-main-prompt,
+ #chatroom-override-drawingMaster-tool-database-instruction,
+ #chatroom-override-drawingMaster-main-prompt,
+ #chatroom-override-drawingMaster-novel-content,
+ #chatroom-override-statusProcessingSystem-tool-database-instruction,
+ #chatroom-override-statusProcessingSystem-main-prompt,
+ #chatroom-override-gameHost-tool-database-instruction,
+ #chatroom-override-gameHost-main-prompt,
+ #chatroom-override-characterUpdateMaster-tool-database-instruction,
+ #chatroom-override-characterUpdateMaster-main-prompt,
+ #chatroom-override-privateAssistant-tool-database-instruction,
+ #chatroom-override-privateAssistant-main-prompt,
+ #chatroom-override-novelSummaryMaster-tool-database-instruction,
+ #chatroom-override-novelSummaryMaster-main-prompt,
+ #response-schema-json-settings,
+ #response-schema-parser-js-settings,
+ #drawing-master-response-schema-json-settings,
+ #drawing-master-response-schema-parser-js-settings,
+ #game-host-response-schema-json-settings,
+ #game-host-response-schema-parser-js-settings,
+ #writing-master-response-schema-json-settings,
+ #writing-master-response-schema-parser-js-settings,
+ #character-update-master-response-schema-json-settings,
+ #character-update-master-response-schema-parser-js-settings,
+ #private-assistant-response-schema-json-settings,
+ #private-assistant-response-schema-parser-js-settings,
+ #novel-summary-master-response-schema-json-settings,
+ #novel-summary-master-response-schema-parser-js-settings,
+ #chatroom-override-general-response-schema-json,
+ #chatroom-override-general-response-schema-parser-js,
+ #chatroom-override-drawingMaster-response-schema-json,
+ #chatroom-override-drawingMaster-response-schema-parser-js,
+ #chatroom-override-statusProcessingSystem-response-schema-json,
+ #chatroom-override-statusProcessingSystem-response-schema-parser-js,
+ #chatroom-override-gameHost-response-schema-json,
+ #chatroom-override-gameHost-response-schema-parser-js,
+ #chatroom-override-characterUpdateMaster-response-schema-json,
+ #chatroom-override-characterUpdateMaster-response-schema-parser-js,
+ #chatroom-override-privateAssistant-response-schema-json,
+ #chatroom-override-privateAssistant-response-schema-parser-js,
+ #chatroom-override-novelSummaryMaster-response-schema-json,
+ #chatroom-override-novelSummaryMaster-response-schema-parser-js,
+ #role-public-info-textarea,
+ #role-other-info-textarea,
+ #new-memory-content {
+     height: 150px;
+ }
+.setting-page-template .settings-group input[type="checkbox"] + label,
+.setting-page-template .settings-group input[type="radio"] + label {
+    margin-left: var(--margin-medium);
+    cursor: pointer;
+    flex-grow: 1;
+    vertical-align: middle;
+    display: inline;
+}
+.setting-page-template .settings-group input[type="checkbox"],
+.setting-page-template .settings-group input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color-light);
+    border-radius: var(--border-radius-small);
+    background-color: var(--input-bg-color);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-left: var(--margin-small);
+}
+.setting-page-template .settings-group input[type="radio"] {
+    border-radius: 50%;
+}
+.setting-page-template .settings-group input[type="checkbox"]:checked,
+.setting-page-template .settings-group input[type="radio"]:checked {
+    border-color: var(--input-focus-border-color);
+}
+.setting-page-template .settings-group input[type="checkbox"]:checked::after {
+    content: '✔';
+    display: block;
+    position: absolute;
+    top: -1px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+    line-height: 16px;
+    text-align: center;
+    color: var(--input-focus-border-color);
+}
+.setting-page-template .settings-group input[type="radio"]:checked::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--input-focus-border-color);
+    border-radius: 50%;
+}
+.model-selection-group {
+    display: flex;
+    align-items: center;
+    gap: var(--margin-medium);
+    margin-bottom: var(--margin-small);
+}
+.model-selection-group label {
+    margin-bottom: 0;
+}
+#role-list-container,
+#chatroom-list-container,
+#novel-list-container,
+#role-memory-list-container,
+#role-public-info-list-container {
+    margin-top: var(--margin-medium);
+}
+.role-item,
+.chatroom-item,
+.novel-item,
+.prompt-preset-item {
+    padding: var(--padding-medium);
+    background-color: var(--secondary-bg-color);
+    color: var(--secondary-text-color);
+    margin-bottom: var(--margin-small);
+    border-radius: var(--border-radius-medium);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.memory-item {
+    padding: var(--padding-medium);
+    background-color: var(--secondary-bg-color);
+    color: var(--secondary-text-color);
+    margin-bottom: var(--margin-small);
+    border-radius: var(--border-radius-medium);
+    display: flex;
+    flex-direction: column;
+}
+.memory-item-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: var(--margin-small);
+}
+.memory-item-top-row.memory-item-edit-top-row .settings-input {
+    flex-grow: 1;
+    margin-right: var(--margin-small);
+    margin-bottom: 0;
+}
+.memory-item-top-row .item-actions {
+    flex-shrink: 0;
+}
+.role-item span,
+.chatroom-item label,
+.novel-item .novel-name,
+.prompt-preset-item .preset-role-label,
+.memory-item .memory-item-time {
+    margin-left: var(--margin-medium);
+    cursor: pointer;
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: var(--margin-medium);
+}
+.role-item span { margin-left: 0; }
+.novel-item .novel-name { margin-left: 0; cursor: default; }
+.prompt-preset-item .preset-role-label { margin-left: 0; cursor: default; width: 20px; flex-grow: 0; flex-shrink: 0; text-align: center; font-weight:bold; }
+.memory-item .memory-item-time { font-weight: bold; flex-grow: 0; margin-right: var(--margin-medium); cursor: default; margin-left:0;}
+.memory-item .memory-item-content {
+    width: 100%;
+    white-space: pre-wrap;
+    word-break: break-all;
+    cursor: pointer;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.prompt-preset-item .preset-instruction-textarea {
+    flex-grow: 1;
+    height: 60px;
+    margin: 0 var(--margin-small) 0 0;
+    font-size: 0.9em;
+    line-height: 1.3;
+    resize: vertical;
+    font-family: monospace;
+    white-space: pre-wrap;
+    border: 1px solid var(--border-color-medium);
+    background-color: #303030;
+    color: var(--secondary-text-color);
+    border-radius: var(--border-radius-medium);
+    padding: var(--padding-small);
+}
+.item-actions {
+    display: flex;
+    gap: var(--margin-small);
+    flex-shrink: 0;
+}
+ .prompt-preset-item .item-actions,
+ .memory-item .item-actions {
+     flex-direction: row;
+     gap: var(--margin-small);
+ }
+ .prompt-preset-item .item-actions .std-button,
+ .memory-item .item-actions .std-button {
+     width: 24px;
+     height: 24px;
+     font-size: 0.8em;
+ }
+ .memory-item-edit-top-row .item-actions .std-button {
+    width: auto;
+    padding-left: var(--padding-medium);
+    padding-right: var(--padding-medium);
+ }
+ .novel-item .item-actions .summarize-novel-button {
+    width: 28px;
+    height: 28px;
+ }
+.chatroom-item input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color-light);
+    border-radius: 50%;
+    background-color: var(--input-bg-color);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    margin-right: var(--margin-small);
+}
+.chatroom-item input[type="radio"]:checked {
+    border-color: var(--input-focus-border-color);
+}
+.chatroom-item input[type="radio"]:checked::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--input-focus-border-color);
+    border-radius: 50%;
+}
+.tool-setting-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--margin-small);
+}
+.tool-setting-item label {
+    margin-left: var(--margin-medium);
+    cursor: pointer;
+    flex-grow: 1;
+}
+#drawing-master-enabled-settings,
+#game-host-enabled-settings,
+#writing-master-enabled-settings,
+#character-update-master-enabled-settings,
+#private-assistant-enabled-settings,
+#novel-summary-master-enabled-settings {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color-light);
+    border-radius: var(--border-radius-small);
+    background-color: var(--input-bg-color);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-left: var(--margin-small);
+}
+#drawing-master-enabled-settings:checked,
+#game-host-enabled-settings:checked,
+#writing-master-enabled-settings:checked,
+#character-update-master-enabled-settings:checked,
+#private-assistant-enabled-settings:checked,
+#novel-summary-master-enabled-settings:checked {
+    border-color: var(--input-focus-border-color);
+}
+#drawing-master-enabled-settings:checked::after,
+#game-host-enabled-settings:checked::after,
+#writing-master-enabled-settings:checked::after,
+#character-update-master-enabled-settings:checked::after,
+#private-assistant-enabled-settings:checked::after,
+#novel-summary-master-enabled-settings:checked::after {
+    content: '✔';
+    display: block;
+    position: absolute;
+    top: -1px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+    line-height: 16px;
+    text-align: center;
+    color: var(--input-focus-border-color);
+}
+#api-key-failure-counts-display {
+    font-size: 0.8em;
+    color: #aaa;
+    max-height: 100px;
+    overflow-y: auto;
+    background-color: #1c1c1c;
+    padding: var(--padding-small);
+    border-radius: var(--border-radius-small);
+    border: 1px solid #444;
+}
+#api-key-failure-counts-display div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+}
+#api-key-failure-counts-display .key-prefix {
+    color: #bbb;
+    margin-right: var(--margin-small);
+}
+#api-key-failure-counts-display .fail-count {
+    font-weight: bold;
+    color: #d99;
+    margin-left: var(--margin-small);
+}
+ #prompt-preset-list-container {
+    margin-top: var(--margin-medium);
+ }
+ .prompt-preset-actions {
+     display: flex;
+     gap: var(--margin-medium);
+     margin-bottom: var(--margin-medium);
+ }
+ .prompt-preset-actions .settings-menu-item {
+     margin-bottom: 0;
+     width: auto;
+     flex-grow: 1;
+     text-align: center;
+ }
+ .chatroom-management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--margin-medium);
+    margin-top: 15px;
+ }
+ .chatroom-management-grid .settings-menu-item {
+     margin-bottom: 0;
+ }
+.button-group-horizontal {
+    display: flex;
+    gap: var(--margin-medium);
+    margin-bottom: var(--margin-medium);
+    align-items: center;
+}
+.button-group-horizontal > .settings-menu-item {
+    flex-grow: 1;
+    margin-bottom: 0;
+}
+.button-group-horizontal > input[type="file"] {
+     display: none;
+}
+.api-key-group-item {
+    margin-bottom: 15px;
+    padding: var(--padding-large);
+    border: 1px solid #444;
+    border-radius: var(--border-radius-medium);
+    background-color: #1e1e1e;
+}
+.api-key-group-item textarea {
+    width: 100%;
+    height: 120px;
+    margin-bottom: var(--margin-small);
+    font-family: monospace;
+    font-size: 0.9em;
+}
+.api-key-group-item .delete-api-key-group-button {
+    background-color: #c0392b;
+    color: white;
+    border: none;
+    padding: var(--padding-small) var(--padding-large);
+    border-radius: var(--border-radius-small);
+    cursor: pointer;
+    font-size: 0.8em;
+    float: right;
+    margin-top: -35px;
+    position: relative;
+    z-index: 1;
+}
+.role-setting-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--margin-medium);
+}
+.tag-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--margin-small);
+    padding: var(--padding-small);
+    border: 1px solid var(--border-color-medium);
+    border-radius: var(--border-radius-medium);
+    background-color: var(--input-bg-color);
+    margin-bottom: var(--margin-small);
+    min-height: 38px;
+}
+.tag-item {
+    background-color: var(--tag-bg-color);
+    color: var(--tag-text-color);
+    padding: 3px var(--padding-small);
+    border-radius: var(--border-radius-small);
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+}
+.tag-delete-button {
+    margin-left: var(--margin-small);
+    cursor: pointer;
+    color: var(--highlight-text-color);
+    font-weight: bold;
+}
+.tag-delete-button:hover {
+    color: var(--tag-delete-hover-bg);
+}
+#add-memory-item-form,
+#add-public-info-item-form {
+    margin-bottom: var(--margin-large);
+    border-bottom: 1px solid var(--border-color-medium);
+    padding-bottom: var(--margin-medium);
+}
+.memory-item-content-edit {
+    width: 100%;
+    resize: vertical;
+    margin-top: var(--margin-small);
+}
+.input-with-button-container {
+    display: flex;
+    align-items: center;
+    gap: var(--margin-small);
+    margin-bottom: var(--margin-medium);
+}
+.input-with-button-container .settings-input {
+    flex-grow: 1;
+    margin-bottom: 0;
+}
+.enter-action-button {
+    flex-shrink: 0;
+    width: auto;
+    padding-left: var(--padding-medium);
+    padding-right: var(--padding-medium);
+    height: var(--button-size);
+    font-size: 0.9em;
+}
+.partition-cross-access-checkbox-container {
+    margin-right: 10px;
+}
+.role-alias-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--margin-small);
+    margin-bottom: var(--margin-medium);
+}
+.role-alias-dropdown-menu {
+    display: none;
+    position: absolute;
+    background-color: var(--secondary-bg-color);
+    border: 1px solid var(--border-color-medium);
+    border-radius: var(--border-radius-medium);
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+    top: 100%;
+    left: 0;
+    margin-top: 2px;
+}
+.role-alias-dropdown-menu.active {
+    display: block;
+}
+.role-alias-dropdown-item {
+    color: var(--primary-text-color);
+    padding: var(--padding-medium) var(--padding-large);
+    text-decoration: none;
+    display: block;
+    cursor: pointer;
+}
+.role-alias-dropdown-item:hover {
+    background-color: var(--button-hover-bg-color);
+}
+
+.preset-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+}
+.preset-modal-overlay.active {
+    display: flex;
+}
+.preset-modal-content {
+    background-color: var(--secondary-bg-color);
+    border: 1px solid var(--border-color-medium);
+    border-radius: var(--border-radius-medium);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    color: var(--primary-text-color);
+}
+.preset-modal-header {
+    padding: var(--padding-large);
+    border-bottom: 1px solid var(--border-color-medium);
+    font-weight: bold;
+    text-align: center;
+    color: var(--highlight-text-color);
+    font-size: 1.1em;
+}
+.preset-modal-body {
+    padding: var(--padding-large);
+    overflow-y: auto;
+    flex-grow: 1;
+}
+.preset-group {
+    margin-bottom: var(--margin-large);
+}
+.preset-group-title {
+    font-weight: bold;
+    margin-bottom: var(--margin-small);
+    color: #ddd;
+    border-bottom: 1px solid var(--border-color-dark);
+    padding-bottom: 5px;
+    display: flex;
+    align-items: center;
+}
+.preset-group-title label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    font-size: 0.95em;
+}
+.preset-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 0 6px 15px;
+}
+.preset-item label {
+    cursor: pointer;
+    flex-grow: 1;
+    margin-left: var(--margin-medium);
+    font-size: 0.9em;
+}
+.preset-modal-body input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-color-light);
+    border-radius: var(--border-radius-small);
+    background-color: var(--input-bg-color);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+.preset-modal-body input[type="checkbox"]:checked {
+    border-color: var(--input-focus-border-color);
+}
+.preset-modal-body input[type="checkbox"]:checked::after {
+    content: '✔';
+    display: block;
+    position: absolute;
+    top: -1px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+    line-height: 16px;
+    text-align: center;
+    color: var(--input-focus-border-color);
+}
+.preset-modal-footer {
+    padding: var(--padding-large);
+    border-top: 1px solid var(--border-color-medium);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--margin-medium);
+}

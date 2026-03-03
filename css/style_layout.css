@@ -1,0 +1,96 @@
+.std-button {
+    color: var(--highlight-text-color);
+    background-color: var(--tertiary-bg-color);
+    border: 1px solid var(--button-border-color);
+    border-radius: var(--border-radius-medium);
+    text-align: center;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: var(--button-size);
+    height: var(--button-size);
+    line-height: normal;
+    z-index: 5;
+    cursor: pointer;
+    user-select: none;
+}
+.std-button:hover {
+    background-color: var(--button-hover-bg-color);
+}
+.std-button.role-state-active {
+    background-color: var(--button-active-bg-color);
+}
+.std-button.edit-disabled {
+    opacity: var(--button-disabled-opacity);
+    cursor: not-allowed;
+}
+.std-button.role-permanent {
+    color: #ffffff;
+}
+.std-button.role-temporary {
+    color: #000000;
+    font-weight: bold;
+    border-color: #000000;
+}
+.std-button.role-state-active-bg {
+    background-color: var(--role-state-active-color);
+}
+.std-button.role-state-user-bg {
+    background-color: var(--role-state-user-color);
+}
+#loading-spinner {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 63%;
+    transform: translate(-50%, -50%);
+    width: 28px;
+    height: 28px;
+    border: 3px solid transparent;
+    border-color: black black white white;
+    border-radius: 50%;
+    z-index: 6;
+}
+#loading-spinner.spinning {
+    animation: spin 1s linear infinite;
+}
+#loading-spinner.retry-indicator {
+     border-color: red;
+}
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+#global-loading-overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+#global-loading-overlay.active {
+    display: flex;
+}
+#global-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: global-spin 1s linear infinite;
+}
+@keyframes global-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 768px) {
+    body { flex-direction: column; }
+}

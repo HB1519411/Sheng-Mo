@@ -1,0 +1,21 @@
+<div class="modal" id="file-list-modal">
+ <div class="modal-content">
+  <h2>项目文件
+   <div class="file-tree-search-controls" style="margin-left: auto; margin-bottom: 0;">
+    <input id="file-tree-search-input" placeholder="搜索文件名..." type="text"/>
+    <button id="file-tree-search-button">搜索</button>
+   </div>
+  </h2>
+  <div id="file-tree-container"></div>
+  <div class="modal-buttons">
+   <button class="std-button" id="btn-modal-create-file">新建文件</button>
+   <button class="std-button" id="btn-modal-create-folder">新建文件夹</button>
+   <button class="std-button" id="btn-modal-rename-item">重命名</button>
+   <button class="std-button" id="btn-modal-delete-item" style="background-color:#c0392b; border-color:#c0392b;">删除选中</button>
+   <button class="std-button" id="btn-refresh-file-tree">刷新列表</button>
+   <button class="std-button" id="btn-save-export-selection">保存勾选</button>
+   <button class="std-button" id="btn-close-file-modal">关闭</button>
+  </div>
+ </div>
+</div>
+<input accept=".txt" id="file-importer-input" multiple="" style="display: none;" type="file"/>

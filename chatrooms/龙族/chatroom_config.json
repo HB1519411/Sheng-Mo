@@ -1,0 +1,139 @@
+{
+  "version": 171,
+  "name": "龙族",
+  "publicInfo": "关键改动：\n- 移除原著中陈墨瞳和凯撒的婚约，陈墨瞳和凯瑟琳是闺蜜关系；移除原著中楚子航和夏弥的恋人关系，楚子涵和夏弥是挚友关系。\n标签：龙族，性转，后宫，雌竟，魔改，修罗场，群像，真实\n原著：《龙族》，《没钱上大学的我只能去屠龙了》\n性转：\n- 性转对应表：路明非 → 路茗霏 ｜ 路鸣泽 → 路茗鸢 ｜ 楚子航 → 楚子涵 ｜ 恺撒 → 凯瑟琳 ｜ 源稚生 → 源稚纱 ｜ 芬格尔 → 曼蒂\n- 从世界观中完全移除对应的男性角色，使用性转后的女性角色代替他们出场。\n背景：人类(混血种)VS龙族(复苏期)\n大一：路茗霏\n大二：楚子涵、陈墨瞳、凯瑟琳",
+  "user": "",
+  "backgroundImageFilename": "background.png",
+  "partitionsOrder": [
+    "28765f7b-9036-4c58-99a4-57a9b89e7b0c",
+    "db57c1d1-0dd4-4593-ab11-4b64c56c879a",
+    "6a79d7d2-de75-46fd-b838-41b873108a55",
+    "5916df0a-ae53-472d-9c6c-485b6a154b7d",
+    "ef06da1c-6f80-4351-9d1b-45bfe0a6d8d4",
+    "4b27e7b7-6563-4bdf-bd17-f11ab54a0658",
+    "3e678402-aaa8-43a3-bdde-253928a3f68e",
+    "23d490e8-94c0-4f44-a45b-a9795c304171",
+    "bed76d80-65fa-4cee-9b69-b2656c276166",
+    "c07d088a-557b-40d1-b6bc-8f97cfa03bda"
+  ],
+  "activePartitionId": "c07d088a-557b-40d1-b6bc-8f97cfa03bda",
+  "identityGroups": [
+    {
+      "members": [
+        "上杉绘梨衣",
+        "橘宗政",
+        "犬山贺",
+        "源稚纱"
+      ],
+      "name": "蛇岐八家"
+    },
+    {
+      "members": [
+        "昂热",
+        "施耐德",
+        "曼蒂"
+      ],
+      "name": "秘党"
+    },
+    {
+      "members": [
+        "夏弥",
+        "奥丁",
+        "路茗鸢"
+      ],
+      "name": "龙族"
+    },
+    {
+      "members": [
+        "上杉绘梨衣",
+        "昂热",
+        "曼蒂",
+        "源稚纱"
+      ],
+      "name": "S级"
+    },
+    {
+      "members": [
+        "昂热",
+        "施耐德",
+        "方少白",
+        "曼蒂",
+        "陈墨瞳",
+        "楚子涵",
+        "凯瑟琳",
+        "路茗鸢",
+        "路茗霏",
+        "夏弥"
+      ],
+      "name": "卡塞尔"
+    }
+  ],
+  "overrideSettings": {
+    "general": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "sharedDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "drawingMaster": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": "",
+      "novelContent": ""
+    },
+    "statusProcessingSystem": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "gameHost": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "characterUpdateMaster": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "privateAssistant": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "novelSummaryMaster": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    },
+    "closeUpMaster": {
+      "enabled": false,
+      "model_selection_type": "primary",
+      "responseSchemaJson": "",
+      "responseSchemaParserJs": "",
+      "toolDatabaseInstruction": "",
+      "mainPrompt": ""
+    }
+  },
+  "roleplayRules": ""
+}

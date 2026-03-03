@@ -1,0 +1,53 @@
+:root {
+    --primary-bg-color: #121212;
+    --secondary-bg-color: #252525;
+    --tertiary-bg-color: #3a3a3a;
+    --primary-text-color: #c0c0c0;
+    --secondary-text-color: #f0f0f0;
+    --highlight-text-color: #e0c2a3;
+    --border-color-light: #777;
+    --border-color-medium: #555;
+    --border-color-dark: #333;
+    --button-border-color: #e0c2a3;
+    --button-hover-bg-color: #4a4a4a;
+    --button-disabled-opacity: 0.5;
+    --button-active-bg-color: green;
+    --input-bg-color: #252525;
+    --input-focus-border-color: #e0c2a3;
+    --message-user-bg-color: #FFF2E2;
+    --message-user-text-color: #000;
+    --novel-bg-color: #FFF2E2;
+    --novel-text-color: #000;
+    --novel-header-text-color: #3a3a3a;
+    --novel-header-border-color: #ccc;
+    --novel-item-bg-color: #f0e6d8;
+    --novel-current-chapter-color: #8B4513;
+    --base-font-size: 1.7em;
+    --button-size: 36px;
+    --border-radius-small: 3px;
+    --border-radius-medium: 5px;
+    --border-radius-large: 15px;
+    --padding-small: 5px;
+    --padding-medium: 8px;
+    --padding-large: 10px;
+    --margin-small: 5px;
+    --margin-medium: 10px;
+    --margin-large: 20px;
+    --tag-bg-color: #555;
+    --tag-text-color: #f0f0f0;
+    --tag-delete-hover-bg: #c0392b;
+    --role-state-active-color: #2e7d32;
+    --role-state-user-color: #1565c0;
+}
+body {
+    font-family: sans-serif;
+    background-color: var(--primary-bg-color);
+    color: var(--primary-text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    font-size: var(--base-font-size);
+    -webkit-tap-highlight-color: transparent;
+}

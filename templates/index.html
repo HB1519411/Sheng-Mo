@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="chat-container">
+    {% include "components/toolbar.html" %}
+    
+    {% include "components/settings_layout.html" %}
+    
+    {% include "components/novel_interface.html" %}
+    
+    {% include "components/chat_area.html" %}
+</div>
+
+{% include "components/image_viewer.html" %}
+{% endblock %}
