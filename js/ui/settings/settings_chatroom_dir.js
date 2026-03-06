@@ -29,14 +29,10 @@ const settingsChatroomDirModule = {
         settingsChatroomDirModule.deleteChatroomFromList(roomName);
       }
     });
-    if (elementsModule.importChatroomButton) {
-      elementsModule.importChatroomButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsChatroomDirModule.importChatroomFromSettings();
-      });
-    }
-    if (elementsModule.importChatroomFile) {
-      elementsModule.importChatroomFile.addEventListener('change', settingsChatroomDirModule.handleImportChatroomFile);
-    }
+    elementsModule.importChatroomButton.addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsChatroomDirModule.importChatroomFromSettings();
+    });
+    elementsModule.importChatroomFile.addEventListener('change', settingsChatroomDirModule.handleImportChatroomFile);
     eventBus.on('UI_UPDATE_GLOBAL', () => {
       settingsChatroomDirModule.updateChatroomList();
     });
@@ -85,7 +81,7 @@ const settingsChatroomDirModule = {
   },
   updateChatroomList: () => {
     const frag = document.createDocumentFragment();
-    const rooms = stateModule.config.chatRoomOrder || [];
+    const rooms = stateModule.config.chatRoomOrder;
     rooms.forEach(roomName => {
       frag.appendChild(settingsChatroomDirModule._createChatroomListItem(roomName));
     });
@@ -129,22 +125,18 @@ const settingsChatroomDirModule = {
     const validExtensions = ['.zip', '.png', '.jpg', '.jpeg', '.webp'];
     const fileNameLower = file.name.toLowerCase();
     if (!validExtensions.some(ext => fileNameLower.endsWith(ext))) {
-      const errorMsg = '请选择一个图片卡或 .zip 文件进行导入。';
-      _logAndDisplayError(errorMsg, 'settingsChatroomDirModule.handleImportChatroomFile');
-      alert(errorMsg);
+      alert('请选择一个图片卡或 .zip 文件进行导入。');
       event.target.value = null;
       return;
     }
     const formData = new FormData();
     formData.append('chatroom_zip', file);
     const result = await apiServiceModule.performApiCall('/import-chatroom-zip', 'POST', formData, {}, null, true);
-    if (result.success && result.changes) {
+    if (result.success) {
       alert("聊天室导入成功！");
-      incrementalUpdateHandlerModule.processChanges(result.changes);
+      if (result.changes) incrementalUpdateHandlerModule.processChanges(result.changes);
     } else {
-      const errorMsg = result.error?.message || '未知的导入错误';
-      _logAndDisplayError(`导入聊天室失败: ${errorMsg}`, 'settingsChatroomDirModule.handleImportChatroomFile');
-      alert(`导入聊天室失败: ${errorMsg}`);
+      alert(`导入聊天室失败: ${result.error.message}`);
     }
     event.target.value = null;
   }

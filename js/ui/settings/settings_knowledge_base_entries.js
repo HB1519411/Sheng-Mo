@@ -3,15 +3,10 @@ const settingsKnowledgeBaseEntriesModule = {
   currentEditingEntryItem: null,
 
   init: () => {
-    const page = document.getElementById('knowledge-base-entries-page');
-    if (!page) return;
-
-    const addButton = document.getElementById('add-knowledge-entry-button');
-    if (addButton) {
-      addButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsKnowledgeBaseEntriesModule.addEntry();
-      });
-    }
+    document.getElementById('add-knowledge-entry-button').addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsKnowledgeBaseEntriesModule.addEntry();
+    });
+    
     eventBus.on('UI_UPDATE_GLOBAL', () => {
       if (stateModule.activeSettingPage === 'knowledge-base-entries-page' && settingsKnowledgeBaseEntriesModule.currentGroupName) {
         settingsKnowledgeBaseEntriesModule.renderPage(settingsKnowledgeBaseEntriesModule.currentGroupName);
@@ -22,31 +17,23 @@ const settingsKnowledgeBaseEntriesModule = {
   renderPage: async (groupName) => {
     settingsKnowledgeBaseEntriesModule.currentGroupName = groupName;
 
-    const headerTitle = document.getElementById('knowledge-base-entries-header-title');
-    if (headerTitle) {
-      headerTitle.textContent = `知识条目 - ${groupName}`;
-    }
+    document.getElementById('knowledge-base-entries-header-title').textContent = `知识条目 - ${groupName}`;
 
     const form = document.getElementById('add-knowledge-entry-form');
-    if (form) {
-      form.style.display = 'block';
-      document.getElementById('new-knowledge-entry-name').value = '';
-      document.getElementById('new-knowledge-entry-keywords').value = '';
-      document.getElementById('new-knowledge-entry-content').value = '';
-    }
+    form.style.display = 'block';
+    document.getElementById('new-knowledge-entry-name').value = '';
+    document.getElementById('new-knowledge-entry-keywords').value = '';
+    document.getElementById('new-knowledge-entry-content').value = '';
 
     const result = await apiClientChatroomsModule.getKnowledgeGroupEntries(groupName);
-    if (result.success) {
+    if (result.success && result.data) {
       settingsKnowledgeBaseEntriesModule.renderEntryList(result.data);
-    } else {
-      _logAndDisplayError(`Failed to fetch entries for ${groupName}: ${result.error?.message}`, 'settingsKnowledgeBaseEntriesModule.renderPage');
     }
     settingsKnowledgeBaseEntriesModule.currentEditingEntryItem = null;
   },
 
   renderEntryList: (entriesArray) => {
     const container = document.getElementById('knowledge-entries-list-container');
-    if (!container) return;
     container.innerHTML = '';
 
     entriesArray.forEach(item => {
@@ -84,12 +71,12 @@ const settingsKnowledgeBaseEntriesModule = {
     keywordsSpan.className = 'memory-item-content';
     keywordsSpan.style.fontStyle = 'italic';
     keywordsSpan.style.color = '#aaa';
-    keywordsSpan.textContent = `关键词: ${(item.keywords || []).join(', ')}`;
+    keywordsSpan.textContent = `关键词: ${item.keywords.join(', ')}`;
     entryItemDiv.appendChild(keywordsSpan);
 
     const contentSpan = document.createElement('span');
     contentSpan.className = 'memory-item-content';
-    contentSpan.textContent = item.content || '';
+    contentSpan.textContent = item.content;
     contentSpan.addEventListener('click', () => {
       if (!settingsKnowledgeBaseEntriesModule.currentEditingEntryItem) {
         settingsKnowledgeBaseEntriesModule.editEntry(item, entryItemDiv);
@@ -101,8 +88,6 @@ const settingsKnowledgeBaseEntriesModule = {
   },
 
   addEntry: async () => {
-    if (!settingsKnowledgeBaseEntriesModule.currentGroupName) return;
-
     const name = document.getElementById('new-knowledge-entry-name').value.trim();
     const keywords = document.getElementById('new-knowledge-entry-keywords').value.trim().split(',').map(s => s.trim()).filter(Boolean);
     const content = document.getElementById('new-knowledge-entry-content').value.trim();
@@ -181,7 +166,7 @@ const settingsKnowledgeBaseEntriesModule = {
     const keywordsInput = document.createElement('input');
     keywordsInput.type = 'text';
     keywordsInput.className = 'settings-input';
-    keywordsInput.value = (itemToEdit.keywords || []).join(', ');
+    keywordsInput.value = itemToEdit.keywords.join(', ');
     keywordsInput.style.marginBottom = '5px';
     itemDiv.appendChild(keywordsInput);
 
@@ -203,7 +188,6 @@ const settingsKnowledgeBaseEntriesModule = {
   },
 
   removeEntry: async (entryId) => {
-    if (!settingsKnowledgeBaseEntriesModule.currentGroupName) return;
     const result = await apiClientChatroomsModule.deleteKnowledgeEntry(settingsKnowledgeBaseEntriesModule.currentGroupName, entryId);
     if (result.success && result.changes) {
       incrementalUpdateHandlerModule.processChanges(result.changes);

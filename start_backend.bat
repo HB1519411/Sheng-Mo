@@ -1,52 +1,77 @@
 @echo off
-setlocal
-title ShengMo Launcher
+@chcp 65001 >nul
+setlocal enabledelayedexpansion
+title ShengMo 一键启动
 
 echo ====================================================================
-echo  ShengMo Backend Launcher
+echo  绳墨 (ShengMo) 极速启动脚本 - 严厉版
 echo ====================================================================
 echo.
 
 set PYTHONIOENCODING=utf-8
+set PYTHON_CMD=
 
-REM Step 1: Check for npm command
-echo Checking for npm...
-where npm >nul 2>nul
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] FATAL: 'npm' command not found.
-    echo Please install Node.js from https://nodejs.org/ and ensure it is added to your system's PATH.
-    echo.
+REM ----------------------------------------------------------------
+REM 第一步：检测 Python 环境
+REM ----------------------------------------------------------------
+python --version >nul 2>&1
+if !errorlevel! equ 0 (
+    set PYTHON_CMD=python
+    goto :CheckMarker
+)
+py --version >nul 2>&1
+if !errorlevel! equ 0 (
+    set PYTHON_CMD=py
+    goto :CheckMarker
+)
+
+echo [FATAL] 未找到 Python，请先安装 Python！
+pause
+exit /b 1
+
+:CheckMarker
+REM --- 检查 Python 锁文件 ---
+if exist "installed.lock" (
+    echo [1/3] Python 环境已就绪 (跳过检查)
+    goto :CheckNode
+)
+
+echo [1/3] 首次运行，正在安装依赖库...
+!PYTHON_CMD! -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+if !errorlevel! neq 0 (
+    echo [FATAL] Python 依赖安装失败。
     pause
-    exit /b
-)
-echo Found npm.
-echo.
-
-REM Step 2: Check for node_modules and install if missing
-echo Checking for dependencies (node_modules directory)...
-if not exist "node_modules" (
-    echo 'node_modules' directory not found. Running 'npm install'...
-    echo This might take a moment...
-    echo.
-    npm install
-    if %errorlevel% neq 0 (
-        echo.
-        echo [ERROR] 'npm install' failed. Please check the error messages above.
-        echo.
-        pause
-        exit /b
-    )
-    echo 'npm install' completed successfully.
+    exit /b 1
 ) else (
-    echo 'node_modules' directory exists. Skipping install.
+    echo done > installed.lock
+    echo Python 依赖安装完成。
 )
 echo.
 
-REM Step 3: Start the servers
-echo Starting backend services...
-echo The services will run in this window.
-echo Press Ctrl+C to stop all services.
+:CheckNode
+REM ----------------------------------------------------------------
+REM 第二步：检测 Node.js 环境
+REM ----------------------------------------------------------------
+if exist "node_modules" (
+    echo [2/3] 前端环境已就绪 (跳过检查)
+    goto :StartApp
+)
+
+echo [2/3] 正在安装前端依赖...
+call npm install
+if !errorlevel! neq 0 (
+    echo [FATAL] 前端依赖安装失败。
+    pause
+    exit /b 1
+)
 echo.
 
-npm start
+:StartApp
+REM ----------------------------------------------------------------
+REM 第三步：启动服务
+REM ----------------------------------------------------------------
+echo [3/3] 一切就绪！正在启动服务...
+echo.
+
+call npm start

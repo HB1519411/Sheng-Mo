@@ -5,8 +5,7 @@ const messageActionsDelegateModule = {
       const activeMessageId = stateModule.activeMessageActions ? stateModule.activeMessageActions.dataset.messageId : null;
       if (activeMessageId) {
         const partition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-        const messageExists = partition && partition.history.some(m => m.id === activeMessageId);
-        if (!messageExists) {
+        if (!partition || !partition.history.some(m => m.id === activeMessageId)) {
           messageActionsImplModule.hideAllMessageActions();
         }
       }
@@ -24,43 +23,18 @@ const messageActionsDelegateModule = {
     }
 
     const viewButton = event.target.closest('.game-host-view-button');
-    if (viewButton) {
-      uiChatToolSpecificModule._handleStatusViewChange(viewButton);
-      return;
-    }
+    if (viewButton) return uiChatToolSpecificModule._handleStatusViewChange(viewButton);
 
     const nameButton = event.target.closest('.role-name-button-above-bubble');
-    if (nameButton) {
-      messageActionsImplModule.toggleMessageActions(msgCont);
-      return;
-    }
+    if (nameButton) return messageActionsImplModule.toggleMessageActions(msgCont);
 
     const toggleRawButton = event.target.closest('.toggle-raw-button');
-    if (toggleRawButton) {
-      messageActionsImplModule.toggleRawJsonView(msgCont);
-      return;
-    }
-
-    const saveCharUpdateButton = event.target.closest('.save-character-update-button');
-    if (saveCharUpdateButton) {
-      return;
-    }
-
-    const saveEventRecordButton = event.target.closest('.save-event-record-button');
-    if (saveEventRecordButton) {
-      return;
-    }
+    if (toggleRawButton) return messageActionsImplModule.toggleRawJsonView(msgCont);
 
     const saveToScriptButton = event.target.closest('.save-to-script-button');
-    if (saveToScriptButton) {
-      messageActionsImplModule.savePrivateAssistantToScript(msgCont);
-      return;
-    }
+    if (saveToScriptButton) return messageActionsImplModule.savePrivateAssistantToScript(msgCont);
 
     const saveKnowledgeRecordButton = event.target.closest('.save-knowledge-record-button');
-    if (saveKnowledgeRecordButton) {
-      messageActionsImplModule.saveKnowledgeRecord(msgCont);
-      return;
-    }
-  },
+    if (saveKnowledgeRecordButton) return messageActionsImplModule.saveKnowledgeRecord(msgCont);
+  }
 };

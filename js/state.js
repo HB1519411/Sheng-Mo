@@ -3,26 +3,20 @@ const defaultConfig = {
   temperature: '1.0',
   topP: '0.9',
   topK: '40',
-  maxOutputTokens: '2048',
-  responseMimeType: 'application/json',
+  maxOutputTokens: '65536',
+  rateLimitPerMinute: "8",
   promptPresetTurns: [],
-  primary_model_id: "",
-  secondary_model_id: "",
-  tertiary_model_id: "",
-  apiConnectionMode: "direct",
+  primary_model_id: "gemini-2.0-flash",
+  secondary_model_id: "gemini-2.0-flash",
+  tertiary_model_id: "gemini-2.0-flash",
   frontend_proxy_enabled: false,
   useBackupProxyOnly: false,
-  proxy_url: "",
-  proxy_api_key: "",
-  proxy_url_2: "",
-  proxy_api_key_2: "",
   backup_proxy_url: "",
   backup_proxy_api_key: "",
-  responseSchemaJson: "",
-  responseSchemaParserJs: "",
   sharedDatabaseInstruction: "",
   mainPrompt: "",
   clothingGuide: "",
+  drawingMaster_novelContent: "",
   toolSettings: {
     drawingMaster: {
       responseSchemaJson: '',
@@ -30,8 +24,7 @@ const defaultConfig = {
       toolDatabaseInstruction: '',
       enabled: false,
       model_selection_type: 'primary',
-      mainPrompt: '',
-      novelContent: ''
+      mainPrompt: ''
     },
     statusProcessingSystem: {
       responseSchemaJson: '',
@@ -109,12 +102,12 @@ const defaultConfig = {
       originalNovelLength: 10000
     },
     closeUpMaster: {
-        responseSchemaJson: '',
-        responseSchemaParserJs: '',
-        toolDatabaseInstruction: '',
-        enabled: false,
-        model_selection_type: 'primary',
-        mainPrompt: ''
+      responseSchemaJson: '',
+      responseSchemaParserJs: '',
+      toolDatabaseInstruction: '',
+      enabled: false,
+      model_selection_type: 'primary',
+      mainPrompt: ''
     }
   },
   activeChatRoomName: null,
@@ -154,36 +147,18 @@ const defaultChatroomConfig = {
   backgroundImageFilename: null,
   partitionsOrder: [],
   activePartitionId: null,
-  identityGroups: [],
-  overrideSettings: {
-    general: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "sharedDatabaseInstruction": "", "mainPrompt": ""},
-    drawingMaster: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": "", "novelContent": ""},
-    statusProcessingSystem: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-    gameHost: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-    characterUpdateMaster: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-    privateAssistant: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-    novelSummaryMaster: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-    closeUpMaster: {"enabled": false, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""}
-  }
+  identityGroups: []
 };
 const defaultPartitionConfig = {
   version: 1,
   id: "",
   name: "Default Partition",
   roleplayRules: "",
+  roleAliases: [],
   script: "",
-  publicKeywords: [],
-  roleAliases: [{
-    name: "用户",
-    alias: "",
-    state: "默",
-    detailedState: ""
-  }],
   activeNovelIds: [],
   novelCurrentChapterIndices: {},
   history: [],
-  worldInfo: "",
-  lastActor: "",
   currentNovelId: null,
   lastViewedNovelId: null,
   isSwitchable: false,
@@ -268,21 +243,14 @@ const stateManager = (() => {
     lockedResources: new Set(),
     partitionDOMCache: new Map(),
     partitionScrollPositions: new Map(),
-    isRoleListVisible_temp: false,
   };
 
   const commit = (mutationName, payload) => {
     if (mutations[mutationName]) {
-      try {
-        mutations[mutationName](_state, payload);
-        if (mutationName === 'SET_INITIAL_DATA') {
-          eventBus.emit('STATE_UPDATED_FROM_SERVER', payload);
-        }
-      } catch (e) {
-        _logAndDisplayError(`Error executing mutation '${mutationName}': ${e.message}`, 'stateManager.commit');
+      mutations[mutationName](_state, payload);
+      if (mutationName === 'SET_INITIAL_DATA') {
+        eventBus.emit('STATE_UPDATED_FROM_SERVER', payload);
       }
-    } else {
-      _logAndDisplayError(`Mutation '${mutationName}' not found.`, 'stateManager.commit');
     }
   };
 

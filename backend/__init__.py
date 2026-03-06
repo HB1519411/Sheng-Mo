@@ -1,21 +1,13 @@
-from backend.routes.ai_proxy_gemini import ai_proxy_gemini_bp
-from backend.routes.ai_proxy_novelai import ai_proxy_novelai_bp
-from backend.routes.role_management import role_management_bp
-from backend.routes.partition_management import partition_management_bp
-from backend.routes.novel_management import novel_management_bp
-from backend.routes.file_serving import file_serving_bp
-from backend.routes.config_management import config_management_bp
-from backend.routes.chatroom_crud import chatroom_crud_bp
-from backend.routes.chatroom_features import chatroom_features_bp
-from backend.routes.ai_interaction import ai_interaction_bp
-from backend.routes.event_management import event_management_bp
-from backend.routes.knowledge_base import knowledge_base_bp
 from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 import sys
 import traceback
-from backend.services.config_io import CHATROOMS_DIR, IMAGES_DIR, GENERATED_SUBDIR, CONFIG_DIR, TOOLS_DIR
+from datetime import datetime
+from backend.services.config_io import (
+    CHATROOMS_DIR, IMAGES_DIR, GENERATED_SUBDIR, CONFIG_DIR, TOOLS_DIR,
+    write_to_debug_log
+)
 from backend.services.knowledge_base_io import KNOWLEDGE_BASE_DIR
 import os
 
@@ -38,22 +30,53 @@ log.setLevel(logging.ERROR)
 @app.errorhandler(Exception)
 def handle_exception(e):
     exc_type, exc_value, exc_traceback = sys.exc_info()
-    print(f"Unhandled Exception: {e}", file=sys.stderr)
-    traceback.print_tb(exc_traceback, limit=5, file=sys.stderr)
-    response = jsonify({"error": "Internal Server Error", "details": str(e)})
+    tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    
+    print("\033[91m[错误(详见debug)]\033[0m", file=sys.stderr)
+    
+    timestamp = datetime.now().isoformat()
+    log_content = (
+        f"!!! UNHANDLED BACKEND EXCEPTION at {timestamp} !!!\n"
+        f"Error: {str(e)}\n"
+        f"Traceback:\n{tb_str}\n"
+        f"--------------------------------------------------\n\n"
+    )
+    write_to_debug_log(log_content)
+
+    response = jsonify({
+        "success": False,
+        "error": {
+            "code": "INTERNAL_SERVER_ERROR",
+            "message": "Internal Server Error",
+            "details": str(e)
+        }
+    })
     response.status_code = 500
     return response
 
 
-app.register_blueprint(ai_proxy_gemini_bp)
-app.register_blueprint(ai_proxy_novelai_bp)
-app.register_blueprint(chatroom_crud_bp)
-app.register_blueprint(chatroom_features_bp)
-app.register_blueprint(config_management_bp)
-app.register_blueprint(file_serving_bp)
-app.register_blueprint(novel_management_bp)
-app.register_blueprint(partition_management_bp)
-app.register_blueprint(role_management_bp)
-app.register_blueprint(ai_interaction_bp)
-app.register_blueprint(event_management_bp)
-app.register_blueprint(knowledge_base_bp)
+blueprints_to_register = [
+    ('backend.routes.ai_proxy_gemini', 'ai_proxy_gemini_bp'),
+    ('backend.routes.ai_proxy_novelai', 'ai_proxy_novelai_bp'),
+    ('backend.routes.role_management', 'role_management_bp'),
+    ('backend.routes.partition_management', 'partition_management_bp'),
+    ('backend.routes.novel_management', 'novel_management_bp'),
+    ('backend.routes.file_serving', 'file_serving_bp'),
+    ('backend.routes.config_management', 'config_management_bp'),
+    ('backend.routes.chatroom_crud', 'chatroom_crud_bp'),
+    ('backend.routes.chatroom_features', 'chatroom_features_bp'),
+    ('backend.routes.ai_interaction', 'ai_interaction_bp'),
+    ('backend.routes.event_management', 'event_management_bp'),
+    ('backend.routes.knowledge_base', 'knowledge_base_bp')
+]
+
+for module_name, bp_name in blueprints_to_register:
+    try:
+        module = __import__(module_name, fromlist=[bp_name])
+        blueprint = getattr(module, bp_name)
+        app.register_blueprint(blueprint)
+    except Exception as e:
+        print(f"!!! FAILED to register blueprint '{bp_name}' from '{module_name}' !!!", file=sys.stderr)
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        print(f"Error: {e}\n{tb_str}", file=sys.stderr)

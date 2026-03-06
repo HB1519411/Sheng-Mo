@@ -1,30 +1,20 @@
 const messageActionsToolsModule = {
   saveEventRecord: async (msgCont, overrideCharacters = null) => {
     const messageData = messageActionsImplModule._getMessageAndActions(msgCont);
-    if (!messageData) {
-      _logAndDisplayError('无法获取消息或动作数据。', 'saveEventRecord');
-      return;
-    }
-
     const actions = messageData.processedTurnActions;
     let sharedDate = messageActionsImplModule._getLatestDateFromHistory(stateModule.activePartitionId);
     if (!sharedDate) {
       const result = await apiClientChatroomsModule.getPredictedDate(stateModule.currentChatroomDetails.config.name, stateModule.activePartitionId);
-      if (result.success && result.data.date) {
-        sharedDate = result.data.date;
-      } else {
-        sharedDate = '日期未知';
-      }
+      if (!result.success || !result.data.date) throw new Error("获取世界时间失败，拒绝保存事件记录。");
+      sharedDate = result.data.date;
     }
 
     const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-    if (!activePartition) return;
-
     let involvedCharacters;
     if (overrideCharacters !== null && Array.isArray(overrideCharacters)) {
-      involvedCharacters = involvedCharacters;
+      involvedCharacters = overrideCharacters;
     } else {
-      involvedCharacters = (activePartition.roleAliases || [])
+      involvedCharacters = activePartition.roleAliases
         .filter(alias => alias.state === roleManagementUiModule.ROLE_STATE_ACTIVE)
         .map(alias => alias.name);
     }
@@ -36,15 +26,13 @@ const messageActionsToolsModule = {
       const content = action.content;
       if (content.startsWith('【事件记录】')) {
         const summaryMatch = content.match(/摘要: (.*)/);
-        const summary = summaryMatch ? summaryMatch[1].trim() : '';
+        const summary = summaryMatch[1].trim();
         const detailsMatch = content.match(/细节:\n([\s\S]*)/);
         const details = detailsMatch ? detailsMatch[1].trim() : '';
 
-        if (summary) {
-          eventSummaries.push(summary);
-          if (details) {
-            eventDetailsList.push(details);
-          }
+        eventSummaries.push(summary);
+        if (details) {
+          eventDetailsList.push(details);
         }
       }
     });
@@ -68,16 +56,12 @@ const messageActionsToolsModule = {
         messageActionsImplModule.deleteMessage(msgCont);
         stateModule.activeMessageActions = null;
       }
-    } else {
-      _logAndDisplayError("未找到有效的事件记录块或保存失败。", "saveEventRecord");
     }
   },
 
   saveEventRecordWithManualInput: (msgCont) => {
     const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-    if (!activePartition) return;
-
-    const currentInvolved = (activePartition.roleAliases || [])
+    const currentInvolved = activePartition.roleAliases
       .filter(alias => alias.state === roleManagementUiModule.ROLE_STATE_ACTIVE)
       .map(alias => alias.name).join(', ');
 
@@ -90,20 +74,8 @@ const messageActionsToolsModule = {
 
   savePrivateAssistantToScript: (msgCont) => {
     const messageData = messageActionsImplModule._getMessageAndActions(msgCont);
-    if (!messageData) {
-      _logAndDisplayError('无法获取消息或动作数据。', 'messageActionsToolsModule.savePrivateAssistantToScript');
-      return;
-    }
-
     const contentToAppend = messageData.processedTurnActions.map(a => a.content).join('\n\n');
-
-    if (!contentToAppend.trim()) {
-      _logAndDisplayError('没有可保存的内容。', 'messageActionsToolsModule.savePrivateAssistantToScript');
-      return;
-    }
-
     const currentPartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-    if (!currentPartition) return;
 
     let partitionsToUpdate = [currentPartition];
     if (currentPartition.allowCrossPartitionHistoryAccess) {
@@ -111,17 +83,13 @@ const messageActionsToolsModule = {
     }
 
     const chatroomName = stateModule.currentChatroomDetails.config.name;
-
     partitionsToUpdate.forEach(p => {
       const existingScript = p.script || "";
       const newScript = existingScript ? (existingScript + "\n\n" + contentToAppend) : contentToAppend;
-
       transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
         chatroomName: chatroomName,
         partitionId: p.id,
-        updates: {
-          script: newScript
-        }
+        updates: { script: newScript }
       });
     });
 
@@ -131,13 +99,7 @@ const messageActionsToolsModule = {
 
   saveKnowledgeRecord: async (msgCont) => {
     const messageData = messageActionsImplModule._getMessageAndActions(msgCont);
-    if (!messageData) {
-      _logAndDisplayError('无法获取消息或动作数据。', 'saveKnowledgeRecord');
-      return;
-    }
-
     const actions = messageData.processedTurnActions;
-    let successCount = 0;
 
     for (const action of actions) {
       const content = action.content;
@@ -158,21 +120,11 @@ const messageActionsToolsModule = {
           content: notes,
         };
 
-        const result = await apiClientChatroomsModule.addKnowledgeEntry(category, entryData);
-        if (result.success) {
-          successCount++;
-        } else {
-          _logAndDisplayError(`保存条目 "${name}" 失败: ${result.error?.message}`, 'saveKnowledgeRecord');
-        }
+        await apiClientChatroomsModule.addKnowledgeEntry(category, entryData);
       }
     }
-
-    if (successCount > 0) {
-      messageActionsImplModule.deleteMessage(msgCont);
-      stateModule.activeMessageActions = null;
-    } else {
-      alert('Failed to save any knowledge entries. See error log for details.');
-    }
+    messageActionsImplModule.deleteMessage(msgCont);
+    stateModule.activeMessageActions = null;
   },
 
   triggerDrawingMaster: (msgCont) => {
@@ -180,17 +132,14 @@ const messageActionsToolsModule = {
     let targetRoleName = msgCont.dataset.roleName;
 
     if (targetRoleName === '用户') {
-      const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-      if (!activePartition || !activePartition.history) return;
+      const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
       const currentIndex = activePartition.history.findIndex(m => m.id === targetMessageId);
-      if (currentIndex > -1) {
-        for (let i = currentIndex - 1; i >= 0; i--) {
-          const prevMsg = activePartition.history[i];
-          if (prevMsg.roleName !== '用户') {
-            targetMessageId = prevMsg.id;
-            targetRoleName = prevMsg.roleName;
-            break;
-          }
+      for (let i = currentIndex - 1; i >= 0; i--) {
+        const prevMsg = activePartition.history[i];
+        if (prevMsg.roleName !== '用户') {
+          targetMessageId = prevMsg.id;
+          targetRoleName = prevMsg.roleName;
+          break;
         }
       }
     }
@@ -208,17 +157,14 @@ const messageActionsToolsModule = {
     let targetRoleName = msgCont.dataset.roleName;
 
     if (targetRoleName === '用户') {
-      const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-      if (!activePartition || !activePartition.history) return;
+      const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
       const currentIndex = activePartition.history.findIndex(m => m.id === targetMessageId);
-      if (currentIndex > -1) {
-        for (let i = currentIndex - 1; i >= 0; i--) {
-          const prevMsg = activePartition.history[i];
-          if (prevMsg.roleName !== '用户') {
-            targetMessageId = prevMsg.id;
-            targetRoleName = prevMsg.roleName;
-            break;
-          }
+      for (let i = currentIndex - 1; i >= 0; i--) {
+        const prevMsg = activePartition.history[i];
+        if (prevMsg.roleName !== '用户') {
+          targetMessageId = prevMsg.id;
+          targetRoleName = prevMsg.roleName;
+          break;
         }
       }
     }
@@ -234,10 +180,6 @@ const messageActionsToolsModule = {
   setBackgroundFromMessage: (msgCont) => {
     const messageId = msgCont.dataset.messageId;
     const imageDataUrl = stateModule.drawingMasterImageCache.get(messageId);
-    if (!imageDataUrl) {
-      _logAndDisplayError('No cached image data URL found for this message.', 'messageActionsToolsModule.setBackgroundFromMessage');
-      return;
-    }
     const chatroomName = stateModule.currentChatroomDetails.config.name;
     transactionManagerModule.dispatch('SET_BACKGROUND', {
       chatroomName,
@@ -249,46 +191,34 @@ const messageActionsToolsModule = {
   downloadImage: (msgCont) => {
     const messageId = msgCont.dataset.messageId;
     const imageDataUrl = stateModule.drawingMasterImageCache.get(messageId);
-    if (!imageDataUrl) {
-      _logAndDisplayError('No cached image data URL found for this message to download.', 'downloadImage');
-      return;
-    }
-
     let roleName = msgCont.dataset.roleName;
+    
     if (roleName === '用户') {
-        const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-        if (activePartition && activePartition.history) {
-            const currentIndex = activePartition.history.findIndex(m => m.id === messageId);
-            if (currentIndex > -1) {
-                for (let i = currentIndex - 1; i >= 0; i--) {
-                    const prevMsg = activePartition.history[i];
-                    if (prevMsg.roleName && prevMsg.roleName !== '用户') {
-                        roleName = prevMsg.roleName;
-                        break;
-                    }
-                }
+        const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
+        const currentIndex = activePartition.history.findIndex(m => m.id === messageId);
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            const prevMsg = activePartition.history[i];
+            if (prevMsg.roleName && prevMsg.roleName !== '用户') {
+                roleName = prevMsg.roleName;
+                break;
             }
         }
     }
 
     const displayName = uiChatUtilsModule.getDisplayName(roleName, stateModule.activePartitionId) || '未知角色';
 
-    try {
-      fetch(imageDataUrl)
-        .then(res => res.blob())
-        .then(blob => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${displayName}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        });
-    } catch (e) {
-      _logAndDisplayError(`Error creating blob for download: ${e.message}`, 'downloadImage');
-    }
+    fetch(imageDataUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${displayName}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      });
     messageActionsImplModule.hideAllMessageActions();
   }
 };

@@ -2,30 +2,20 @@ const eventBus = (() => {
   const events = {};
 
   const on = (eventName, callback) => {
-    if (!events[eventName]) {
-      events[eventName] = [];
-    }
-    events[eventName].push(callback);
+    (events[eventName] ||= []).push(callback);
   };
 
   const off = (eventName, callback) => {
-    if (!events[eventName]) {
-      return;
+    if (events[eventName]) {
+      events[eventName] = events[eventName].filter(cb => cb !== callback);
     }
-    events[eventName] = events[eventName].filter(cb => cb !== callback);
   };
 
   const emit = (eventName, data) => {
-    if (!events[eventName]) {
-      return;
+    const callbacks = events[eventName];
+    if (callbacks) {
+      callbacks.forEach(callback => callback(data));
     }
-    events[eventName].forEach(callback => {
-      try {
-        callback(data);
-      } catch (e) {
-        _logAndDisplayError(`Error in event listener for '${eventName}': ${e.message}`, 'eventBus.emit');
-      }
-    });
   };
 
   return {

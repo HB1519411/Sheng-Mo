@@ -1,8 +1,7 @@
 const uiMessageEditorModule = {
   activeEditor: null,
 
-  init: () => {
-  },
+  init: () => {},
 
   startEdit: (element) => {
     if (uiMessageEditorModule.activeEditor) {
@@ -17,7 +16,7 @@ const uiMessageEditorModule = {
       uiMessageEditorModule._editStatusItem(element);
     } else if (element.classList.contains('user-message') || element.classList.contains('ai-response')) {
         const container = element.closest('.message-container');
-        if (container) uiMessageEditorModule._editFullMessage(container);
+        uiMessageEditorModule._editFullMessage(container);
     }
   },
 
@@ -28,7 +27,6 @@ const uiMessageEditorModule = {
   },
 
   _getTextFromEditableDiv: (element) => {
-    if (!element) return '';
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null, false);
     let node;
     let text = '';
@@ -61,7 +59,6 @@ const uiMessageEditorModule = {
 
     const parent = targetElement.parentNode;
     const nextSibling = targetElement.nextSibling;
-    
     let displayStyleToRestore = targetElement.style.display;
     
     targetElement.style.display = 'none';
@@ -154,17 +151,11 @@ const uiMessageEditorModule = {
 
   _editFullMessage: (msgCont) => {
     const messageId = msgCont.dataset.messageId;
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-    const message = activePartition?.history.find(m => m.id === messageId);
-    
-    if (!message) {
-        return;
-    }
-
+    const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
+    const message = activePartition.history.find(m => m.id === messageId);
     const messageDiv = msgCont.querySelector('.user-message') || msgCont.querySelector('.ai-response');
-    if (!messageDiv) return;
-
-    let initialText = message.speechActionText || '';
+    
+    let initialText = message.speechActionText;
     stateModule.editingMessageContainer = msgCont;
 
     const saveCallback = (newValue) => {
@@ -195,7 +186,7 @@ const uiMessageEditorModule = {
       });
     };
 
-    if(message.sourceType === 'user'){
+    if(message.sourceType === 'user' || message.roleName === 'privateAssistant'){
         uiMessageEditorModule._createEditorUI_ContentEditable(messageDiv, initialText, saveCallback);
     } else {
         uiMessageEditorModule._createEditorUI_Textarea(messageDiv, initialText, saveCallback, 'bubble-message-editor');
@@ -204,24 +195,15 @@ const uiMessageEditorModule = {
 
   _editActionBlock: (actionBlock) => {
     const msgCont = actionBlock.closest('.message-container');
-    if (!msgCont) return;
-    
     const messageId = msgCont.dataset.messageId;
     const actionIndex = parseInt(actionBlock.dataset.actionIndex, 10);
     const initialText = actionBlock.querySelector('.action-content-display').textContent;
 
     uiMessageEditorModule._createEditorUI_Textarea(actionBlock.querySelector('.action-content-display'), initialText, (newValue) => {
       const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-      const message = activePartition?.history.find(m => m.id === messageId);
-      if (!message) return;
+      const message = activePartition.history.find(m => m.id === messageId);
 
-      let actions = JSON.parse(JSON.stringify(message.processedTurnActions || []));
-      
-      if (actions.length === 0 && message.parsedResult?.processedTurnActions) {
-          actions = JSON.parse(JSON.stringify(message.parsedResult.processedTurnActions));
-      }
-
-      if (actionIndex >= actions.length) return;
+      let actions = JSON.parse(JSON.stringify(message.processedTurnActions || message.parsedResult.processedTurnActions));
 
       actions[actionIndex].content = newValue;
 
@@ -234,7 +216,6 @@ const uiMessageEditorModule = {
 
           if (message.roleType === 'tool' && newParsedResult.originalData) {
               const roleName = message.roleName;
-
               if (roleName === 'gameHost' && newParsedResult.originalData.storytelling?.paragraphs) {
                   newParsedResult.originalData.storytelling.paragraphs[actionIndex] = newValue;
               } else if (roleName === 'privateAssistant' && newParsedResult.originalData.generatedResult?.responseItems) {
@@ -255,56 +236,45 @@ const uiMessageEditorModule = {
 
   _editStatusItem: (statusItem) => {
     const msgCont = statusItem.closest('.message-container');
-    if (!msgCont) return;
-    
     const messageId = msgCont.dataset.messageId;
     const jsonPath = statusItem.dataset.jsonPath;
     const initialText = statusItem.textContent;
 
-    if (!jsonPath) return;
-
     uiMessageEditorModule._createEditorUI_Textarea(statusItem, initialText, (newValue) => {
       const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-      const message = activePartition?.history.find(m => m.id === messageId);
-      if (!message || !message.statusProcessingSystemResult) return;
-
+      const message = activePartition.history.find(m => m.id === messageId);
       const spsResult = JSON.parse(JSON.stringify(message.statusProcessingSystemResult));
 
-      try {
-        const pathParts = jsonPath.split('.');
-        if (pathParts[0] === 'statusProcessingSystemResult') {
-            pathParts.shift();
-        }
-
-        let current = spsResult;
-        for (let i = 0; i < pathParts.length - 1; i++) {
-            const part = pathParts[i];
-            const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
-            if (arrayMatch) {
-                current = current[arrayMatch[1]][parseInt(arrayMatch[2], 10)];
-            } else {
-                current = current[part];
-            }
-        }
-
-        const finalPart = pathParts[pathParts.length - 1];
-        const finalArrayMatch = finalPart.match(/(\w+)\[(\d+)\]/);
-        if (finalArrayMatch) {
-            current[finalArrayMatch[1]][parseInt(finalArrayMatch[2], 10)] = newValue;
-        } else {
-            current[finalPart] = newValue;
-        }
-
-        transactionManagerModule.dispatch('UPDATE_HISTORY_MESSAGE', {
-            chatroomName: stateModule.currentChatroomDetails.config.name,
-            partitionId: stateModule.activePartitionId,
-            messageId: messageId,
-            updates: { statusProcessingSystemResult: spsResult }
-        });
-
-      } catch (e) {
-        _logAndDisplayError(`Error updating status item: ${e.message}`, '_editStatusItem');
+      const pathParts = jsonPath.split('.');
+      if (pathParts[0] === 'statusProcessingSystemResult') {
+          pathParts.shift();
       }
+
+      let current = spsResult;
+      for (let i = 0; i < pathParts.length - 1; i++) {
+          const part = pathParts[i];
+          const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
+          if (arrayMatch) {
+              current = current[arrayMatch[1]][parseInt(arrayMatch[2], 10)];
+          } else {
+              current = current[part];
+          }
+      }
+
+      const finalPart = pathParts[pathParts.length - 1];
+      const finalArrayMatch = finalPart.match(/(\w+)\[(\d+)\]/);
+      if (finalArrayMatch) {
+          current[finalArrayMatch[1]][parseInt(finalArrayMatch[2], 10)] = newValue;
+      } else {
+          current[finalPart] = newValue;
+      }
+
+      transactionManagerModule.dispatch('UPDATE_HISTORY_MESSAGE', {
+          chatroomName: stateModule.currentChatroomDetails.config.name,
+          partitionId: stateModule.activePartitionId,
+          messageId: messageId,
+          updates: { statusProcessingSystemResult: spsResult }
+      });
     });
   }
 };

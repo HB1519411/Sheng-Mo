@@ -1,14 +1,9 @@
 const settingsRolePublicInfoListModule = {
   currentEditingPublicInfoItem: null,
   init: () => {
-    const page = elementsModule.rolePublicInfoListPage;
-    if (!page) return;
-
-    if (elementsModule.addPublicInfoButton) {
-      elementsModule.addPublicInfoButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsRolePublicInfoListModule.addPublicInfoItem();
-      });
-    }
+    elementsModule.addPublicInfoButton.addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsRolePublicInfoListModule.addPublicInfoItem();
+    });
   },
 
   renderPage: (roleName) => {
@@ -16,26 +11,21 @@ const settingsRolePublicInfoListModule = {
     const chatroomDetails = stateModule.currentChatroomDetails;
     const roleData = chatroomDetails.roles.find(r => r.name === roleName);
 
-    if (elementsModule.rolePublicInfoListHeaderTitle) {
-      elementsModule.rolePublicInfoListHeaderTitle.textContent = `角色公开信息 - ${roleName}`;
-    }
+    elementsModule.rolePublicInfoListHeaderTitle.textContent = `角色公开信息 - ${roleName}`;
 
     const isPermanentDefinedRole = !!roleData;
     const isReadOnly = !isPermanentDefinedRole || roleName === "用户";
 
-    if (elementsModule.addPublicInfoItemForm) {
-      elementsModule.addPublicInfoItemForm.style.display = isReadOnly ? 'none' : 'block';
-    }
-    if (elementsModule.newPublicInfoKeywordInput) elementsModule.newPublicInfoKeywordInput.value = '';
-    if (elementsModule.newPublicInfoContentTextarea) elementsModule.newPublicInfoContentTextarea.value = '';
+    elementsModule.addPublicInfoItemForm.style.display = isReadOnly ? 'none' : 'block';
+    elementsModule.newPublicInfoKeywordInput.value = '';
+    elementsModule.newPublicInfoContentTextarea.value = '';
 
-    settingsRolePublicInfoListModule.renderPublicInfoList(roleData?.publicInfo || [], isReadOnly);
+    settingsRolePublicInfoListModule.renderPublicInfoList(roleData.publicInfo, isReadOnly);
     settingsRolePublicInfoListModule.currentEditingPublicInfoItem = null;
   },
 
   renderPublicInfoList: (publicInfoArray, isReadOnly) => {
     const container = elementsModule.rolePublicInfoListContainer;
-    if (!container) return;
     container.innerHTML = '';
 
     publicInfoArray.forEach((item, index) => {
@@ -52,7 +42,7 @@ const settingsRolePublicInfoListModule = {
     topRowDiv.className = 'memory-item-top-row';
     const keywordSpan = document.createElement('span');
     keywordSpan.className = 'memory-item-time';
-    keywordSpan.textContent = `关键词: ${item.keyword || '无(全局可见)'}`;
+    keywordSpan.textContent = item.keyword ? `关键词: ${item.keyword}` : `关键词: 无(全局可见)`;
     topRowDiv.appendChild(keywordSpan);
     if (!isReadOnly) {
       const actionsDiv = document.createElement('div');
@@ -70,7 +60,7 @@ const settingsRolePublicInfoListModule = {
     publicInfoItemDiv.appendChild(topRowDiv);
     const contentSpan = document.createElement('span');
     contentSpan.className = 'memory-item-content';
-    contentSpan.textContent = item.content || '';
+    contentSpan.textContent = item.content;
     contentSpan.addEventListener('click', () => {
       if (!isReadOnly && !settingsRolePublicInfoListModule.currentEditingPublicInfoItem) {
         settingsRolePublicInfoListModule.editPublicInfoItem(item, publicInfoItemDiv);
@@ -82,8 +72,6 @@ const settingsRolePublicInfoListModule = {
 
   addPublicInfoItem: () => {
     const roleName = stateModule.currentRole;
-    if (!roleName || roleName === "用户") return;
-
     const keyword = elementsModule.newPublicInfoKeywordInput.value.trim();
     const content = elementsModule.newPublicInfoContentTextarea.value.trim();
 

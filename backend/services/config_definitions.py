@@ -3,19 +3,14 @@ default_config = {
     "temperature": "1.0",
     "topP": "0.9",
     "topK": "40",
-    "maxOutputTokens": "2048",
-    "responseMimeType": "application/json",
+    "maxOutputTokens": "65536",
+    "rateLimitPerMinute": "8",
     "promptPresetTurns": [],
-    "primary_model_id": "",
-    "secondary_model_id": "",
-    "tertiary_model_id": "",
-    "apiConnectionMode": "direct",
+    "primary_model_id": "gemini-2.0-flash",
+    "secondary_model_id": "gemini-2.0-flash",
+    "tertiary_model_id": "gemini-2.0-flash",
     "frontend_proxy_enabled": False,
     "useBackupProxyOnly": False,
-    "proxy_url": "",
-    "proxy_api_key": "",
-    "proxy_url_2": "",
-    "proxy_api_key_2": "",
     "backup_proxy_url": "",
     "backup_proxy_api_key": "",
     "responseSchemaJson": "",
@@ -23,8 +18,9 @@ default_config = {
     "sharedDatabaseInstruction": "",
     "mainPrompt": "",
     "clothingGuide": "",
+    "drawingMaster_novelContent": "",
     "toolSettings": {
-        "drawingMaster": {"responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model_selection_type": "primary", "mainPrompt": "", "novelContent": ""},
+        "drawingMaster": {"responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model_selection_type": "primary", "mainPrompt": ""},
         "statusProcessingSystem": {"responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model_selection_type": "primary", "mainPrompt": ""},
         "gameHost": {"responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model_selection_type": "primary", "mainPrompt": ""},
         "characterUpdateMaster": {"responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "enabled": False, "model_selection_type": "primary", "mainPrompt": ""},
@@ -42,8 +38,6 @@ default_config = {
     "isRoleListVisible": False,
     "originalNovelLength": 1,
     "novelaiApiSource": "official",
-    "novelaiProxyUrl": "",
-    "novelaiProxyToken": "",
     "novelaiModel": "nai-diffusion-4-5-full",
     "novelaiArtistChain": "",
     "novelaiDefaultPositivePrompt": "",
@@ -62,20 +56,28 @@ default_config = {
     "debugMode": False,
     "apiKeyGroupsText": [],
     "novelaiApiKey": "",
-    "novelaiTemplateMappings": []
+    "novelaiProxyUrl": "",
+    "novelaiProxyToken": "",
+    "novelaiTemplateMappings": [],
+    "concurrencyLevel": 1
 }
 
 SECRETS_KEYS = [
     "apiKeyGroupsText",
     "novelaiApiKey",
     "novelaiProxyToken",
-    "proxy_api_key",
-    "proxy_api_key_2",
     "backup_proxy_api_key",
-    "proxy_url",
-    "proxy_url_2",
     "backup_proxy_url",
-    "novelaiProxyUrl"
+    "novelaiProxyUrl",
+    "clothingGuide",
+    "novelaiTemplateMappings",
+    "novelaiArtistChain",
+    "novelaiDefaultPositivePrompt",
+    "novelaiDefaultNegativePrompt",
+    "activeChatRoomName",
+    "chatRoomOrder",
+    "activePartitionIdByChatroom",
+    "drawingMaster_novelContent"
 ]
 
 ROLEPLAY_KEYS = [
@@ -83,16 +85,11 @@ ROLEPLAY_KEYS = [
     "mainPrompt",
     "responseSchemaJson",
     "responseSchemaParserJs",
-    "sharedDatabaseInstruction",
-    "clothingGuide"
+    "sharedDatabaseInstruction"
 ]
 
 PRESETS_KEYS = [
-    "promptPresetTurns",
-    "novelaiTemplateMappings",
-    "novelaiArtistChain",
-    "novelaiDefaultPositivePrompt",
-    "novelaiDefaultNegativePrompt"
+    "promptPresetTurns"
 ]
 
 default_chatroom_config = {
@@ -103,17 +100,7 @@ default_chatroom_config = {
     "backgroundImageFilename": None,
     "partitionsOrder": [],
     "activePartitionId": None,
-    "identityGroups": [],
-    "overrideSettings": {
-        "general": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "sharedDatabaseInstruction": "", "mainPrompt": ""},
-        "drawingMaster": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": "", "novelContent": ""},
-        "statusProcessingSystem": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-        "gameHost": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-        "characterUpdateMaster": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-        "privateAssistant": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-        "novelSummaryMaster": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""},
-        "closeUpMaster": {"enabled": False, "model_selection_type": "primary", "responseSchemaJson": "", "responseSchemaParserJs": "", "toolDatabaseInstruction": "", "mainPrompt": ""}
-    }
+    "identityGroups": []
 }
 
 default_partition_config = {

@@ -1,14 +1,9 @@
 const settingsRoleMemoryListModule = {
   currentEditingMemoryItem: null,
   init: () => {
-    const page = elementsModule.roleMemoryListPage;
-    if (!page) return;
-
-    if (elementsModule.addMemoryButton) {
-      elementsModule.addMemoryButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsRoleMemoryListModule.addMemoryItem();
-      });
-    }
+    elementsModule.addMemoryButton.addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsRoleMemoryListModule.addMemoryItem();
+    });
   },
 
   renderPage: (roleName) => {
@@ -16,28 +11,21 @@ const settingsRoleMemoryListModule = {
     const chatroomDetails = stateModule.currentChatroomDetails;
     const roleData = chatroomDetails.roles.find(r => r.name === roleName);
 
-    if (elementsModule.roleMemoryListHeaderTitle) {
-      elementsModule.roleMemoryListHeaderTitle.textContent = `角色记忆 - ${roleName}`;
-    }
+    elementsModule.roleMemoryListHeaderTitle.textContent = `角色记忆 - ${roleName}`;
 
     const isPermanentDefinedRole = !!roleData;
     const isReadOnly = !isPermanentDefinedRole || roleName === "用户";
 
-    if (elementsModule.addMemoryItemForm) {
-      elementsModule.addMemoryItemForm.style.display = isReadOnly ? 'none' : 'block';
-    }
-    if (elementsModule.newMemoryTimeInput) elementsModule.newMemoryTimeInput.value = '';
-    if (elementsModule.newMemoryContentTextarea) elementsModule.newMemoryContentTextarea.value = '';
+    elementsModule.addMemoryItemForm.style.display = isReadOnly ? 'none' : 'block';
+    elementsModule.newMemoryTimeInput.value = '';
+    elementsModule.newMemoryContentTextarea.value = '';
 
-    settingsRoleMemoryListModule.renderMemoryList(roleData?.memory || [], isReadOnly);
+    settingsRoleMemoryListModule.renderMemoryList(roleData.memory, isReadOnly);
     settingsRoleMemoryListModule.currentEditingMemoryItem = null;
   },
 
   renderMemoryList: (memoryArray, isReadOnly) => {
     const container = elementsModule.roleMemoryListContainer;
-    if (!container) {
-      return;
-    }
     container.innerHTML = '';
     
     const dateToNumber = (dateStr) => {
@@ -50,8 +38,8 @@ const settingsRoleMemoryListModule = {
     const sortedMemory = [...memoryArray].sort((a, b) => {
       const isAStandard = commonUtilsModule.isStandardTimeFormat(a.time);
       const isBStandard = commonUtilsModule.isStandardTimeFormat(b.time);
-      const timeA = a.time || "";
-      const timeB = b.time || "";
+      const timeA = a.time;
+      const timeB = b.time;
 
       if (isAStandard && !isBStandard) return 1;
       if (!isAStandard && isBStandard) return -1;
@@ -77,7 +65,7 @@ const settingsRoleMemoryListModule = {
 
     const timeSpan = document.createElement('span');
     timeSpan.className = 'memory-item-time';
-    timeSpan.textContent = item.time || 'N/A';
+    timeSpan.textContent = item.time;
     if (item.isPinned) {
         timeSpan.textContent += ' 📌';
     }
@@ -99,7 +87,7 @@ const settingsRoleMemoryListModule = {
     memoryItemDiv.appendChild(topRowDiv);
     const contentSpan = document.createElement('span');
     contentSpan.className = 'memory-item-content';
-    contentSpan.textContent = item.content || '';
+    contentSpan.textContent = item.content;
     contentSpan.addEventListener('click', () => {
       if (!isReadOnly && !settingsRoleMemoryListModule.currentEditingMemoryItem) {
         settingsRoleMemoryListModule.editMemoryItem(item, memoryItemDiv);
@@ -111,8 +99,6 @@ const settingsRoleMemoryListModule = {
 
   addMemoryItem: () => {
     const roleName = stateModule.currentRole;
-    if (!roleName || roleName === "用户") return;
-
     const time = elementsModule.newMemoryTimeInput.value.trim();
     const content = elementsModule.newMemoryContentTextarea.value.trim();
     if (!time || !content) {
@@ -205,7 +191,7 @@ const settingsRoleMemoryListModule = {
     
     const detailsTextarea = document.createElement('textarea');
     detailsTextarea.className = 'settings-textarea memory-item-content-edit';
-    detailsTextarea.value = itemToEdit.details || '';
+    detailsTextarea.value = itemToEdit.details;
     detailsTextarea.placeholder = '详细记录 (非必须，用于详细回顾)';
     detailsTextarea.style.marginTop = '10px';
     itemDiv.appendChild(detailsTextarea);

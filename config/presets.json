@@ -57,9 +57,5 @@
       "role": "user"
     }
   ],
-  "novelaiArtistChain": "[wlop, himitsu_(hi_mi_tsu_2), ririko_(zhuoyandesailaer), meion, nixeu, year_2024, year_2025]",
-  "novelaiDefaultPositivePrompt": "alternate_costume, alternate_hairstyle",
-  "novelaiDefaultNegativePrompt": "lowres, artistic_error, film_grain, scan_artifacts, worst_quality, bad_quality, jpeg_artifacts, very_displeasing, chromatic_aberration, dithering, halftone, screentone, multiple_views, logo, too_many_watermarks, negative_space, blank_page, @_@, mismatched_pupils, glowing_eyes, bad_anatomy, doll, signature, text, watermark, username, bad_face, pointy_ears, earrings, futanari",
-  "novelaiTemplateMappings": [],
   "version": 1
 }

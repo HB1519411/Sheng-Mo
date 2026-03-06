@@ -1,234 +1,139 @@
 const settingsEventsListModule = {
   currentEditingEventItem: null,
   init: () => {
-    const page = document.getElementById('events-list-page');
-    if (!page) return;
-
-    const addButton = document.getElementById('add-event-button');
-    if (addButton) {
-      addButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsEventsListModule.addEventItem();
-      });
-    }
+    document.getElementById('add-event-button').addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsEventsListModule.addEventItem();
+    });
   },
 
   renderPage: async () => {
-    const chatroomName = stateModule.currentChatroomDetails?.config?.name;
-    if (!chatroomName) return;
+    document.getElementById('events-list-header-title').textContent = `事件记录 - ${stateModule.currentChatroomDetails.config.name}`;
+    
+    document.getElementById('add-event-item-form').style.display = 'block';
+    document.getElementById('new-event-time').value = '';
+    document.getElementById('new-event-characters').value = '';
+    document.getElementById('new-event-content').value = '';
 
-    const headerTitle = document.getElementById('events-list-header-title');
-    if (headerTitle) {
-      headerTitle.textContent = `事件记录 - ${chatroomName}`;
-    }
-
-    const form = document.getElementById('add-event-item-form');
-    if (form) {
-      form.style.display = 'block';
-      document.getElementById('new-event-time').value = '';
-      document.getElementById('new-event-characters').value = '';
-      document.getElementById('new-event-content').value = '';
-    }
-
-    settingsEventsListModule.renderEventList(stateModule.currentChatroomDetails.events || []);
+    settingsEventsListModule.renderEventList(stateModule.currentChatroomDetails.events);
     settingsEventsListModule.currentEditingEventItem = null;
   },
 
   renderEventList: (eventsArray) => {
     const container = document.getElementById('events-list-container');
-    if (!container) return;
     container.innerHTML = '';
     
     const dateToNumber = (dateStr) => {
-        if (!dateStr || !commonUtilsModule.isStandardTimeFormat(dateStr)) return Infinity;
+        if (!commonUtilsModule.isStandardTimeFormat(dateStr)) return Infinity;
         const parts = dateStr.replace(/^-/, '').split('-');
-        const sign = dateStr.startsWith('-') ? -1 : 1;
-        return sign * (parseInt(parts[0], 10) * 10000 + parseInt(parts[1], 10) * 100 + parseInt(parts[2], 10));
+        return (dateStr.startsWith('-') ? -1 : 1) * (parseInt(parts[0], 10) * 10000 + parseInt(parts[1], 10) * 100 + parseInt(parts[2], 10));
     };
 
-    const sortedEvents = [...eventsArray].sort((a, b) => dateToNumber(b.time || '') - dateToNumber(a.time || ''));
-
-    sortedEvents.forEach((item) => {
-      const eventItemDiv = settingsEventsListModule._createEventItemDOM(item);
-      container.appendChild(eventItemDiv);
-    });
+    [...eventsArray].sort((a, b) => dateToNumber(b.time) - dateToNumber(a.time))
+      .forEach(item => container.appendChild(settingsEventsListModule._createEventItemDOM(item)));
   },
 
   _createEventItemDOM: (item) => {
-    const eventItemDiv = document.createElement('div');
-    eventItemDiv.className = 'memory-item';
-    eventItemDiv.dataset.eventId = item.id;
-
-    const topRowDiv = document.createElement('div');
-    topRowDiv.className = 'memory-item-top-row';
-
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'memory-item-time';
-    timeSpan.textContent = item.time || 'N/A';
-    if (item.isPinned) {
-        timeSpan.textContent += ' 📌';
-    }
-    topRowDiv.appendChild(timeSpan);
-
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'item-actions';
-    const deleteButton = document.createElement('div');
-    deleteButton.className = 'std-button item-delete';
-    deleteButton.textContent = '✕';
-    deleteButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      settingsEventsListModule.removeEventItem(item.id);
-    });
-    actionsDiv.appendChild(deleteButton);
-    topRowDiv.appendChild(actionsDiv);
-    eventItemDiv.appendChild(topRowDiv);
-
-    const charactersSpan = document.createElement('span');
-    charactersSpan.className = 'memory-item-content';
-    charactersSpan.style.fontStyle = 'italic';
-    charactersSpan.style.color = '#aaa';
-    charactersSpan.textContent = `角色: ${(item.involvedCharacters || []).join(', ')}`;
-    eventItemDiv.appendChild(charactersSpan);
-
-    const contentSpan = document.createElement('span');
-    contentSpan.className = 'memory-item-content';
-    contentSpan.textContent = item.content || '';
-    contentSpan.addEventListener('click', () => {
-      if (!settingsEventsListModule.currentEditingEventItem) {
-        settingsEventsListModule.editEventItem(item, eventItemDiv);
-      }
-    });
-    eventItemDiv.appendChild(contentSpan);
-
-    return eventItemDiv;
+    const div = Object.assign(document.createElement('div'), { className: 'memory-item' });
+    div.dataset.eventId = item.id;
+    
+    const topRow = Object.assign(document.createElement('div'), { className: 'memory-item-top-row' });
+    const timeSpan = Object.assign(document.createElement('span'), { className: 'memory-item-time', textContent: `${item.time}${item.isPinned ? ' 📌' : ''}` });
+    const actions = Object.assign(document.createElement('div'), { className: 'item-actions' });
+    const delBtn = Object.assign(document.createElement('div'), { className: 'std-button item-delete', textContent: '✕' });
+    delBtn.onclick = (e) => { e.stopPropagation(); settingsEventsListModule.removeEventItem(item.id); };
+    actions.appendChild(delBtn);
+    topRow.append(timeSpan, actions);
+    
+    const charsSpan = Object.assign(document.createElement('span'), { className: 'memory-item-content', textContent: `角色: ${item.involvedCharacters.join(', ')}` });
+    Object.assign(charsSpan.style, { fontStyle: 'italic', color: '#aaa' });
+    
+    const contentSpan = Object.assign(document.createElement('span'), { className: 'memory-item-content event-main-content', textContent: item.content });
+    contentSpan.onclick = () => { if (!settingsEventsListModule.currentEditingEventItem) settingsEventsListModule.editEventItem(item, div); };
+    
+    div.append(topRow, charsSpan, contentSpan);
+    return div;
   },
 
   addEventItem: () => {
-    const chatroomName = stateModule.currentChatroomDetails.config.name;
     const time = document.getElementById('new-event-time').value.trim();
-    const characters = document.getElementById('new-event-characters').value.trim().split(',').map(s => s.trim()).filter(Boolean);
     const content = document.getElementById('new-event-content').value.trim();
+    if (!time || !content) return alert("时间和内容不能为空");
 
-    if (!time || !content) {
-      alert("时间和内容不能为空");
-      return;
-    }
-
-    const newItem = {
-      id: uiChatUtilsModule._generateMessageId(),
-      time,
-      involvedCharacters: characters,
-      content
-    };
     transactionManagerModule.dispatch('addEvent', {
-      chatroomName: chatroomName,
-      eventData: newItem
+      chatroomName: stateModule.currentChatroomDetails.config.name,
+      eventData: {
+        id: uiChatUtilsModule._generateMessageId(),
+        time,
+        involvedCharacters: document.getElementById('new-event-characters').value.trim().split(',').map(s => s.trim()).filter(Boolean),
+        content
+      }
     }).then(() => settingsEventsListModule.renderPage());
   },
 
-  editEventItem: (itemToEdit, itemDiv) => {
-    settingsEventsListModule.currentEditingEventItem = itemToEdit;
-    itemDiv.innerHTML = '';
+  editEventItem: (item, div) => {
+    settingsEventsListModule.currentEditingEventItem = item;
+    div.innerHTML = '';
+    
+    const topRow = Object.assign(document.createElement('div'), { className: 'memory-item-top-row memory-item-edit-top-row' });
+    const timeInput = Object.assign(document.createElement('input'), { type: 'text', className: 'settings-input time-input', value: item.time });
+    const actions = Object.assign(document.createElement('div'), { className: 'item-actions' });
+    const saveBtn = Object.assign(document.createElement('div'), { className: 'std-button save-btn', textContent: '💾' });
+    const cancelBtn = Object.assign(document.createElement('div'), { className: 'std-button cancel-btn', textContent: '✕' });
+    actions.append(saveBtn, cancelBtn);
+    topRow.append(timeInput, actions);
+    
+    const charsInput = Object.assign(document.createElement('input'), { type: 'text', className: 'settings-input chars-input', value: item.involvedCharacters.join(', ') });
+    charsInput.style.marginBottom = '5px';
+    
+    const contentInput = Object.assign(document.createElement('textarea'), { className: 'settings-textarea memory-item-content-edit content-input', placeholder: '事件概要', value: item.content });
+    const detailsInput = Object.assign(document.createElement('textarea'), { className: 'settings-textarea memory-item-content-edit details-input', placeholder: '详细记录', value: item.details });
+    detailsInput.style.marginTop = '10px';
+    
+    const pinDiv = Object.assign(document.createElement('div'), { style: 'margin-top:10px;' });
+    const pinCb = Object.assign(document.createElement('input'), { type: 'checkbox', id: `pinned-${item.id}`, checked: !!item.isPinned });
+    const pinLbl = Object.assign(document.createElement('label'), { htmlFor: `pinned-${item.id}`, textContent: '固定', style: 'margin-left:5px;color:#ccc;' });
+    pinDiv.append(pinCb, pinLbl);
+    
+    div.append(topRow, charsInput, contentInput, detailsInput, pinDiv);
 
-    const topRowDiv = document.createElement('div');
-    topRowDiv.className = 'memory-item-top-row memory-item-edit-top-row';
-    const timeInput = document.createElement('input');
-    timeInput.type = 'text';
-    timeInput.className = 'settings-input';
-    timeInput.value = itemToEdit.time;
-    topRowDiv.appendChild(timeInput);
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'item-actions';
-    const saveButton = document.createElement('div');
-    saveButton.className = 'std-button';
-    saveButton.textContent = '💾';
-    saveButton.addEventListener('click', (e) => {
+    saveBtn.onclick = (e) => {
       e.stopPropagation();
-      const updatedItem = {
-        ...itemToEdit,
-        time: timeInput.value.trim(),
-        involvedCharacters: charactersInput.value.trim().split(',').map(s => s.trim()).filter(Boolean),
-        content: contentTextarea.value.trim(),
-        details: detailsTextarea.value.trim(),
-        isPinned: pinnedCheckbox.checked
-      };
-      if (!updatedItem.time || !updatedItem.content) {
-        alert("时间和内容不能为空");
-        return;
-      }
-      settingsEventsListModule.currentEditingEventItem = null;
+      const newTime = timeInput.value.trim();
+      const newContent = contentInput.value.trim();
+      if (!newTime || !newContent) return alert("时间和内容不能为空");
+
       transactionManagerModule.dispatch('updateEvent', {
         chatroomName: stateModule.currentChatroomDetails.config.name,
-        eventId: itemToEdit.id,
-        eventData: updatedItem
+        eventId: item.id,
+        eventData: {
+          ...item,
+          time: newTime,
+          involvedCharacters: charsInput.value.trim().split(',').map(s => s.trim()).filter(Boolean),
+          content: newContent,
+          details: detailsInput.value.trim(),
+          isPinned: pinCb.checked
+        }
       }).then(() => settingsEventsListModule.renderPage());
-    });
-    const cancelButton = document.createElement('div');
-    cancelButton.className = 'std-button';
-    cancelButton.textContent = '✕';
-    cancelButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      settingsEventsListModule.currentEditingEventItem = null;
-      settingsEventsListModule.renderPage();
-    });
-    actionsDiv.appendChild(saveButton);
-    actionsDiv.appendChild(cancelButton);
-    topRowDiv.appendChild(actionsDiv);
-    itemDiv.appendChild(topRowDiv);
-
-    const charactersInput = document.createElement('input');
-    charactersInput.type = 'text';
-    charactersInput.className = 'settings-input';
-    charactersInput.value = (itemToEdit.involvedCharacters || []).join(', ');
-    charactersInput.style.marginBottom = '5px';
-    itemDiv.appendChild(charactersInput);
-
-    const contentTextarea = document.createElement('textarea');
-    contentTextarea.className = 'settings-textarea memory-item-content-edit';
-    contentTextarea.value = itemToEdit.content;
-    contentTextarea.placeholder = '事件概要 (用于索引)';
-    itemDiv.appendChild(contentTextarea);
-    
-    const detailsTextarea = document.createElement('textarea');
-    detailsTextarea.className = 'settings-textarea memory-item-content-edit';
-    detailsTextarea.value = itemToEdit.details || '';
-    detailsTextarea.placeholder = '详细记录 (非必须，用于详细回顾)';
-    detailsTextarea.style.marginTop = '10px';
-    itemDiv.appendChild(detailsTextarea);
-
-    const pinnedDiv = document.createElement('div');
-    pinnedDiv.style.marginTop = '10px';
-    const pinnedCheckbox = document.createElement('input');
-    pinnedCheckbox.type = 'checkbox';
-    pinnedCheckbox.id = `pinned-event-${itemToEdit.id}`;
-    pinnedCheckbox.checked = !!itemToEdit.isPinned;
-    const pinnedLabel = document.createElement('label');
-    pinnedLabel.htmlFor = `pinned-event-${itemToEdit.id}`;
-    pinnedLabel.textContent = ' 固定 (无视记录条数限制)';
-    pinnedLabel.style.marginLeft = '5px';
-    pinnedLabel.style.color = '#ccc';
-    pinnedDiv.appendChild(pinnedCheckbox);
-    pinnedDiv.appendChild(pinnedLabel);
-    itemDiv.appendChild(pinnedDiv);
-    
-    const autoResize = (el) => {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
     };
-    contentTextarea.addEventListener('input', () => autoResize(contentTextarea));
-    detailsTextarea.addEventListener('input', () => autoResize(detailsTextarea));
 
-    requestAnimationFrame(() => {
-        contentTextarea.focus();
-        autoResize(contentTextarea);
-        autoResize(detailsTextarea);
+    cancelBtn.onclick = (e) => {
+      e.stopPropagation();
+      settingsEventsListModule.renderPage();
+    };
+
+    const autoResize = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+    [contentInput, detailsInput].forEach(t => {
+      t.addEventListener('input', () => autoResize(t));
+      requestAnimationFrame(() => autoResize(t));
     });
+    
+    requestAnimationFrame(() => div.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   },
 
   removeEventItem: (eventId) => {
-    const chatroomName = stateModule.currentChatroomDetails.config.name;
     transactionManagerModule.dispatch('deleteEvent', {
-      chatroomName: chatroomName,
-      eventId: eventId
+      chatroomName: stateModule.currentChatroomDetails.config.name,
+      eventId
     }).then(() => settingsEventsListModule.renderPage());
   }
 };

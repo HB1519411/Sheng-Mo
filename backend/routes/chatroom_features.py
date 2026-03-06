@@ -4,7 +4,6 @@ import json
 import shutil
 import uuid
 import re
-from datetime import datetime
 import io
 import zipfile
 import base64
@@ -16,26 +15,21 @@ from backend.services.config_io import (
 )
 from backend.services.config_definitions import default_chatroom_config, default_partition_config
 from backend.utils.path_utils import create_error_response
-from backend.services.prompt_service import calculate_virtual_world_time
+from backend.services.prompt_context_builder import calculate_virtual_world_time
 
 chatroom_features_bp = Blueprint('chatroom_features_bp', __name__)
-
 
 @chatroom_features_bp.route('/update-chatroom-config/<chatroom_name>', methods=['POST'])
 def update_chatroom_config(chatroom_name):
     updates = request.get_json()
-    if not updates or not isinstance(updates, dict):
+    if not isinstance(updates, dict):
         return create_error_response("INVALID_UPDATE_DATA", "Invalid update data", 400)
-    try:
-        _update_chatroom_main_config_fields(chatroom_name, updates)
-        change_payload = {
-            "chatroomName": chatroom_name,
-            "updates": updates
-        }
-        return jsonify({"success": True, "changes": [{"type": "UPDATE_CHATROOM_CONFIG", "payload": change_payload}]})
-    except Exception as e:
-        return create_error_response("UNEXPECTED_ERROR", f"An unexpected error occurred: {e}", 500)
-
+    _update_chatroom_main_config_fields(chatroom_name, updates)
+    change_payload = {
+        "chatroomName": chatroom_name,
+        "updates": updates
+    }
+    return jsonify({"success": True, "changes": [{"type": "UPDATE_CHATROOM_CONFIG", "payload": change_payload}]})
 
 @chatroom_features_bp.route('/background/<chatroom_name>', methods=['POST'])
 def set_background_image(chatroom_name):
@@ -81,27 +75,21 @@ def set_background_image(chatroom_name):
     for ext_to_remove in allowed_extensions:
         old_bg_path = os.path.join(chatroom_path, f"background.{ext_to_remove}")
         if os.path.exists(old_bg_path) and old_bg_path != filepath:
-            try:
-                os.remove(old_bg_path)
-            except:
-                pass
+            try: os.remove(old_bg_path)
+            except: pass
 
-    try:
-        if file_to_save:
-            file_to_save.save(filepath)
-        else:
-            with open(filepath, 'wb') as f:
-                f.write(img_data_bytes)
+    if file_to_save:
+        file_to_save.save(filepath)
+    else:
+        with open(filepath, 'wb') as f:
+            f.write(img_data_bytes)
 
-        _update_chatroom_main_config_fields(chatroom_name, {"backgroundImageFilename": new_filename})
-        change_payload = {
-            "chatroomName": chatroom_name,
-            "backgroundImageFilename": new_filename
-        }
-        return jsonify({"success": True, "changes": [{"type": "SET_BACKGROUND", "payload": change_payload}]})
-    except Exception as e:
-        return create_error_response("SAVE_BACKGROUND_FAILED", f"Failed to save background image or update config: {e}", 500)
-
+    _update_chatroom_main_config_fields(chatroom_name, {"backgroundImageFilename": new_filename})
+    change_payload = {
+        "chatroomName": chatroom_name,
+        "backgroundImageFilename": new_filename
+    }
+    return jsonify({"success": True, "changes": [{"type": "SET_BACKGROUND", "payload": change_payload}]})
 
 @chatroom_features_bp.route('/background/<chatroom_name>', methods=['DELETE'])
 def delete_background_image(chatroom_name):
@@ -120,20 +108,14 @@ def delete_background_image(chatroom_name):
             try:
                 os.remove(filepath)
                 deleted_any = True
-            except Exception:
-                pass
+            except Exception: pass
 
     if deleted_any:
-        try:
-            _update_chatroom_main_config_fields(chatroom_name, {"backgroundImageFilename": None})
-        except Exception:
-            pass
+        try: _update_chatroom_main_config_fields(chatroom_name, {"backgroundImageFilename": None})
+        except Exception: pass
 
-    change_payload = {
-        "chatroomName": chatroom_name
-    }
+    change_payload = {"chatroomName": chatroom_name}
     return jsonify({"success": True, "changes": [{"type": "DELETE_BACKGROUND", "payload": change_payload}]})
-
 
 @chatroom_features_bp.route('/export-chatroom-zip/<chatroom_name>', methods=['GET'])
 def export_chatroom_zip(chatroom_name):
@@ -144,41 +126,36 @@ def export_chatroom_zip(chatroom_name):
         return create_error_response("CHATROOM_NOT_FOUND", "Chatroom not found or invalid path", 404)
 
     zip_memory_file = io.BytesIO()
-    try:
-        with zipfile.ZipFile(zip_memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for root, _, files in os.walk(chatroom_path):
-                for file_name in files:
-                    file_path_abs = os.path.join(root, file_name)
-                    arcname = os.path.relpath(file_path_abs, chatroom_path)
-                    zf.write(file_path_abs, arcname)
+    with zipfile.ZipFile(zip_memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, _, files in os.walk(chatroom_path):
+            for file_name in files:
+                file_path_abs = os.path.join(root, file_name)
+                arcname = os.path.relpath(file_path_abs, chatroom_path)
+                zf.write(file_path_abs, arcname)
 
-        zip_bytes = zip_memory_file.getvalue()
+    zip_bytes = zip_memory_file.getvalue()
+    bg_bytes = None
+    bg_ext = 'png'
+    mimetype = 'image/png'
+    possible_extensions = ['png', 'jpg', 'jpeg', 'webp']
+    for ext in possible_extensions:
+        bg_path = os.path.join(chatroom_path, f"background.{ext}")
+        if os.path.exists(bg_path):
+            with open(bg_path, 'rb') as f:
+                bg_bytes = f.read()
+            bg_ext = ext
+            mimetype = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
+            break
 
-        bg_bytes = None
-        bg_ext = 'png'
-        mimetype = 'image/png'
-        possible_extensions = ['png', 'jpg', 'jpeg', 'webp']
-        for ext in possible_extensions:
-            bg_path = os.path.join(chatroom_path, f"background.{ext}")
-            if os.path.exists(bg_path):
-                with open(bg_path, 'rb') as f:
-                    bg_bytes = f.read()
-                bg_ext = ext
-                mimetype = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
-                break
+    if not bg_bytes:
+        bg_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xfa\x0f\x00\x01\x05\x01\x02\xcf\xa0.\xcd\x00\x00\x00\x00IEND\xaeB`\x82'
 
-        if not bg_bytes:
-            bg_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xfa\x0f\x00\x01\x05\x01\x02\xcf\xa0.\xcd\x00\x00\x00\x00IEND\xaeB`\x82'
+    final_bytes = bg_bytes + zip_bytes
+    final_memory_file = io.BytesIO(final_bytes)
+    final_memory_file.seek(0)
 
-        final_bytes = bg_bytes + zip_bytes
-        final_memory_file = io.BytesIO(final_bytes)
-        final_memory_file.seek(0)
-
-        download_name = f'{chatroom_name}.{bg_ext}'
-        return send_file(final_memory_file, mimetype=mimetype, as_attachment=True, download_name=download_name)
-    except Exception as e:
-        return create_error_response("EXPORT_CHATROOM_FAILED", f"Error exporting chatroom: {e}", 500)
-
+    download_name = f'{chatroom_name}.{bg_ext}'
+    return send_file(final_memory_file, mimetype=mimetype, as_attachment=True, download_name=download_name)
 
 @chatroom_features_bp.route('/import-chatroom-zip', methods=['POST'])
 def import_chatroom_zip():
@@ -235,8 +212,7 @@ def import_chatroom_zip():
                                 if 'id' not in p_data_ensured or not p_data_ensured['id']:
                                     p_data_ensured['id'] = p_filename[len("partition_"):-len(".json")]
                                 write_json_safely(p_file_path, p_data_ensured)
-                        except Exception as e_p_ensure:
-                            pass
+                        except Exception: pass
 
         global_config = load_current_config()
         current_room_names_in_global_config = set(global_config.get('chatRoomOrder', []))
@@ -263,26 +239,20 @@ def import_chatroom_zip():
         
         from backend.services.chatroom_service import get_full_chatroom_details
         new_chatroom_details = get_full_chatroom_details(final_room_name)
-        
         change_payload = {**new_chatroom_details, "globalConfig": global_config}
         
         return jsonify({"success": True, "changes": [{"type": "CREATE_CHATROOM", "payload": change_payload}]})
 
     except (zipfile.BadZipFile, ValueError) as e:
         return create_error_response("IMPORT_FAILED_VALIDATION", f"Import failed: {e}", 400)
-    except Exception as e:
-        return create_error_response("UNEXPECTED_IMPORT_ERROR", f"An unexpected error occurred during import: {e}", 500)
     finally:
         if temp_extract_dir and os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir, ignore_errors=True)
 
 @chatroom_features_bp.route('/get-predicted-date/<chatroom_name>/<partition_id>', methods=['GET'])
 def get_predicted_date(chatroom_name, partition_id):
-    try:
-        date_str = calculate_virtual_world_time(chatroom_name, partition_id)
-        if date_str:
-            return jsonify({"success": True, "data": {"date": date_str}})
-        else:
-            return create_error_response("DATE_CALCULATION_FAILED", "Could not calculate a date.", 404)
-    except Exception as e:
-        return create_error_response("PREDICT_DATE_ERROR", f"An unexpected error occurred while predicting date: {e}", 500)
+    date_str = calculate_virtual_world_time(chatroom_name, partition_id)
+    if date_str:
+        return jsonify({"success": True, "data": {"date": date_str}})
+    else:
+        return create_error_response("DATE_CALCULATION_FAILED", "Could not calculate a date.", 404)

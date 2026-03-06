@@ -1,25 +1,13 @@
 const apiClientNovelaiModule = {
   _prepareNovelAiPayload: async (parsedDrawingMasterData) => {
-    if (!parsedDrawingMasterData || typeof parsedDrawingMasterData !== 'object') {
-      throw new Error("Invalid Drawing Master data, cannot prepare NAI Payload.");
-    }
     const apiSource = stateModule.config.novelaiApiSource || 'official';
     let naiApiKey = stateModule.config.novelaiApiKey;
     let proxyUrl = stateModule.config.novelaiProxyUrl;
     let proxyToken = stateModule.config.novelaiProxyToken;
 
-    if (apiSource === 'official' && !naiApiKey) {
-      throw new Error("NovelAI API Key is not set.");
-    }
-    if (apiSource === 'proxy' && !proxyUrl) {
-      throw new Error("NovelAI Proxy URL is not set.");
-    }
-
     let naturalLanguagePrompt = parsedDrawingMasterData.generalTagsString || "";
     const chatroomDetails = stateModule.currentChatroomDetails;
 
-    const templateTags = new Set();
-    
     if (chatroomDetails && chatroomDetails.roles) {
         chatroomDetails.roles.forEach(roleData => {
             const roleName = roleData.name;
@@ -38,7 +26,6 @@ const apiClientNovelaiModule = {
                 }
 
                 if (naturalLanguagePrompt.includes(roleName)) {
-                    templateTags.add(templateToUse);
                     const regex = new RegExp(roleName, 'g');
                     naturalLanguagePrompt = naturalLanguagePrompt.replace(regex, templateToUse);
                 }
@@ -53,7 +40,6 @@ const apiClientNovelaiModule = {
     if (stateModule.config.novelaiArtistChain) {
         promptParts.push(stateModule.config.novelaiArtistChain);
     }
-    promptParts.push(...Array.from(templateTags));
     
     let rawPrompt = promptParts.join(', ');
     if (naturalLanguagePrompt) {
@@ -198,131 +184,81 @@ const apiClientNovelaiModule = {
       stateModule.pendingRequests.set(effectiveAbortControllerKey, uiAbortController);
     }
 
-    let success = false;
     let responseData = null;
-    let lastErrorEncountered = null;
 
     try {
         if (api_source === 'proxy') {
-            try {
-                const proxyResponse = await fetch(proxy_url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(parameters),
-                    signal: uiAbortController.signal
-                });
+            const proxyResponse = await fetch(proxy_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(parameters),
+                signal: uiAbortController.signal
+            });
 
-                if (proxyResponse.ok) {
-                    const responseText = await proxyResponse.text();
-                    
-                    if (responseText.startsWith("data:image")) {
-                        responseData = { imageDataUrl: responseText };
-                        success = true;
-                    } else {
-                        try {
-                            const jsonResponse = JSON.parse(responseText);
-                            if (jsonResponse.status === 'success' && jsonResponse.url) {
-                                const urlObj = new URL(proxy_url);
-                                const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
-                                const fullImageUrl = baseUrl + jsonResponse.url;
-                                
-                                const imageResponse = await fetch(fullImageUrl, { signal: uiAbortController.signal });
-                                if (imageResponse.ok) {
-                                    const blob = await imageResponse.blob();
-                                    const reader = new FileReader();
-                                    responseData = await new Promise((resolve, reject) => {
-                                        reader.onloadend = () => resolve({ imageDataUrl: reader.result });
-                                        reader.onerror = reject;
-                                        reader.readAsDataURL(blob);
-                                    });
-                                    success = true;
-                                } else {
-                                    lastErrorEncountered = { code: "IMAGE_DOWNLOAD_FAILED", message: `Failed to download image from ${fullImageUrl}` };
-                                }
-                            } else {
-                                lastErrorEncountered = { code: "INVALID_PROXY_JSON", message: "Proxy JSON response format invalid." };
-                            }
-                        } catch (e) {
-                            lastErrorEncountered = { code: "INVALID_PROXY_RESPONSE", message: `Proxy response not data URI or valid JSON: ${responseText.substring(0, 100)}...` };
+            if (proxyResponse.ok) {
+                const responseText = await proxyResponse.text();
+                
+                if (responseText.startsWith("data:image")) {
+                    responseData = { imageDataUrl: responseText };
+                } else {
+                    const jsonResponse = JSON.parse(responseText);
+                    if (jsonResponse.status === 'success' && jsonResponse.url) {
+                        const urlObj = new URL(proxy_url);
+                        const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+                        const fullImageUrl = baseUrl + jsonResponse.url;
+                        
+                        const imageResponse = await fetch(fullImageUrl, { signal: uiAbortController.signal });
+                        if (imageResponse.ok) {
+                            const blob = await imageResponse.blob();
+                            const reader = new FileReader();
+                            responseData = await new Promise((resolve, reject) => {
+                                reader.onloadend = () => resolve({ imageDataUrl: reader.result });
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                        } else {
+                            throw new Error(`Failed to download image from ${fullImageUrl}`);
                         }
+                    } else {
+                        throw new Error("Proxy JSON response format invalid.");
                     }
-                } else {
-                    lastErrorEncountered = { code: "PROXY_HTTP_ERROR", message: `Proxy HTTP error: ${proxyResponse.status}` };
                 }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    lastErrorEncountered = { code: "CANCELLED_BY_UI", message: 'Cancelled by UI' };
-                } else {
-                    lastErrorEncountered = { code: "PROXY_FETCH_ERROR", message: error.message };
-                }
+            } else {
+                throw new Error(`Proxy HTTP error: ${proxyResponse.status}`);
             }
         } else {
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                if (uiAbortController.signal.aborted) {
-                  lastErrorEncountered = { code: "CANCELLED_BY_UI", message: 'Cancelled by UI' };
-                  break;
-                }
+            const proxyResponse = await apiServiceModule.performApiCall(
+              '/novelai-proxy',
+              'POST', {
+                api_source,
+                nai_api_key,
+                parameters
+              }, {},
+              uiAbortController.signal
+            );
 
-                const proxyResponse = await apiServiceModule.performApiCall(
-                  '/novelai-proxy',
-                  'POST', {
-                    api_source,
-                    nai_api_key,
-                    parameters
-                  }, {},
-                  uiAbortController.signal
-                );
-
-                if (uiAbortController.signal.aborted) {
-                  lastErrorEncountered = { code: "CANCELLED_BY_UI", message: 'Cancelled by UI' };
-                  break;
-                }
-
-                if (proxyResponse.success && proxyResponse.data && proxyResponse.data.imageDataUrl) {
-                  responseData = proxyResponse.data;
-                  success = true;
-                  break;
-                } else {
-                  lastErrorEncountered = proxyResponse.error || {
-                    code: "NOVELAI_INVALID_RESPONSE",
-                    message: 'NAI response missing valid imageDataUrl or success:false'
-                  };
-                  _logAndDisplayError(`NAI Attempt ${attempt}/3 failed: ${lastErrorEncountered.message}`, 'apiClientNovelaiModule.processNaiQueue');
-                  if (attempt < 3) {
-                    if (typeof partitionRendererModule !== 'undefined' && partitionRendererModule.showRetryIndicator) {
-                      partitionRendererModule.showRetryIndicator();
-                    }
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-                  }
-                }
+            if (proxyResponse.success && proxyResponse.data && proxyResponse.data.imageDataUrl) {
+              responseData = proxyResponse.data;
+            } else {
+              throw proxyResponse.error || new Error('NAI response missing valid imageDataUrl or success:false');
             }
         }
 
-      if (success && responseData) {
         if (typeof messageActionsImplModule !== 'undefined' && messageActionsImplModule.handleNovelAiResponse) {
           messageActionsImplModule.handleNovelAiResponse(partitionId, {
             success: true,
             data: responseData
           }, originalDrawingMasterData, null, sourceMessageIdForImage);
         }
-      } else if (lastErrorEncountered) {
-        let finalErrorMessage = '';
-        if (lastErrorEncountered.code === 'CANCELLED_BY_UI') {
-          finalErrorMessage = `NAI request for trigger message ${triggerMessageId} was cancelled by UI.`;
-          _logAndDisplayError(finalErrorMessage, 'apiClientNovelaiModule.processNaiQueue');
-        } else {
-          finalErrorMessage = `NAI request ultimately failed: ${lastErrorEncountered?.message || 'Unknown error'}`;
-          _logAndDisplayError(finalErrorMessage, 'apiClientNovelaiModule.processNaiQueue', 'N/A', 'N/A', lastErrorEncountered);
-        }
-        if (lastErrorEncountered.code !== 'CANCELLED_BY_UI' || (triggerMessageId && partitionId === stateModule.activePartitionId)) {
-          if (typeof messageActionsImplModule !== 'undefined' && messageActionsImplModule.handleNovelAiResponse) {
+
+    } catch (error) {
+        if (typeof messageActionsImplModule !== 'undefined' && messageActionsImplModule.handleNovelAiResponse) {
+            const errorPayload = error.name === 'AbortError' ? { code: "CANCELLED_BY_UI", message: 'Cancelled by UI' } : { code: "NAI_ERROR", message: error.message };
             messageActionsImplModule.handleNovelAiResponse(partitionId, {
               success: false,
-              error: lastErrorEncountered
+              error: errorPayload
             }, originalDrawingMasterData, null, sourceMessageIdForImage);
-          }
         }
-      }
     } finally {
       if (effectiveAbortControllerKey) {
         stateModule.pendingRequests.delete(effectiveAbortControllerKey);

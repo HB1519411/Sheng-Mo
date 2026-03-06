@@ -1,311 +1,94 @@
 const messageBubbleFactoryModule = {
-  createMessageBubble: (messageObject, partitionId) => {
-    if ((messageObject.roleName === 'statusProcessingSystem' || messageObject.roleName === 'drawingMaster' || messageObject.roleName === 'closeUpMaster' || messageObject.roleName === 'novelSummaryMaster') && messageObject.roleType === 'tool') {
-      return document.createComment(`Placeholder for filtered tool message: ${messageObject.roleName}`);
-    }
+  createMessageBubble: (msgObj, partitionId) => {
+    if (['statusProcessingSystem', 'drawingMaster', 'closeUpMaster', 'novelSummaryMaster'].includes(msgObj.roleName) && msgObj.roleType === 'tool') return document.createComment(`Filtered: ${msgObj.roleName}`);
+    
+    const pid = partitionId || stateModule.activePartitionId;
+    const hasImage = stateModule.drawingMasterImageCache.has(msgObj.id);
+    const actView = msgObj.activeView || (msgObj.sourceType === 'user' ? 'none' : (hasImage ? 'imageView' : 'time'));
+    msgObj.activeView = actView;
 
-    const effectivePartitionId = partitionId || stateModule.activePartitionId;
+    const cont = document.createElement('div');
+    cont.className = `message-container ${msgObj.status === 'pending' ? 'pending' : ''}`;
+    cont.dataset.messageId = msgObj.id;
+    cont.dataset.sourceType = msgObj.sourceType;
+    cont.dataset.roleName = msgObj.roleName;
+    cont.dataset.roleType = msgObj.roleType;
+    cont.dataset.activeView = actView;
 
-    const msgCont = document.createElement('div');
-    msgCont.className = 'message-container';
-    msgCont.dataset.messageId = messageObject.id;
-    msgCont.dataset.sourceType = messageObject.sourceType;
-    msgCont.dataset.roleName = messageObject.roleName;
-    msgCont.dataset.roleType = messageObject.roleType;
+    const dName = uiChatUtilsModule.getDisplayName(msgObj.roleName, pid);
+    const icons = { privateAssistant: '‍💼', statusProcessingSystem: '🎲', gameHost: '🖋️', novelSummaryMaster: '∑', characterCreationMaster: '🆕', scriptCreationMaster: '📜', plotSummaryMaster: '📜', knowledgeRecordingMaster: '✍️', '用户': '📏' };
+    const btnText = icons[msgObj.roleName === 'characterUpdateMaster' && msgObj.targetRoleName ? uiChatUtilsModule.getDisplayName(msgObj.targetRoleName, pid) : dName] || (dName ? dName.slice(-1) : (msgObj.sourceType === 'user' ? 'U' : 'AI'));
+    cont.appendChild(Object.assign(document.createElement('div'), { className: 'std-button role-name-button-above-bubble', textContent: btnText }));
 
-    if (messageObject.status === 'pending') {
-      msgCont.classList.add('pending');
-    }
+    const msgDiv = Object.assign(document.createElement('div'), { className: msgObj.sourceType === 'user' ? 'user-message' : 'ai-response' });
+    const mainTxt = Object.assign(document.createElement('div'), { className: 'main-text-content' });
 
-    let activeViewForMessage = messageObject.activeView;
-    if (!activeViewForMessage) {
-      const hasCachedImage = stateModule.drawingMasterImageCache.has(messageObject.id);
-      if (messageObject.sourceType === 'user') {
-        activeViewForMessage = 'none';
-      } else {
-        activeViewForMessage = hasCachedImage ? 'imageView' : 'time';
-      }
-      messageObject.activeView = activeViewForMessage;
-    }
-    msgCont.dataset.activeView = activeViewForMessage;
-
-    const roleNameButton = document.createElement('div');
-    roleNameButton.className = 'std-button role-name-button-above-bubble';
-    let buttonText = '';
-    const {
-      roleName,
-      sourceType,
-      targetRoleName
-    } = messageObject;
-
-    const displayName = uiChatUtilsModule.getDisplayName(roleName, effectivePartitionId);
-    const nameForDisplay = (roleName === 'characterUpdateMaster' && targetRoleName) ? uiChatUtilsModule.getDisplayName(targetRoleName, effectivePartitionId) : displayName;
-
-    if (nameForDisplay === 'privateAssistant') {
-      buttonText = '‍💼';
-    } else if (nameForDisplay === 'statusProcessingSystem') {
-      buttonText = '🎲';
-    } else if (nameForDisplay === 'gameHost') {
-      buttonText = '🖋️';
-    } else if (nameForDisplay === 'novelSummaryMaster') {
-      buttonText = '∑';
-    } else if (nameForDisplay === 'characterCreationMaster') {
-      buttonText = '🆕';
-    } else if (nameForDisplay === 'scriptCreationMaster') {
-      buttonText = '📜';
-    } else if (nameForDisplay === 'plotSummaryMaster') {
-      buttonText = '📜';
-    } else if (nameForDisplay === 'knowledgeRecordingMaster') {
-      buttonText = '✍️';
-    } else if (nameForDisplay === '用户') {
-      buttonText = '📏';
-    } else {
-      buttonText = (nameForDisplay && nameForDisplay.length > 0) ? nameForDisplay.slice(-1) : (sourceType === 'user' ? 'U' : 'AI');
-    }
-    roleNameButton.textContent = buttonText;
-    msgCont.appendChild(roleNameButton);
-
-    const messageDiv = document.createElement('div');
-    messageDiv.className = messageObject.sourceType === 'user' ? 'user-message' : 'ai-response';
-
-    const mainContentContainer = document.createElement('div');
-    mainContentContainer.className = 'main-text-content';
-
-    const {
-      status,
-      parsedResult,
-      speechActionText,
-      parserError,
-      processedTurnActions
-    } = messageObject;
-
-    if (status === 'pending') {
-      mainContentContainer.textContent = speechActionText || "[正在响应]";
-    } else {
-      const isAI = messageObject.sourceType === 'ai';
-      let turnActionsToRender = processedTurnActions;
-
-      if (!turnActionsToRender && isAI && parsedResult && parsedResult.processedTurnActions) {
-        turnActionsToRender = parsedResult.processedTurnActions;
-      }
-
-      if (Array.isArray(turnActionsToRender) && turnActionsToRender.length > 0 && messageObject.roleName !== 'privateAssistant') {
-        turnActionsToRender.forEach((action, index) => {
-          if (!action || typeof action !== 'object') return;
-          const actionBlock = document.createElement('div');
-          actionBlock.className = 'action-block';
-          actionBlock.dataset.actionIndex = index;
-          actionBlock.dataset.contentType = action.type || 'unknown';
-          actionBlock.dataset.roleType = messageObject.roleType;
-
-          if (action.isIncluded === true) {
-             actionBlock.classList.add('is-included');
-          }
-
-          const contentDisplay = document.createElement('div');
-          contentDisplay.className = 'action-content-display';
-          contentDisplay.textContent = action.content || '';
-          actionBlock.appendChild(contentDisplay);
-
-          mainContentContainer.appendChild(actionBlock);
+    if (msgObj.status === 'pending') mainTxt.textContent = msgObj.speechActionText || "[正在响应]";
+    else {
+      const acts = msgObj.processedTurnActions || (msgObj.sourceType === 'ai' ? msgObj.parsedResult?.processedTurnActions : null);
+      if (acts?.length && msgObj.roleName !== 'privateAssistant') {
+        acts.forEach((a, i) => {
+          const ab = document.createElement('div');
+          ab.className = `action-block ${a.isIncluded ? 'is-included' : ''}`;
+          ab.dataset.actionIndex = i;
+          ab.dataset.contentType = a.type || 'unknown';
+          ab.dataset.roleType = msgObj.roleType;
+          
+          ab.appendChild(Object.assign(document.createElement('div'), { className: 'action-content-display', textContent: a.content || '' }));
+          mainTxt.appendChild(ab);
         });
-      }
-
-      if (mainContentContainer.children.length === 0) {
-        if (parserError) {
-          mainContentContainer.textContent = `[解析错误: ${parserError}]`;
-        } else {
-          mainContentContainer.textContent = speechActionText || '';
-        }
-      }
+      } else mainTxt.textContent = msgObj.parserError ? `[解析错误: ${msgObj.parserError}]` : (msgObj.speechActionText || '');
     }
+    msgDiv.appendChild(mainTxt);
 
-    messageDiv.appendChild(mainContentContainer);
+    const actsDiv = Object.assign(document.createElement('div'), { className: 'message-actions-container' });
+    const makeBtn = (cls, txt, short, long = null) => {
+      const b = Object.assign(document.createElement('div'), { className: `std-button message-action-button ${cls}`, textContent: txt });
+      eventListenersModule._setupLongPressListener(b, short, long, false);
+      actsDiv.appendChild(b);
+    };
 
-    const messageActions = document.createElement('div');
-    messageActions.className = 'message-actions-container';
-    const {
-      id: messageId,
-      drawingMasterContext
-    } = messageObject;
-    const hasCachedImage = stateModule.drawingMasterImageCache.has(messageId);
-
-    if (messageObject.status !== 'pending') {
-      if (messageObject.roleName === 'characterUpdateMaster' || messageObject.roleName === 'characterCreationMaster') {
-        const saveButton = document.createElement('div');
-        saveButton.className = 'std-button message-action-button save-character-update-button';
-        saveButton.textContent = '💾';
-        eventListenersModule._setupLongPressListener(
-          saveButton,
-          () => {
-            if (messageObject.roleName === 'characterCreationMaster') {
-              messageActionsImplModule.saveNewCharacter(msgCont);
-            } else if (messageObject.roleName === 'characterUpdateMaster') {
-              messageActionsImplModule.saveCharacterUpdate(msgCont);
-            }
-          },
-          () => messageActionsImplModule._handleBulkSaveCharacterUpdates(),
-          false
-        );
-        messageActions.appendChild(saveButton);
-      }
-      if (messageObject.roleName === 'plotSummaryMaster') {
-        const saveButton = document.createElement('div');
-        saveButton.className = 'std-button message-action-button save-event-record-button';
-        saveButton.textContent = '💾';
-        eventListenersModule._setupLongPressListener(
-          saveButton,
-          () => messageActionsImplModule.saveEventRecord(msgCont),
-          () => messageActionsImplModule.saveEventRecordWithManualInput(msgCont),
-          false
-        );
-        messageActions.appendChild(saveButton);
-      }
-      if (messageObject.roleName === 'privateAssistant') {
-        messageActions.innerHTML += `<div class="std-button message-action-button save-to-script-button">💾</div>`;
-      }
-      if (messageObject.roleName === 'knowledgeRecordingMaster') {
-        messageActions.innerHTML += `<div class="std-button message-action-button save-knowledge-record-button">💾</div>`;
-      }
-      if (messageObject.roleType === 'role' || messageObject.roleType === 'temporary_role' || messageObject.roleType === 'user') {
-        const redrawButton = document.createElement('div');
-        redrawButton.className = 'std-button message-action-button redraw-button';
-        redrawButton.textContent = '🖌️';
-        eventListenersModule._setupLongPressListener(
-          redrawButton,
-          () => messageActionsImplModule.triggerDrawingMaster(msgCont),
-          () => messageActionsImplModule.triggerCloseUpMaster(msgCont),
-          false
-        );
-        messageActions.appendChild(redrawButton);
-      }
-      if (hasCachedImage) {
-        const setBgButton = document.createElement('div');
-        setBgButton.className = 'std-button message-action-button set-background-button';
-        setBgButton.textContent = '🖼️';
-        eventListenersModule._setupLongPressListener(
-          setBgButton,
-          () => messageActionsImplModule.setBackgroundFromMessage(msgCont),
-          () => messageActionsImplModule.downloadImage(msgCont),
-          false
-        );
-        messageActions.appendChild(setBgButton);
-      }
+    if (msgObj.status !== 'pending') {
+      if (['characterUpdateMaster', 'characterCreationMaster'].includes(msgObj.roleName)) makeBtn('save-character-update-button', '💾', () => msgObj.roleName === 'characterCreationMaster' ? messageActionsImplModule.saveNewCharacter(cont) : messageActionsImplModule.saveCharacterUpdate(cont), () => messageActionsImplModule._handleBulkSaveCharacterUpdates());
+      if (msgObj.roleName === 'plotSummaryMaster') makeBtn('save-event-record-button', '💾', () => messageActionsImplModule.saveEventRecord(cont), () => messageActionsImplModule.saveEventRecordWithManualInput(cont));
+      if (msgObj.roleName === 'privateAssistant') actsDiv.innerHTML += `<div class="std-button message-action-button save-to-script-button">💾</div>`;
+      if (msgObj.roleName === 'knowledgeRecordingMaster') actsDiv.innerHTML += `<div class="std-button message-action-button save-knowledge-record-button">💾</div>`;
+      if (['role', 'temporary_role', 'user'].includes(msgObj.roleType)) makeBtn('redraw-button', '🖌️', () => messageActionsImplModule.triggerDrawingMaster(cont), () => messageActionsImplModule.triggerCloseUpMaster(cont));
+      if (hasImage) makeBtn('set-background-button', '🖼️', () => messageActionsImplModule.setBackgroundFromMessage(cont), () => messageActionsImplModule.downloadImage(cont));
     }
+    makeBtn('delete-button', '✕', () => messageActionsImplModule.deleteMessage(cont), () => messageActionsImplModule.deleteMessageAndBelow(cont));
+    cont.appendChild(actsDiv);
 
-    const deleteButtonInActions = document.createElement('div');
-    deleteButtonInActions.className = 'std-button message-action-button delete-button';
-    deleteButtonInActions.textContent = '✕';
-    messageActions.appendChild(deleteButtonInActions);
-    msgCont.appendChild(messageActions);
+    if (msgObj.roleName !== '用户' && (msgObj.sourceType === 'user' || ['role', 'temporary_role'].includes(msgObj.roleType))) {
+      const sw = Object.assign(document.createElement('div'), { className: 'status-display-wrapper' });
+      const ctrls = Object.assign(document.createElement('div'), { className: 'game-host-controls' });
+      const cd = Object.assign(document.createElement('div'), { className: 'game-host-content' });
+      const sps = msgObj.statusProcessingSystemResult, sc = sps?.processedSceneContext, ch = sps?.processedCharacterInfo;
 
-    const shouldDisplayStatusPanel = messageObject.roleName !== '用户' &&
-      (messageObject.sourceType === 'user' ||
-        (messageObject.sourceType === 'ai' && (messageObject.roleType === 'role' || messageObject.roleType === 'temporary_role')));
-
-    if (shouldDisplayStatusPanel) {
-      const statusWrapper = document.createElement('div');
-      statusWrapper.className = 'status-display-wrapper';
-      const controlsDiv = document.createElement('div');
-      controlsDiv.className = 'game-host-controls';
-
-      const spsResult = messageObject.statusProcessingSystemResult;
-      const scene = spsResult?.processedSceneContext;
-      const character = spsResult?.processedCharacterInfo;
-      const isImageViewAvailable = stateModule.drawingMasterImageCache.has(messageObject.id) || !!messageObject.drawingMasterContext;
-
-      const viewConfig = [{
-        id: 'time',
-        icon: '🕒',
-        isAvailable: scene && scene.timeItems && scene.timeItems.length > 0 && scene.timeItems[0] !== '无'
-      }, {
-        id: 'location',
-        icon: '📍',
-        isAvailable: scene && ((scene.locationItems && scene.locationItems.length > 0 && scene.locationItems[0] !== '无') || (scene.otherSceneInfoItems && scene.otherSceneInfoItems.length > 0 && scene.otherSceneInfoItems[0] !== '无'))
-      }, {
-        id: 'goals',
-        icon: '🎯',
-        isAvailable: character && character.internalGoalItems && character.internalGoalItems.length > 0 && character.internalGoalItems[0] !== '无 (不可见)'
-      }, {
-        id: 'character',
-        icon: '👤',
-        isAvailable: !!character
-      }, {
-        id: 'imageView',
-        icon: '🎨',
-        isAvailable: isImageViewAvailable
-      }, ];
-
-      viewConfig.forEach(view => {
-        if (view.isAvailable) {
+      [{id: 'time', i: '🕒', a: sc?.timeItems?.length && sc.timeItems[0] !== '无'},
+       {id: 'location', i: '📍', a: sc && ((sc.locationItems?.length && sc.locationItems[0] !== '无') || (sc.otherSceneInfoItems?.length && sc.otherSceneInfoItems[0] !== '无'))},
+       {id: 'goals', i: '🎯', a: ch?.internalGoalItems?.length && ch.internalGoalItems[0] !== '无 (不可见)'},
+       {id: 'character', i: '👤', a: !!ch},
+       {id: 'imageView', i: '🎨', a: hasImage || !!msgObj.drawingMasterContext}
+      ].forEach(v => { 
+        if (v.a) {
           const btn = document.createElement('div');
           btn.className = 'std-button game-host-view-button';
-          btn.dataset.view = view.id;
-          btn.textContent = view.icon;
-          controlsDiv.appendChild(btn);
+          btn.dataset.view = v.id;
+          btn.textContent = v.i;
+          ctrls.appendChild(btn);
         }
       });
 
-      statusWrapper.appendChild(controlsDiv);
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'game-host-content';
-      statusWrapper.appendChild(contentDiv);
-
-      let dataForStatus = null;
-      let errorForStatus = null;
-      if (messageObject.sourceType === 'user' || messageObject.roleType === 'role' || messageObject.roleType === 'temporary_role') {
-        dataForStatus = messageObject.statusProcessingSystemResult;
-        errorForStatus = messageObject.statusProcessingSystemParserError || messageObject.statusProcessingSystemError;
-      }
-      uiChatToolSpecificModule._renderStatusDisplayContent(msgCont, msgCont.dataset.activeView, dataForStatus, errorForStatus, controlsDiv, contentDiv, messageObject);
-      messageDiv.appendChild(statusWrapper);
+      sw.append(ctrls, cd);
+      uiChatToolSpecificModule._renderStatusDisplayContent(cont, actView, msgObj.sourceType === 'user' || ['role', 'temporary_role'].includes(msgObj.roleType) ? sps : null, msgObj.statusProcessingSystemParserError || msgObj.statusProcessingSystemError, ctrls, cd, msgObj);
+      msgDiv.appendChild(sw);
     }
+    
+    cont.appendChild(msgDiv);
+    if (msgObj.sourceType === 'user' || msgObj.roleName === 'privateAssistant') eventListenersModule._setupLongPressListener(msgDiv, null, e => { if (!e.target.closest('.value-block')) uiMessageEditorModule.startEdit(cont); }, true);
+    if (msgObj.sourceType === 'ai' && msgObj.roleName !== 'privateAssistant') mainTxt.querySelectorAll('.action-block').forEach(b => eventListenersModule._setupLongPressListener(b, () => messageActionsImplModule.toggleActionInclusion(b), () => uiMessageEditorModule.startEdit(b), false));
 
-    msgCont.appendChild(messageDiv);
-
-    if (messageObject.sourceType === 'user' || messageObject.roleName === 'privateAssistant') {
-      eventListenersModule._setupLongPressListener(
-        messageDiv,
-        null,
-        (event) => {
-          const target = event.target;
-          if (target.closest('.value-block') || target.closest('.option-selection-badge')) {
-            return;
-          }
-          if (typeof uiMessageEditorModule !== 'undefined') {
-            uiMessageEditorModule.startEdit(msgCont);
-          }
-        },
-        true
-      );
-    }
-
-    if (messageObject.sourceType === 'ai' && messageObject.roleName !== 'privateAssistant') {
-      const actionBlocks = mainContentContainer.querySelectorAll('.action-block');
-      actionBlocks.forEach(block => {
-        eventListenersModule._setupLongPressListener(
-          block,
-          () => messageActionsImplModule.toggleActionInclusion(block),
-          () => {
-            if (typeof uiMessageEditorModule !== 'undefined') {
-              uiMessageEditorModule.startEdit(block);
-            }
-          },
-          false
-        );
-      });
-    }
-
-    const deleteButton = messageActions.querySelector('.delete-button');
-    if (deleteButton) {
-      eventListenersModule._setupLongPressListener(
-        deleteButton,
-        () => messageActionsImplModule.deleteMessage(msgCont),
-        () => messageActionsImplModule.deleteMessageAndBelow(msgCont),
-        false
-      );
-    }
-
-    return msgCont;
-  },
+    return cont;
+  }
 };

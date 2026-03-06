@@ -9,16 +9,19 @@ const roleManagementUiModule = {
   },
 
   updateRoleButtonsList: () => {
-    const frag = document.createDocumentFragment();
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const activePartition = chatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!chatroomDetails || !chatroomDetails.config.name || !activePartition) {
+    const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
+
+    if (!activePartition) {
       elementsModule.roleButtonsListContainer.innerHTML = '';
+      systemTriggersModule.updateModelToggleButtonVisual();
+      systemTriggersModule.updateAutoTriggerButtonVisual();
       return;
     }
 
-    const roleAliases = activePartition.roleAliases || [];
-    const permanentRoles = new Set((chatroomDetails.roles || []).map(r => r.name));
+    const frag = document.createDocumentFragment();
+    const roleAliases = activePartition.roleAliases;
+    const permanentRoles = new Set(chatroomDetails.roles.map(r => r.name));
 
     const usedChars = new Set();
     const roleDataForButtons = roleAliases.map(aliasEntry => {
@@ -27,7 +30,7 @@ const roleManagementUiModule = {
       const isTemporary = !permanentRoles.has(name);
 
       let charToUse = '';
-      if (alias && alias.length > 0) {
+      if (alias.length > 0) {
         const aliasUpper = alias.toUpperCase();
         let foundChar = false;
         for (let i = 0; i < Math.ceil(aliasUpper.length / 2); i++) {
@@ -116,7 +119,7 @@ const roleManagementUiModule = {
       const stateButtons = container.querySelectorAll('.role-state-button');
       const roleName = mainButton.dataset.roleName;
       const roleInfo = roleDataForButtons.find(r => r.name === roleName);
-      const roleIsTemporary = roleInfo ? roleInfo.isTemporary : false;
+      const roleIsTemporary = roleInfo.isTemporary;
       const mainShortPress = () => roleManagementUiModule.toggleRoleStateButtons(roleName);
 
       const mainLongPress = () => {
@@ -164,23 +167,19 @@ const roleManagementUiModule = {
   },
 
   removeRoleButton: (roleName) => {
-    const buttonContainer = document.querySelector(`.role-button-container .std-button[data-role-name="${roleName}"]`)?.closest('.role-button-container');
-    if (buttonContainer) {
-      buttonContainer.remove();
-    }
+    const buttonContainer = document.querySelector(`.role-button-container .std-button[data-role-name="${roleName}"]`).closest('.role-button-container');
+    buttonContainer.remove();
   },
 
   toggleRoleStateButtons: (name) => {
     const div = document.querySelector(`.role-state-buttons[data-role-name="${name}"]`);
-    if (div) {
-      if (stateModule.activeRoleStateButtons === name) {
-        div.classList.remove('active');
-        stateModule.activeRoleStateButtons = null;
-      } else {
-        roleManagementUiModule.hideRoleStateButtons();
-        div.classList.add('active');
-        stateModule.activeRoleStateButtons = name;
-      }
+    if (stateModule.activeRoleStateButtons === name) {
+      div.classList.remove('active');
+      stateModule.activeRoleStateButtons = null;
+    } else {
+      roleManagementUiModule.hideRoleStateButtons();
+      div.classList.add('active');
+      stateModule.activeRoleStateButtons = name;
     }
   },
 
@@ -191,21 +190,19 @@ const roleManagementUiModule = {
 
   selectRoleState: async (name, state) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const activePartition = chatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!activePartition || !activePartition.roleAliases) return;
+    const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
 
     if (state === roleManagementUiModule.ROLE_STATE_UPDATE) {
       const isPermanent = chatroomDetails.roles.some(r => r.name === name);
       let initiatorMessageIdForUpdate = null;
-      if (activePartition.history && activePartition.history.length > 0) {
+      if (activePartition.history.length > 0) {
         initiatorMessageIdForUpdate = activePartition.history[activePartition.history.length - 1].id;
       } else {
         initiatorMessageIdForUpdate = stateModule.activePartitionId;
       }
 
       if (!initiatorMessageIdForUpdate) {
-        _logAndDisplayError(`Cannot trigger CharacterUpdate for ${name}: initiatorMessageId could not be determined for partition ${stateModule.activePartitionId}.`, 'roleManagementUiModule.selectRoleState');
-        return;
+        throw new Error(`Cannot trigger CharacterUpdate for ${name}: initiatorMessageId could not be determined for partition ${stateModule.activePartitionId}.`);
       }
 
       if (!isPermanent) {
@@ -220,7 +217,7 @@ const roleManagementUiModule = {
             apiMainTriggerModule.triggerCharacterUpdateForRole(stateModule.activePartitionId, name);
           },
           onFailure: () => {
-            alert(`创建永久角色文件失败，无法更新角色 ${name}`);
+            throw new Error(`创建永久角色文件失败，无法更新角色 ${name}`);
           }
         });
       } else {
@@ -243,73 +240,57 @@ const roleManagementUiModule = {
         }
       });
     }
-    if (typeof partitionListManagerModule !== 'undefined') partitionListManagerModule.updatePartitionList();
+    partitionListManagerModule.updatePartitionList();
   },
 
   handleRoleDefaultStateLongPress: (roleName) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    if (!chatroomDetails || !chatroomDetails.config) {
-      return;
-    }
     const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
     if (!isPermanent || roleName === "用户") return;
 
     const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
-    if (activePartition && activePartition.roleAliases) {
-      const newRoleAliases = activePartition.roleAliases.filter(alias => alias.name !== roleName);
-      transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
-        chatroomName: chatroomDetails.config.name,
-        partitionId: stateModule.activePartitionId,
-        updates: {
-          roleAliases: newRoleAliases
-        }
-      });
-      roleManagementUiModule.hideRoleStateButtons();
-    }
+    const newRoleAliases = activePartition.roleAliases.filter(alias => alias.name !== roleName);
+    transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
+      chatroomName: chatroomDetails.config.name,
+      partitionId: stateModule.activePartitionId,
+      updates: {
+        roleAliases: newRoleAliases
+      }
+    });
+    roleManagementUiModule.hideRoleStateButtons();
   },
 
   updateRoleStateButtonVisual: (name) => {
     const stateButtonsDiv = document.querySelector(`.role-state-buttons[data-role-name="${name}"]`);
     const mainButton = document.querySelector(`.role-button-container .std-button[data-role-name="${name}"]:not(.role-state-button)`);
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
+    const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
 
-    if (activePartition && activePartition.roleAliases) {
-      const roleAlias = activePartition.roleAliases.find(alias => alias.name === name);
-      const currentState = roleAlias ? roleAlias.state : roleManagementUiModule.ROLE_STATE_DEFAULT;
+    const roleAlias = activePartition.roleAliases.find(alias => alias.name === name);
+    const currentState = roleAlias ? roleAlias.state : roleManagementUiModule.ROLE_STATE_DEFAULT;
 
-      if (stateButtonsDiv) {
-        stateButtonsDiv.childNodes.forEach(btn => {
-          if (btn.classList?.contains('role-state-button')) {
-            btn.classList.remove('role-state-active');
-            if (btn.dataset.state === currentState) {
-              btn.classList.add('role-state-active');
-            }
-          }
-        });
-      }
-
-      if (mainButton) {
-        mainButton.classList.remove('role-state-active-bg', 'role-state-user-bg');
-        if (currentState === roleManagementUiModule.ROLE_STATE_ACTIVE) {
-          mainButton.classList.add('role-state-active-bg');
-        } else if (currentState === roleManagementUiModule.ROLE_STATE_USER_CONTROL) {
-          mainButton.classList.add('role-state-user-bg');
+    stateButtonsDiv.childNodes.forEach(btn => {
+      if (btn.classList.contains('role-state-button')) {
+        btn.classList.remove('role-state-active');
+        if (btn.dataset.state === currentState) {
+          btn.classList.add('role-state-active');
         }
       }
+    });
+
+    mainButton.classList.remove('role-state-active-bg', 'role-state-user-bg');
+    if (currentState === roleManagementUiModule.ROLE_STATE_ACTIVE) {
+      mainButton.classList.add('role-state-active-bg');
+    } else if (currentState === roleManagementUiModule.ROLE_STATE_USER_CONTROL) {
+      mainButton.classList.add('role-state-user-bg');
     }
   },
 
   createAndEditMessageForRole: async (roleName) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const activePartition = chatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!activePartition) {
-      _logAndDisplayError("请先选择一个激活的分区。", "roleManagementUiModule.createAndEditMessageForRole");
-      return;
-    }
-    const roleAlias = (activePartition.roleAliases || []).find(alias => alias.name === roleName);
+    const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
+    const roleAlias = activePartition.roleAliases.find(alias => alias.name === roleName);
     if (!roleAlias) {
-      _logAndDisplayError(`角色 "${roleName}" 不在当前分区。`, "roleManagementUiModule.createAndEditMessageForRole");
-      return;
+      throw new Error(`角色 "${roleName}" 不在当前分区。`);
     }
     const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
     const roleType = isPermanent ? 'role' : 'temporary_role';
@@ -343,19 +324,12 @@ const roleManagementUiModule = {
     });
 
     const partitionContainer = stateModule.partitionDOMCache.get(stateModule.activePartitionId);
-    const newElement = partitionContainer ? partitionContainer.querySelector(`.message-container[data-message-id="${msgId}"]`) : null;
+    const newElement = partitionContainer.querySelector(`.message-container[data-message-id="${msgId}"]`);
 
-    if (newElement && typeof uiMessageEditorModule !== 'undefined') {
-      uiMessageEditorModule.startEdit(newElement);
-    }
+    uiMessageEditorModule.startEdit(newElement);
   },
 
   createAdminMessage: async () => {
-    const activePartition = stateModule.currentChatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!activePartition) {
-      _logAndDisplayError("请先选择一个激活的分区。", "roleManagementUiModule.createAdminMessage");
-      return;
-    }
     const adminRoleName = '用户';
     const msgId = uiChatUtilsModule._generateMessageId();
     const timestamp = Date.now();
@@ -387,32 +361,24 @@ const roleManagementUiModule = {
     });
 
     const partitionContainer = stateModule.partitionDOMCache.get(stateModule.activePartitionId);
-    const newElement = partitionContainer ? partitionContainer.querySelector(`.message-container[data-message-id="${msgId}"]`) : null;
+    const newElement = partitionContainer.querySelector(`.message-container[data-message-id="${msgId}"]`);
 
-    if (newElement && typeof uiMessageEditorModule !== 'undefined') {
-      uiMessageEditorModule.startEdit(newElement);
-    }
+    uiMessageEditorModule.startEdit(newElement);
   },
 
   addTemporaryRole: async (roleName) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const activePartition = chatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!activePartition) {
-      _logAndDisplayError("添加失败：没有激活的分区。", 'roleManagementUiModule.addTemporaryRole');
-      return false;
-    }
+    const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
     if (!roleName || typeof roleName !== 'string' || roleName.trim() === '') {
-      _logAndDisplayError("添加失败：名称不能为空。", 'roleManagementUiModule.addTemporaryRole');
-      return false;
+      throw new Error("添加失败：名称不能为空。");
     }
     const trimmedName = roleName.trim();
-    if ((activePartition.roleAliases || []).some(alias => alias.name === trimmedName)) {
-      _logAndDisplayError(`添加失败：名称 "${trimmedName}" 已存在于当前分区。`, 'roleManagementUiModule.addTemporaryRole');
-      return false;
+    if (activePartition.roleAliases.some(alias => alias.name === trimmedName)) {
+      throw new Error(`添加失败：名称 "${trimmedName}" 已存在于当前分区。`);
     }
 
     const newRoleAliases = [
-      ...(activePartition.roleAliases || []), {
+      ...activePartition.roleAliases, {
         name: trimmedName,
         alias: "",
         state: roleManagementUiModule.ROLE_STATE_ACTIVE,
@@ -432,19 +398,13 @@ const roleManagementUiModule = {
 
   deleteTemporaryRole: async (roleName, confirmDeletion = true) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const currentPartition = chatroomDetails?.partitions?.get(stateModule.activePartitionId);
-    if (!currentPartition) {
-      _logAndDisplayError("删除失败：没有激活的分区。", 'roleManagementUiModule.deleteTemporaryRole');
-      return false;
-    }
+    const currentPartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
     if (roleName === "用户") {
-      _logAndDisplayError("不能删除用户角色。", 'roleManagementUiModule.deleteTemporaryRole');
-      return false;
+      throw new Error("不能删除用户角色。");
     }
-    const isPermanent = (chatroomDetails.roles || []).some(r => r.name === roleName);
+    const isPermanent = chatroomDetails.roles.some(r => r.name === roleName);
     if (isPermanent) {
-      _logAndDisplayError(`删除失败：角色 "${roleName}" 不是临时角色。`, 'roleManagementUiModule.deleteTemporaryRole');
-      return false;
+      throw new Error(`删除失败：角色 "${roleName}" 不是临时角色。`);
     }
 
     let partitionsToUpdate = [currentPartition];
@@ -454,9 +414,9 @@ const roleManagementUiModule = {
     }
 
     for (const p of partitionsToUpdate) {
-      const roleExists = (p.roleAliases || []).some(alias => alias.name === roleName);
+      const roleExists = p.roleAliases.some(alias => alias.name === roleName);
       if (roleExists) {
-        const newRoleAliases = (p.roleAliases || []).filter(alias => alias.name !== roleName);
+        const newRoleAliases = p.roleAliases.filter(alias => alias.name !== roleName);
         await transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
           chatroomName: chatroomDetails.config.name,
           partitionId: p.id,
@@ -470,11 +430,7 @@ const roleManagementUiModule = {
   },
 
   handleUserControlTriggerClick: () => {
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-    if (!activePartition || !activePartition.roleAliases) {
-      return;
-    }
-
+    const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
     const userControlRoles = activePartition.roleAliases
       .filter(alias => alias.state === roleManagementUiModule.ROLE_STATE_USER_CONTROL)
       .map(alias => alias.name);
@@ -498,23 +454,19 @@ const roleManagementUiModule = {
         targetRoleName = userControlRoles[0];
       }
     }
-    if (targetRoleName) {
-      roleManagementUiModule.createAndEditMessageForRole(targetRoleName);
-    }
+    roleManagementUiModule.createAndEditMessageForRole(targetRoleName);
   },
 
   handleActivateButtonLongPress: async (roleName) => {
     let initiatorMessageId = null;
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-    if (activePartition && activePartition.history && activePartition.history.length > 0) {
+    const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
+    if (activePartition.history.length > 0) {
       initiatorMessageId = activePartition.history[activePartition.history.length - 1].id;
     } else {
       initiatorMessageId = stateModule.activePartitionId;
     }
     if (!initiatorMessageId) {
-      _logAndDisplayError(`Cannot activate role ${roleName}: initiatorMessageId could not be determined for partition ${stateModule.activePartitionId}.`, 'roleManagementUiModule.handleActivateButtonLongPress');
-      roleManagementUiModule.hideRoleStateButtons();
-      return;
+      throw new Error(`Cannot activate role ${roleName}: initiatorMessageId could not be determined.`);
     }
     await new Promise(resolve => setTimeout(resolve, 0));
     apiMainTriggerModule.triggerRoleResponse(stateModule.activePartitionId, roleName, null, {

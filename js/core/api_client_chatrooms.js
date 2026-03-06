@@ -1,53 +1,30 @@
 const apiClientChatroomsModule = {
   fetchChatroomDetails: async (chatroomName) => {
-    if (!chatroomName) {
-      return null;
-    }
     const result = await apiServiceModule.performApiCall(`/chatroom-details/${encodeURIComponent(chatroomName)}`);
-    if (result.success && result.data) {
-      return result.data;
-    } else {
-      _logAndDisplayError(`Failed to fetch details for chatroom ${chatroomName}: ${result.error?.message}`, 'apiClientChatroomsModule.fetchChatroomDetails');
-      return null;
-    }
+    return result.data;
   },
   createChatroom: async (payload) => {
-    return await apiServiceModule.performApiCall('/create-chatroom', 'POST', {
-      chatroom_name: payload.name
-    });
+    return await apiServiceModule.performApiCall('/create-chatroom', 'POST', { chatroom_name: payload.name });
   },
   deleteChatroom: async (payload) => {
     return await apiServiceModule.performApiCall(`/delete-chatroom/${encodeURIComponent(payload.chatroomName)}`, 'DELETE');
   },
   renameChatroom: async (payload) => {
-    return await apiServiceModule.performApiCall(`/rename-chatroom/${encodeURIComponent(payload.oldName)}`, 'PUT', {
-      new_name: payload.newName
-    });
+    return await apiServiceModule.performApiCall(`/rename-chatroom/${encodeURIComponent(payload.oldName)}`, 'PUT', { new_name: payload.newName });
   },
   updateChatroom: async (payload) => {
     return await apiServiceModule.performApiCall(`/update-chatroom-config/${encodeURIComponent(payload.chatroomName)}`, 'POST', payload.updates);
   },
   setBackground: async (payload) => {
-    const {
-      chatroomName,
-      imageData
-    } = payload;
-    let apiPayload, isFormData = false;
-    if (imageData instanceof File) {
+    const { chatroomName, imageData } = payload;
+    let apiPayload;
+    const isFormData = imageData instanceof File;
+    
+    if (isFormData) {
       apiPayload = new FormData();
       apiPayload.append('image', imageData);
-      isFormData = true;
-    } else if (typeof imageData === 'string') {
-      apiPayload = {
-        imageDataUrl: imageData
-      };
     } else {
-      return {
-        success: false,
-        error: {
-          message: "Invalid image data type for setBackground."
-        }
-      };
+      apiPayload = { imageDataUrl: imageData };
     }
     return await apiServiceModule.performApiCall(`/background/${encodeURIComponent(chatroomName)}`, 'POST', apiPayload, {}, null, isFormData);
   },
@@ -55,9 +32,7 @@ const apiClientChatroomsModule = {
     return await apiServiceModule.performApiCall(`/background/${encodeURIComponent(payload.chatroomName)}`, 'DELETE');
   },
   createPartition: async (payload) => {
-    return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions`, 'POST', {
-      partition_name: payload.partitionName
-    });
+    return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions`, 'POST', { partition_name: payload.partitionName });
   },
   deletePartition: async (payload) => {
     return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions/${encodeURIComponent(payload.partitionId)}`, 'DELETE');
@@ -75,9 +50,7 @@ const apiClientChatroomsModule = {
     return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions/${encodeURIComponent(payload.partitionId)}/history/${encodeURIComponent(payload.messageId)}`, 'DELETE');
   },
   deleteHistoryFrom: async (payload) => {
-    return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions/${encodeURIComponent(payload.partitionId)}/history/delete_from`, 'POST', {
-      message_id: payload.messageId
-    });
+    return await apiServiceModule.performApiCall(`/chatrooms/${encodeURIComponent(payload.chatroomName)}/partitions/${encodeURIComponent(payload.partitionId)}/history/delete_from`, 'POST', { message_id: payload.messageId });
   },
   createRole: async (payload) => {
     return await apiServiceModule.performApiCall(`/roles/${encodeURIComponent(payload.chatroomName)}`, 'POST', payload.roleData);
@@ -89,9 +62,7 @@ const apiClientChatroomsModule = {
     return await apiServiceModule.performApiCall(`/roles/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.roleName)}`, 'PUT', payload.updates);
   },
   updateRoleMemoryOnly: async (payload) => {
-    return await apiServiceModule.performApiCall(`/roles/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.roleName)}/memory_only`, 'PUT', {
-      memory: payload.memory
-    });
+    return await apiServiceModule.performApiCall(`/roles/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.roleName)}/memory_only`, 'PUT', { memory: payload.memory });
   },
   addRoleMemory: async (payload) => {
     return await apiServiceModule.performApiCall(`/roles/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.roleName)}/memory`, 'POST', payload.memoryItem);
@@ -121,19 +92,11 @@ const apiClientChatroomsModule = {
     return await apiServiceModule.performApiCall(`/novels/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.novelId)}`, 'PUT', payload.novelUpdates);
   },
   updateNovelTocEntry: async (payload) => {
-    const updatePayload = {
-      toc_entry_update: {
-        index: payload.tocIndex,
-        ...payload.tocUpdates
-      }
-    };
+    const updatePayload = { toc_entry_update: { index: payload.tocIndex, ...payload.tocUpdates } };
     return await apiServiceModule.performApiCall(`/novels/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.novelId)}`, 'PUT', updatePayload);
   },
   replaceNovelContent: async (payload) => {
-    return await apiServiceModule.performApiCall(`/novels/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.novelId)}/replace`, 'POST', {
-        search_term: payload.searchTerm,
-        replace_term: payload.replaceTerm
-    });
+    return await apiServiceModule.performApiCall(`/novels/${encodeURIComponent(payload.chatroomName)}/${encodeURIComponent(payload.novelId)}/replace`, 'POST', { search_term: payload.searchTerm, replace_term: payload.replaceTerm });
   },
   getEvents: async (chatroomName) => {
     return await apiServiceModule.performApiCall(`/events/${encodeURIComponent(chatroomName)}`);
@@ -151,9 +114,7 @@ const apiClientChatroomsModule = {
     return await apiServiceModule.performApiCall('/knowledge-groups');
   },
   createKnowledgeGroup: async (groupName) => {
-    return await apiServiceModule.performApiCall('/knowledge-groups', 'POST', {
-      group_name: groupName
-    });
+    return await apiServiceModule.performApiCall('/knowledge-groups', 'POST', { group_name: groupName });
   },
   deleteKnowledgeGroup: async (groupName) => {
     return await apiServiceModule.performApiCall(`/knowledge-groups/${encodeURIComponent(groupName)}`, 'DELETE');

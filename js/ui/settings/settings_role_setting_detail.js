@@ -10,17 +10,12 @@ const settingsRoleSettingDetailModule = {
     stateModule.currentRole = roleName;
     const chatroomDetails = stateModule.currentChatroomDetails;
     const roleData = chatroomDetails.roles.find(r => r.name === roleName);
-    if (!roleData) return;
-
     const roleIndex = chatroomDetails.roles.indexOf(roleData);
 
     const container = document.getElementById('role-setting-detail-page').querySelector('.settings-group');
-    if (!container) return;
     container.innerHTML = '';
 
-    if (elementsModule.roleSettingDetailHeaderTitle) {
-      elementsModule.roleSettingDetailHeaderTitle.textContent = `角色设定 - ${roleName}`;
-    }
+    elementsModule.roleSettingDetailHeaderTitle.textContent = `角色设定 - ${roleName}`;
 
     const grid = document.createElement('div');
     grid.className = 'role-setting-detail-grid';
@@ -102,10 +97,10 @@ const settingsRoleSettingDetailModule = {
       settingsUiHelpersModule.loadDynamicSetting(container.querySelector(`#${field.id}`), field.configPath);
     });
 
-    const archetypes = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.roles[${roleIndex}].archetypes`) || [];
+    const archetypes = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.roles[${roleIndex}].archetypes`);
     settingsUiHelpersModule.renderTagList(container.querySelector('#role-archetypes-container'), archetypes, 'archetypes', `currentChatroomDetails.roles[${roleIndex}].archetypes`);
 
-    const keywords = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.roles[${roleIndex}].keywords`) || [];
+    const keywords = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.roles[${roleIndex}].keywords`);
     settingsUiHelpersModule.renderTagList(container.querySelector('#role-keywords-container'), keywords, 'keywords', `currentChatroomDetails.roles[${roleIndex}].keywords`);
 
     settingsUiHelpersModule.loadDynamicSetting(container.querySelector('#role-other-info-textarea'), `currentChatroomDetails.roles[${roleIndex}].otherInfo`);

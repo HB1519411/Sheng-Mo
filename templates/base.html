@@ -7,9 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            if (window.pdfjsLib) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            }
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         });
     </script>
 </head>
@@ -75,8 +73,6 @@
     <script src="/js/ui/settings/settings_role_memory_list.js"></script>
     <script src="/js/ui/settings/settings_role_public_info_list.js"></script>
     <script src="/js/ui/settings/settings_tool_list.js"></script>
-    <script src="/js/ui/settings/settings_chatroom_override_general_manager.js"></script>
-    <script src="/js/ui/settings/settings_chatroom_override_tools_manager.js"></script>
     
     <script src="/js/events.js"></script>
     <script src="/js/init.js"></script>

@@ -21,7 +21,7 @@ const settingsChatroomCurrentModule = {
       }
     });
 
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
+    const activePartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
     if (!activePartition) {
       const noPartitionWarning = document.createElement('p');
       noPartitionWarning.textContent = '当前聊天室没有激活的分区。请新建一个分区。';
@@ -85,43 +85,28 @@ const settingsChatroomCurrentModule = {
   },
 
   loadCurrentChatroomSettings: () => {
-    const chatroomDetails = stateModule.currentChatroomDetails;
-    if (!chatroomDetails || !chatroomDetails.config) return;
-
     const partitionId = stateModule.activePartitionId;
-    if (!partitionId) return;
-
-    const activePartition = chatroomDetails.partitions.get(partitionId);
-
     const roleplayRulesTextarea = document.getElementById('roleplay-rules-textarea');
-    if (roleplayRulesTextarea) settingsUiHelpersModule.loadDynamicSetting(roleplayRulesTextarea, `currentChatroomDetails.partitions.${partitionId}.roleplayRules`);
+    settingsUiHelpersModule.loadDynamicSetting(roleplayRulesTextarea, `currentChatroomDetails.partitions.${partitionId}.roleplayRules`);
 
-    const roleAliases = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.partitions.${partitionId}.roleAliases`) || [];
+    const roleAliases = settingsUiHelpersModule._getNestedState(`currentChatroomDetails.partitions.${partitionId}.roleAliases`);
     settingsUiHelpersModule.renderTagList(document.getElementById('partition-role-aliases-container'), roleAliases, 'roleAliases', `currentChatroomDetails.partitions.${partitionId}.roleAliases`);
 
     const scriptTextarea = document.getElementById('script-textarea');
-    if (scriptTextarea) {
-      settingsUiHelpersModule.loadDynamicSetting(scriptTextarea, `currentChatroomDetails.partitions.${stateModule.activePartitionId}.script`);
-    }
+    settingsUiHelpersModule.loadDynamicSetting(scriptTextarea, `currentChatroomDetails.partitions.${stateModule.activePartitionId}.script`);
 
     const publicInfoTextarea = document.getElementById('public-info-textarea');
-    if (publicInfoTextarea) settingsUiHelpersModule.loadDynamicSetting(publicInfoTextarea, 'currentChatroomDetails.config.publicInfo');
+    settingsUiHelpersModule.loadDynamicSetting(publicInfoTextarea, 'currentChatroomDetails.config.publicInfo');
 
     const userSettingInput = document.getElementById('chatroom-user-setting');
-    if (userSettingInput) settingsUiHelpersModule.loadDynamicSetting(userSettingInput, 'currentChatroomDetails.config.user');
+    settingsUiHelpersModule.loadDynamicSetting(userSettingInput, 'currentChatroomDetails.config.user');
 
     const partitionNameInput = document.getElementById('partition-name-setting');
-    if (partitionNameInput) settingsUiHelpersModule.loadDynamicSetting(partitionNameInput, `currentChatroomDetails.partitions.${partitionId}.name`);
-
-    const allowDrawingCheckbox = document.getElementById('allow-drawing-for-user-roles-checkbox');
-    if (allowDrawingCheckbox) settingsUiHelpersModule.loadDynamicSetting(allowDrawingCheckbox, 'currentChatroomDetails.config.allowDrawingForUserRoles');
-
+    settingsUiHelpersModule.loadDynamicSetting(partitionNameInput, `currentChatroomDetails.partitions.${partitionId}.name`);
   },
 
   _handleManualAddRoleAlias: () => {
     const inputElement = document.getElementById('partition-role-aliases-input');
-    if (!inputElement) return;
-
     const roleInput = inputElement.value.trim();
     if (!roleInput) return;
 
@@ -145,24 +130,22 @@ const settingsChatroomCurrentModule = {
 
   _addRoleAliasWithSync: (roleName, roleAlias) => {
     const currentPartition = stateModule.currentChatroomDetails.partitions.get(stateModule.activePartitionId);
-    if (!currentPartition) return;
-
     let partitionsToUpdate = [currentPartition];
     if (currentPartition.allowCrossPartitionHistoryAccess) {
       partitionsToUpdate = Array.from(stateModule.currentChatroomDetails.partitions.values())
         .filter(p => p.allowCrossPartitionHistoryAccess);
     }
 
-    const promises = partitionsToUpdate.map(p => {
+    partitionsToUpdate.forEach(p => {
       const configPath = `currentChatroomDetails.partitions.${p.id}.roleAliases`;
-      const currentAliases = settingsUiHelpersModule._getNestedState(configPath) || [];
+      const currentAliases = settingsUiHelpersModule._getNestedState(configPath);
       if (!currentAliases.some(alias => alias.name === roleName)) {
         const newAliases = [...currentAliases, {
           name: roleName,
           alias: roleAlias,
           state: '活'
         }];
-        return transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
+        transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
           chatroomName: stateModule.currentChatroomDetails.config.name,
           partitionId: p.id,
           updates: {
@@ -170,13 +153,12 @@ const settingsChatroomCurrentModule = {
           }
         });
       }
-      return Promise.resolve();
     });
   },
 
   _renderRoleAliasesSection: (container) => {
     const configPath = `currentChatroomDetails.partitions.${stateModule.activePartitionId}.roleAliases`;
-    const currentTags = settingsUiHelpersModule._getNestedState(configPath) || [];
+    const currentTags = settingsUiHelpersModule._getNestedState(configPath);
 
     const tagContainerWrapper = settingsUiHelpersModule.createSettingItem(container, {
       id: 'partition-role-aliases-container-wrapper',
@@ -260,11 +242,10 @@ const settingsChatroomCurrentModule = {
     }
 
     const chatroomDetails = stateModule.currentChatroomDetails;
-    const activePartition = chatroomDetails?.partitions.get(stateModule.activePartitionId);
-    if (!activePartition) return;
-
+    const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
+    
     const allChatroomRoles = chatroomDetails.roles.map(r => r.name);
-    const loadedRoleNames = new Set((activePartition.roleAliases || []).map(a => a.name));
+    const loadedRoleNames = new Set(activePartition.roleAliases.map(a => a.name));
     const availableRoles = allChatroomRoles.filter(name => !loadedRoleNames.has(name));
 
     menu.innerHTML = '';
@@ -294,12 +275,7 @@ const settingsChatroomCurrentModule = {
   _exportPartitionAsHtml: async () => {
     const chatroomDetails = stateModule.currentChatroomDetails;
     const partitionId = stateModule.activePartitionId;
-    const partition = chatroomDetails?.partitions?.get(partitionId);
-
-    if (!chatroomDetails || !partition) {
-      alert("无法获取当前分区信息。");
-      return;
-    }
+    const partition = chatroomDetails.partitions.get(partitionId);
 
     const loadingOverlay = document.getElementById('global-loading-overlay');
     if (loadingOverlay) loadingOverlay.classList.add('active');
@@ -308,18 +284,14 @@ const settingsChatroomCurrentModule = {
       const cssFiles = ['style_vars.css', 'style_layout.css', 'style_chat.css', 'style_settings.css', 'style_novel.css'];
       let cssContent = "";
       for (const file of cssFiles) {
-        try {
-          const response = await fetch(`/css/${file}`);
-          if (response.ok) {
-            cssContent += await response.text() + "\n";
-          }
-        } catch (e) {
-          console.warn(`Failed to fetch CSS file ${file}:`, e);
+        const response = await fetch(`/css/${file}`);
+        if (response.ok) {
+          cssContent += await response.text() + "\n";
         }
       }
 
       const compressImageToBase64 = async (url, quality = 0.8) => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
@@ -332,27 +304,10 @@ const settingsChatroomCurrentModule = {
                     const dataUrl = canvas.toDataURL('image/webp', quality);
                     resolve(dataUrl);
                 } catch (e) {
-                    console.warn("Canvas compression failed (maybe tainted), falling back.", e);
-                    resolve(url);
+                    reject(e);
                 }
             };
-            img.onerror = async () => {
-                console.warn("Image load failed for compression, attempting fallback to raw base64.");
-                if (url.startsWith('data:')) {
-                    resolve(url);
-                    return;
-                }
-                try {
-                    const response = await fetch(url);
-                    const blob = await response.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = () => resolve(url);
-                    reader.readAsDataURL(blob);
-                } catch (e) {
-                    resolve(url);
-                }
-            };
+            img.onerror = reject;
             img.src = url;
         });
       };
@@ -368,8 +323,6 @@ const settingsChatroomCurrentModule = {
       }
 
       const originalContainer = stateModule.partitionDOMCache.get(partitionId);
-      if (!originalContainer) throw new Error("Partition DOM not found in cache.");
-
       const clonedContainer = originalContainer.cloneNode(true);
       clonedContainer.style.display = 'flex';
       clonedContainer.style.flexDirection = 'column';
@@ -411,14 +364,13 @@ const settingsChatroomCurrentModule = {
               { id: 'imageView', label: 'imageView' }
             ];
 
-            let activeViewId = messageObject.activeView || 'time';
             const hasImage = stateModule.drawingMasterImageCache.has(messageId) || !!messageObject.drawingMasterContext;
+            let activeViewId = hasImage ? 'imageView' : 'character';
             
             controlsDiv.innerHTML = '';
             
             for (const view of views) {
                 const contentHTML = uiChatToolSpecificModule._formatStatusDisplayContent(null, view.id, messageObject);
-                
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = contentHTML;
                 const textContent = tempDiv.textContent.trim();
@@ -519,11 +471,9 @@ const settingsChatroomCurrentModule = {
       URL.revokeObjectURL(url);
 
     } catch (e) {
-      console.error("Export failed:", e);
       alert("导出失败: " + e.message);
     } finally {
       if (loadingOverlay) loadingOverlay.classList.remove('active');
     }
   }
-
 };

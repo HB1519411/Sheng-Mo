@@ -1,222 +1,91 @@
 const partitionRendererModule = {
   init: () => {
-    eventBus.on('HISTORY_CHANGED', (data) => {
-      const {
-        type,
-        payload
-      } = data;
-      const {
-        partitionId
-      } = payload;
+    eventBus.on('HISTORY_CHANGED', data => {
+      const { type, payload } = data;
+      const pid = payload.partitionId;
+      if (pid !== stateModule.activePartitionId && type === 'ADD_HISTORY_MESSAGE') {
+        stateModule.newMessagesInPartitions.add(pid);
+        partitionListManagerModule.updatePartitionList();
+      }
+      
+      const cont = stateModule.partitionDOMCache.get(pid);
+      if (!cont) return;
 
-      if (partitionId !== stateModule.activePartitionId) {
-        if (type === 'ADD_HISTORY_MESSAGE') {
-          stateModule.newMessagesInPartitions.add(partitionId);
-          partitionListManagerModule.updatePartitionList();
+      const actions = {
+        'ADD_HISTORY_MESSAGE': () => {
+          const ex = cont.querySelector(`.message-container[data-message-id="${payload.message.id}"]`);
+          if (!ex || ex.dataset.status === 'pending') {
+            const el = messageBubbleFactoryModule.createMessageBubble(payload.message, pid);
+            if (el) { ex ? ex.replaceWith(el) : cont.appendChild(el); if (pid === stateModule.activePartitionId) partitionRendererModule.scrollToBottom(); }
+          }
+        },
+        'UPDATE_HISTORY_MESSAGE': () => {
+          const m = stateModule.currentChatroomDetails.partitions.get(pid).history.find(x => x.id === payload.messageId);
+          const ex = cont.querySelector(`.message-container[data-message-id="${payload.messageId}"]`);
+          if (m && ex) { const el = messageBubbleFactoryModule.createMessageBubble(m, pid); if (el) ex.replaceWith(el); }
+        },
+        'DELETE_HISTORY_MESSAGE': () => {
+          cont.querySelector(`.message-container[data-message-id="${payload.messageId}"]`)?.remove();
+        },
+        'UPDATE_PARTITION_HISTORY': () => {
+          cont.innerHTML = '';
+          const frag = document.createDocumentFragment();
+          (payload.newHistory || []).forEach(m => { const el = messageBubbleFactoryModule.createMessageBubble(m, pid); if(el) frag.appendChild(el); });
+          cont.appendChild(frag);
+          if (pid === stateModule.activePartitionId) partitionRendererModule.scrollToBottom();
         }
-      }
-
-      const partitionContainer = stateModule.partitionDOMCache.get(partitionId);
-      if (!partitionContainer) return;
-
-      switch (type) {
-        case 'ADD_HISTORY_MESSAGE':
-          {
-            const messageObject = payload.message;
-            const existingElement = partitionContainer.querySelector(`.message-container[data-message-id="${messageObject.id}"]`);
-            if (existingElement && existingElement.dataset.status === 'pending') {
-            } else if (!existingElement) {
-              const newElement = messageBubbleFactoryModule.createMessageBubble(messageObject, partitionId);
-              if (newElement) {
-                partitionContainer.appendChild(newElement);
-                if (partitionId === stateModule.activePartitionId) {
-                  partitionRendererModule.scrollToBottom();
-                }
-              }
-            }
-            break;
-          }
-        case 'UPDATE_HISTORY_MESSAGE':
-          {
-            const messageId = payload.messageId;
-            const messageObject = stateModule.currentChatroomDetails.partitions.get(partitionId).history.find(m => m.id === messageId);
-            if (messageObject) {
-              const existingElement = partitionContainer.querySelector(`.message-container[data-message-id="${messageId}"]`);
-              if (existingElement) {
-                const newElement = messageBubbleFactoryModule.createMessageBubble(messageObject, partitionId);
-                if (newElement) {
-                  existingElement.replaceWith(newElement);
-                }
-              }
-            }
-            break;
-          }
-        case 'DELETE_HISTORY_MESSAGE':
-          {
-            const messageId = payload.messageId;
-            const elementToRemove = partitionContainer.querySelector(`.message-container[data-message-id="${messageId}"]`);
-            if (elementToRemove) {
-              elementToRemove.remove();
-            }
-            break;
-          }
-        case 'UPDATE_PARTITION_HISTORY':
-          {
-            partitionContainer.innerHTML = '';
-            const newHistory = payload.newHistory || [];
-            const fragment = document.createDocumentFragment();
-            newHistory.forEach(msgObj => {
-                const newElement = messageBubbleFactoryModule.createMessageBubble(msgObj, partitionId);
-                if (newElement) fragment.appendChild(newElement);
-            });
-            partitionContainer.appendChild(fragment);
-            if (partitionId === stateModule.activePartitionId) {
-              partitionRendererModule.scrollToBottom();
-            }
-            break;
-          }
-      }
+      };
+      if (actions[type]) actions[type]();
     });
-
-    eventBus.on('PARTITION_SWITCHED', (data) => {
-      if (data.newPartitionId) {
-        partitionRendererModule.renderChatAreaForPartition(data.newPartitionId);
-      }
-    });
+    
+    eventBus.on('PARTITION_SWITCHED', data => { if (data.newPartitionId) partitionRendererModule.renderChatAreaForPartition(data.newPartitionId); });
   },
 
-  createPlaceholderElement: (partitionId, roleName, roleType, targetRoleName, messageId) => {
-    if (roleName === 'statusProcessingSystem' || roleName === 'drawingMaster') {
-      return null;
-    }
-
-    const effectiveMessageId = messageId || uiChatUtilsModule._generateMessageId();
-
-    const placeholderMessageObject = {
-      id: effectiveMessageId,
-      timestamp: Date.now(),
-      sourceType: 'ai',
-      roleName: roleName,
-      roleType: roleType,
-      targetRoleName: targetRoleName,
-      speechActionText: '[正在响应]',
-      rawJson: null,
-      parsedResult: null,
-      displayMode: 'formatted',
-      parserError: null,
-      status: 'pending',
-    };
-
-    return messageBubbleFactoryModule.createMessageBubble(placeholderMessageObject, partitionId);
+  createPlaceholderElement: (pid, rName, rType, targetName, mId) => {
+    if (['statusProcessingSystem', 'drawingMaster'].includes(rName)) return null;
+    return messageBubbleFactoryModule.createMessageBubble({ id: mId || uiChatUtilsModule._generateMessageId(), timestamp: Date.now(), sourceType: 'ai', roleName: rName, roleType: rType, targetRoleName: targetName, speechActionText: '[正在响应]', status: 'pending' }, pid);
   },
 
-  updateMessageElementStatus: (messageId, statusText, isImageUpdate = false) => {
-    if (isImageUpdate) {
-        return;
-    }
-    const activePartition = stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId);
-    if (!activePartition) return;
-
-    const selector = `.message-container[data-message-id="${messageId}"]`;
-    const messageContainer = document.querySelector(selector);
-
-    if (!messageContainer) return;
-    const messageObject = activePartition.history.find(msg => msg.id === messageId);
-    if (!messageObject) return;
-
-    const statusPanel = messageContainer.querySelector('.status-display-wrapper');
-    const contentDivInStatusPanel = statusPanel ? statusPanel.querySelector('.game-host-content') : null;
-
-    if (isImageUpdate) {
-      if (contentDivInStatusPanel && messageObject.activeView === 'imageView') {
-        contentDivInStatusPanel.innerHTML = uiChatToolSpecificModule._createValueBlock(statusText).outerHTML;
-      } else if (messageObject.activeView === 'imageView') {}
-    } else {
-      if (contentDivInStatusPanel && (messageObject.activeView !== 'imageView' || !isImageUpdate)) {
-        contentDivInStatusPanel.innerHTML = uiChatToolSpecificModule._createValueBlock(statusText).outerHTML;
-      }
+  updateMessageElementStatus: (mId, txt, isImg = false) => {
+    if (isImg) return;
+    const cd = document.querySelector(`.message-container[data-message-id="${mId}"] .game-host-content`);
+    if (cd && stateModule.currentChatroomDetails?.partitions.get(stateModule.activePartitionId)?.history.find(m => m.id === mId)?.activeView !== 'imageView') {
+      cd.innerHTML = uiChatToolSpecificModule._createValueBlock(txt).outerHTML;
     }
   },
 
   clearAllPartitionCaches: () => {
-    stateModule.partitionDOMCache.clear();
-    stateModule.partitionScrollPositions.clear();
-    if (elementsModule.chatArea) {
-      elementsModule.chatArea.innerHTML = '';
+    stateModule.partitionDOMCache.clear(); stateModule.partitionScrollPositions.clear();
+    elementsModule.chatArea.innerHTML = '';
+  },
+
+  renderChatAreaForPartition: (pid, isInit = false) => {
+    const cur = document.querySelector('#chat-area > div[data-partition-id][style*="display: block"]');
+    if (cur) stateModule.partitionScrollPositions.set(cur.dataset.partitionId, elementsModule.chatArea.scrollTop);
+    
+    stateModule.partitionDOMCache.forEach((c, id) => c.style.display = id === pid ? 'block' : 'none');
+    
+    if (stateModule.partitionDOMCache.has(pid)) {
+      requestAnimationFrame(() => {
+        const top = stateModule.partitionScrollPositions.get(pid);
+        isInit || typeof top !== 'number' ? partitionRendererModule.scrollToBottom() : (elementsModule.chatArea.scrollTop = top);
+      });
     }
   },
 
-  renderChatAreaForPartition: (partitionId, isInitialLoadOrSwitch = false) => {
-    const currentlyVisible = document.querySelector('#chat-area > div[data-partition-id][style*="display: block"]');
-    if (currentlyVisible) {
-        const visiblePartitionId = currentlyVisible.dataset.partitionId;
-        if (visiblePartitionId && elementsModule.chatArea) {
-            stateModule.partitionScrollPositions.set(visiblePartitionId, elementsModule.chatArea.scrollTop);
-        }
-    }
-
-    stateModule.partitionDOMCache.forEach((container, id) => {
-        if (id !== partitionId) {
-            container.style.display = 'none';
-        }
-    });
-
-    const targetContainer = stateModule.partitionDOMCache.get(partitionId);
-    if (targetContainer) {
-        targetContainer.style.display = 'block';
-        if (isInitialLoadOrSwitch) {
-            requestAnimationFrame(() => partitionRendererModule.scrollToBottom());
-        } else {
-            const savedScrollTop = stateModule.partitionScrollPositions.get(partitionId);
-            if (typeof savedScrollTop === 'number' && elementsModule.chatArea) {
-                elementsModule.chatArea.scrollTop = savedScrollTop;
-            } else {
-                requestAnimationFrame(() => partitionRendererModule.scrollToBottom());
-            }
-        }
-    }
-  },
-  
-  addMessageElement: (messageObject, partitionId) => {
-    const partitionContainer = stateModule.partitionDOMCache.get(partitionId);
-    if (!partitionContainer) {
-      return null;
-    }
-    const newElement = messageBubbleFactoryModule.createMessageBubble(messageObject, partitionId);
-    if (newElement) {
-      partitionContainer.appendChild(newElement);
-      partitionRendererModule.scrollToBottom();
-    }
-    return newElement;
+  addMessageElement: (mObj, pid) => {
+    const cont = stateModule.partitionDOMCache.get(pid);
+    if (!cont) return null;
+    const el = messageBubbleFactoryModule.createMessageBubble(mObj, pid);
+    if (el) { cont.appendChild(el); partitionRendererModule.scrollToBottom(); }
+    return el;
   },
 
-  scrollToBottom: () => {
-    if (elementsModule.chatArea) {
-      elementsModule.chatArea.scrollTop = elementsModule.chatArea.scrollHeight;
-    }
-  },
-
-  showLoadingSpinner: () => {
-    if (elementsModule.loadingSpinner) {
-      elementsModule.loadingSpinner.style.display = 'block';
-      elementsModule.loadingSpinner.classList.add('spinning');
-    }
-  },
-
-  hideLoadingSpinner: () => {
-    if (elementsModule.loadingSpinner) {
-      elementsModule.loadingSpinner.style.display = 'none';
-      elementsModule.loadingSpinner.classList.remove('spinning');
-    }
-  },
-
+  scrollToBottom: () => { elementsModule.chatArea.scrollTop = elementsModule.chatArea.scrollHeight; },
+  showLoadingSpinner: () => { elementsModule.loadingSpinner.style.display = 'block'; elementsModule.loadingSpinner.classList.add('spinning'); },
+  hideLoadingSpinner: () => { elementsModule.loadingSpinner.style.display = 'none'; elementsModule.loadingSpinner.classList.remove('spinning'); },
   showRetryIndicator: () => {
-    const spinner = elementsModule.loadingSpinner;
-    if (spinner) {
-      spinner.classList.add('retry-indicator');
-      setTimeout(() => {
-        spinner.classList.remove('retry-indicator');
-      }, 200);
-    }
-  },
+    elementsModule.loadingSpinner.classList.add('retry-indicator');
+    setTimeout(() => elementsModule.loadingSpinner.classList.remove('retry-indicator'), 200);
+  }
 };

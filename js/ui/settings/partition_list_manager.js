@@ -1,35 +1,33 @@
 const partitionListManagerModule = {
-  init: () => {
-    
-  },
+  init: () => {},
 
   updatePartitionList: () => {
     const container = elementsModule.partitionListContainer;
-    if (!container) return;
     container.innerHTML = '';
     const chatroomDetails = stateModule.currentChatroomDetails;
-    if (!chatroomDetails || !chatroomDetails.partitions || chatroomDetails.partitions.size === 0) {
+    if (chatroomDetails.partitions.size === 0) {
       container.style.display = 'none';
       return;
     }
 
     const fragment = document.createDocumentFragment();
     const orderedPartitions = [];
-    const order = chatroomDetails.config.partitionsOrder || [];
+    const order = chatroomDetails.config.partitionsOrder;
     const existingPartitionIds = new Set();
+    
     order.forEach(pid => {
-      if (chatroomDetails.partitions.has(pid)) {
-        orderedPartitions.push(chatroomDetails.partitions.get(pid));
-        existingPartitionIds.add(pid);
-      }
+      orderedPartitions.push(chatroomDetails.partitions.get(pid));
+      existingPartitionIds.add(pid);
     });
+    
     chatroomDetails.partitions.forEach(p => {
       if (!existingPartitionIds.has(p.id)) {
         orderedPartitions.push(p);
       }
     });
+    
     orderedPartitions.forEach(partition => {
-      const isNew = stateModule.newMessagesInPartitions?.has(partition.id);
+      const isNew = stateModule.newMessagesInPartitions.has(partition.id);
       const item = partitionListManagerModule._createPartitionListItem(partition, isNew);
       fragment.appendChild(item);
     });
@@ -38,14 +36,8 @@ const partitionListManagerModule = {
     const nameDisplay = document.getElementById('current-partition-name-display');
     if (nameDisplay && nameDisplay.closest('.setting-page-template.active')) {
       const activePartition = chatroomDetails.partitions.get(stateModule.activePartitionId);
-      if (activePartition) {
-        nameDisplay.textContent = partitionListManagerModule.getDynamicPartitionName(activePartition);
-      }
+      nameDisplay.textContent = activePartition.name;
     }
-  },
-
-  getDynamicPartitionName: (partition) => {
-    return partition ? partition.name : '未命名分区';
   },
 
   _createPartitionListItem: (partition, isNewMessage) => {
@@ -66,15 +58,14 @@ const partitionListManagerModule = {
     const accessCheckbox = document.createElement('input');
     accessCheckbox.type = 'checkbox';
     accessCheckbox.id = accessCheckboxId;
-    accessCheckbox.checked = partition.allowCrossPartitionHistoryAccess === true;
+    accessCheckbox.checked = partition.allowCrossPartitionHistoryAccess;
     accessCheckbox.addEventListener('change', (e) => {
       e.stopPropagation();
-      const isChecked = e.target.checked;
       transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
         chatroomName: stateModule.currentChatroomDetails.config.name,
         partitionId: partition.id,
         updates: {
-          allowCrossPartitionHistoryAccess: isChecked
+          allowCrossPartitionHistoryAccess: e.target.checked
         }
       });
     });
@@ -82,7 +73,7 @@ const partitionListManagerModule = {
     item.appendChild(accessCheckboxContainer);
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = partitionListManagerModule.getDynamicPartitionName(partition);
+    nameSpan.textContent = partition.name;
     nameSpan.style.flexGrow = '1';
     nameSpan.style.textAlign = 'center';
     nameSpan.style.cursor = 'pointer';
@@ -99,19 +90,18 @@ const partitionListManagerModule = {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = checkboxId;
-    checkbox.checked = partition.isSwitchable !== false;
+    checkbox.checked = partition.isSwitchable;
 
     const label = document.createElement('label');
     label.htmlFor = checkboxId;
 
     checkbox.addEventListener('change', (e) => {
       e.stopPropagation();
-      const isChecked = e.target.checked;
       transactionManagerModule.dispatch('UPDATE_PARTITION_FIELDS', {
         chatroomName: stateModule.currentChatroomDetails.config.name,
         partitionId: partition.id,
         updates: {
-          isSwitchable: isChecked
+          isSwitchable: e.target.checked
         }
       });
     });
@@ -154,13 +144,12 @@ const partitionListManagerModule = {
 
   handleDeletePartition: (partitionId) => {
     const chatroomDetails = stateModule.currentChatroomDetails;
-    if (!chatroomDetails || !chatroomDetails.config.name || !chatroomDetails.partitions.has(partitionId)) return;
     if (chatroomDetails.partitions.size <= 1) {
       alert("至少需要保留一个分区。");
       return;
     }
     const partitionToDelete = chatroomDetails.partitions.get(partitionId);
-    if (!confirm(`确定要删除分区 "${partitionListManagerModule.getDynamicPartitionName(partitionToDelete)}" 吗？此操作不可恢复！`)) return;
+    if (!confirm(`确定要删除分区 "${partitionToDelete.name}" 吗？此操作不可恢复！`)) return;
 
     transactionManagerModule.dispatch('DELETE_PARTITION', {
       chatroomName: chatroomDetails.config.name,
@@ -172,12 +161,9 @@ const partitionListManagerModule = {
     if (stateModule.isPartitionSwitchingCooldown) return;
 
     const chatroomDetails = stateModule.currentChatroomDetails;
-    if (!chatroomDetails || !chatroomDetails.config) return;
-
-    const partitionOrder = chatroomDetails.config.partitionsOrder || [];
+    const partitionOrder = chatroomDetails.config.partitionsOrder;
     const switchablePartitions = partitionOrder.filter(id => {
-      const p = chatroomDetails.partitions.get(id);
-      return p && p.isSwitchable;
+      return chatroomDetails.partitions.get(id).isSwitchable;
     });
 
     if (switchablePartitions.length < 2) return;
@@ -195,7 +181,7 @@ const partitionListManagerModule = {
     }
 
     const nextPartitionId = switchablePartitions[nextIndex];
-    if (nextPartitionId && nextPartitionId !== currentPartitionId) {
+    if (nextPartitionId !== currentPartitionId) {
       stateModule.isPartitionSwitchingCooldown = true;
       transactionManagerModule.dispatch('SWITCH_ACTIVE_PARTITION', {
         partitionId: nextPartitionId

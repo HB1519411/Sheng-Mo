@@ -8,10 +8,7 @@ def is_safe_path(path, base_dir=None):
     else:
         base_dir = os.path.abspath(base_dir)
 
-    try:
-        target_path_abs = os.path.abspath(path)
-    except Exception:
-        return False
+    target_path_abs = os.path.abspath(path)
 
     if os.path.commonprefix([target_path_abs, base_dir]) != base_dir:
         return False

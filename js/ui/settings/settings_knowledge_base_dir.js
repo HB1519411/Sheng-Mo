@@ -1,180 +1,142 @@
 const settingsKnowledgeBaseDirModule = {
   init: () => {
-    const page = document.getElementById('knowledge-base-directory-page');
-    if (!page) return;
-
-    const addButton = document.getElementById('add-knowledge-group-button');
-    if (addButton) {
-      addButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) settingsKnowledgeBaseDirModule.addGroup();
-      });
-    }
+    document.getElementById('add-knowledge-group-button').addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) settingsKnowledgeBaseDirModule.addGroup();
+    });
     
-    if (elementsModule.importKnowledgeJsonButton) {
-        elementsModule.importKnowledgeJsonButton.addEventListener('click', () => {
-            if (!stateModule.isCooldownActive) elementsModule.importKnowledgeJsonFile.click();
-        });
-    }
+    elementsModule.importKnowledgeJsonButton.addEventListener('click', () => {
+        if (!stateModule.isCooldownActive) elementsModule.importKnowledgeJsonFile.click();
+    });
     
-    if (elementsModule.importKnowledgeJsonFile) {
-        elementsModule.importKnowledgeJsonFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    if (!data.name || !data.entries) throw new Error("无效的知识组JSON格式");
-                    const payload = {
-                        group_name: data.name,
-                        entries: data.entries
-                    };
-                    const result = await apiClientChatroomsModule.importKnowledgeGroupFromData(payload);
-                    if (result.success && result.changes) {
-                        incrementalUpdateHandlerModule.processChanges(result.changes);
-                        alert(`导入成功！\n${result.message || ''}`);
-                    } else {
-                        alert(`导入失败: ${result.error?.message || '未知错误'}`);
-                    }
-                } catch (err) {
-                    alert(`解析JSON失败: ${err.message}`);
-                } finally {
-                    e.target.value = null;
+    elementsModule.importKnowledgeJsonFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                const payload = {
+                    group_name: data.name,
+                    entries: data.entries
+                };
+                const result = await apiClientChatroomsModule.importKnowledgeGroupFromData(payload);
+                if (result.success && result.changes) {
+                    incrementalUpdateHandlerModule.processChanges(result.changes);
+                    alert(`导入成功！\n${result.message || ''}`);
                 }
-            };
-            reader.readAsText(file);
-        });
-    }
-
-    if (elementsModule.importKnowledgeImageButton) {
-      elementsModule.importKnowledgeImageButton.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) elementsModule.importKnowledgeImageFile.click();
-      });
-    }
-    
-    if (elementsModule.importKnowledgeImageFile) {
-        elementsModule.importKnowledgeImageFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            if (file.type !== 'image/png') {
-                alert("请上传 PNG 格式的图片文件");
+            } catch (err) {
+                alert(`导入失败: ${err.message}`);
+                throw err;
+            } finally {
                 e.target.value = null;
-                return;
             }
+        };
+        reader.readAsText(file);
+    });
 
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const buffer = event.target.result;
-                    const uint8 = new Uint8Array(buffer);
-                    const view = new DataView(buffer);
-                    let offset = 8;
-                    let charData = null;
+    elementsModule.importKnowledgeImageButton.addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) elementsModule.importKnowledgeImageFile.click();
+    });
+    
+    elementsModule.importKnowledgeImageFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const buffer = event.target.result;
+                const uint8 = new Uint8Array(buffer);
+                const view = new DataView(buffer);
+                let offset = 8;
+                let charData = null;
 
-                    while (offset < buffer.byteLength) {
-                        const length = view.getUint32(offset);
-                        const type = String.fromCharCode(...uint8.slice(offset + 4, offset + 8));
-                        if (type === 'tEXt') {
-                            const data = uint8.slice(offset + 8, offset + 8 + length);
-                            let sep = data.indexOf(0);
-                            const keyword = new TextDecoder('iso-8859-1').decode(data.slice(0, sep));
-                            if (keyword === 'chara') {
-                                const base64Str = new TextDecoder('utf-8').decode(data.slice(sep + 1));
-                                charData = JSON.parse(decodeURIComponent(escape(atob(base64Str))));
-                                break;
-                            }
+                while (offset < buffer.byteLength) {
+                    const length = view.getUint32(offset);
+                    const type = String.fromCharCode(...uint8.slice(offset + 4, offset + 8));
+                    if (type === 'tEXt') {
+                        const data = uint8.slice(offset + 8, offset + 8 + length);
+                        let sep = data.indexOf(0);
+                        const keyword = new TextDecoder('iso-8859-1').decode(data.slice(0, sep));
+                        if (keyword === 'chara') {
+                            const base64Str = new TextDecoder('utf-8').decode(data.slice(sep + 1));
+                            charData = JSON.parse(decodeURIComponent(escape(atob(base64Str))));
+                            break;
                         }
-                        offset += 12 + length;
                     }
-                    
-                    if (!charData) throw new Error("未在图片中找到角色卡数据");
-                    
-                    let groupName = '导入的角色卡';
-                    if (charData.data && charData.data.name) groupName = charData.data.name;
-                    else if (charData.name) groupName = charData.name;
-                    
-                    const entriesToImport = [];
-
-                    const traverse = (obj) => {
-                        if (typeof obj !== 'object' || obj === null) return;
-                        for (const key in obj) {
-                            if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-                            const val = obj[key];
-
-                            if ((key === 'character_book' || key === 'lorebook') && val && Array.isArray(val.entries)) {
-                                val.entries.forEach(entry => {
-                                    entriesToImport.push({
-                                        name: entry.comment || entry.name || '未命名世界书条目',
-                                        keys: Array.isArray(entry.keys) ? entry.keys : [String(entry.keys || '')],
-                                        content: entry.content || ''
-                                    });
-                                });
-                                continue;
-                            }
-
-                            if (typeof val === 'string') {
-                                entriesToImport.push({
-                                    name: key,
-                                    keys: [],
-                                    content: val
-                                });
-                            } else if (typeof val === 'object') {
-                                traverse(val);
-                            }
-                        }
-                    };
-
-                    traverse(charData);
-
-                    if (entriesToImport.length === 0) {
-                        throw new Error("此角色卡图片中未找到任何有效文本内容");
-                    }
-                    
-                    const payload = {
-                        group_name: groupName,
-                        entries: entriesToImport
-                    };
-                    
-                    const result = await apiClientChatroomsModule.importKnowledgeGroupFromData(payload);
-                    if (result.success && result.changes) {
-                        incrementalUpdateHandlerModule.processChanges(result.changes);
-                        alert(`导入成功！\n${result.message || ''}`);
-                    } else {
-                        alert(`导入失败: ${result.error?.message || '未知错误'}`);
-                    }
-                    
-                } catch (err) {
-                    alert(`解析图片失败: ${err.message}`);
-                } finally {
-                    e.target.value = null;
+                    offset += 12 + length;
                 }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
+                
+                let groupName = charData.data.name ?? charData.name;
+                const entriesToImport = [];
 
-    const listContainer = document.getElementById('knowledge-group-list-container');
-    if (listContainer) {
-      listContainer.addEventListener('click', (event) => {
-        if (stateModule.isCooldownActive) return;
+                const traverse = (obj) => {
+                    if (typeof obj !== 'object' || obj === null) return;
+                    for (const key in obj) {
+                        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+                        const val = obj[key];
 
-        const groupItem = event.target.closest('.chatroom-item');
-        if (!groupItem) return;
+                        if ((key === 'character_book' || key === 'lorebook') && val && Array.isArray(val.entries)) {
+                            val.entries.forEach(entry => {
+                                entriesToImport.push({
+                                    name: entry.comment || entry.name,
+                                    keys: Array.isArray(entry.keys) ? entry.keys : [String(entry.keys)],
+                                    content: entry.content
+                                });
+                            });
+                            continue;
+                        }
 
-        const groupName = groupItem.dataset.groupName;
+                        if (typeof val === 'string') {
+                            entriesToImport.push({
+                                name: key,
+                                keys: [],
+                                content: val
+                            });
+                        } else if (typeof val === 'object') {
+                            traverse(val);
+                        }
+                    }
+                };
 
-        if (event.target.classList.contains('item-delete')) {
-          settingsKnowledgeBaseDirModule.deleteGroup(groupName);
-        } else if (event.target.classList.contains('item-rename')) {
-          settingsKnowledgeBaseDirModule.renameGroup(groupName);
-        } else if (event.target.classList.contains('item-export')) {
-          settingsKnowledgeBaseDirModule.exportGroup(groupName);
-        } else {
-          settingsPageManagerModule.showSection('knowledge-base-entries-page', groupName);
-        }
-      });
-    }
+                traverse(charData);
+                
+                const payload = {
+                    group_name: groupName,
+                    entries: entriesToImport
+                };
+                
+                const result = await apiClientChatroomsModule.importKnowledgeGroupFromData(payload);
+                if (result.success && result.changes) {
+                    incrementalUpdateHandlerModule.processChanges(result.changes);
+                    alert(`导入成功！\n${result.message || ''}`);
+                }
+            } catch (err) {
+                alert(`导入角色卡失败: ${err.message}`);
+                throw err;
+            } finally {
+                e.target.value = null;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('knowledge-group-list-container').addEventListener('click', (event) => {
+      if (stateModule.isCooldownActive) return;
+
+      const groupItem = event.target.closest('.chatroom-item');
+      if (!groupItem) return;
+
+      const groupName = groupItem.dataset.groupName;
+
+      if (event.target.classList.contains('item-delete')) {
+        settingsKnowledgeBaseDirModule.deleteGroup(groupName);
+      } else if (event.target.classList.contains('item-rename')) {
+        settingsKnowledgeBaseDirModule.renameGroup(groupName);
+      } else if (event.target.classList.contains('item-export')) {
+        settingsKnowledgeBaseDirModule.exportGroup(groupName);
+      } else {
+        settingsPageManagerModule.showSection('knowledge-base-entries-page', groupName);
+      }
+    });
+    
     eventBus.on('UI_UPDATE_GLOBAL', () => {
       if (stateModule.activeSettingPage === 'knowledge-base-directory-page') {
         settingsKnowledgeBaseDirModule.renderPage();
@@ -184,23 +146,17 @@ const settingsKnowledgeBaseDirModule = {
 
   renderPage: async () => {
     const container = document.getElementById('knowledge-group-list-container');
-    if (!container) return;
     container.innerHTML = '';
 
     const result = await apiClientChatroomsModule.getKnowledgeGroups();
-    if (result.success && result.data) {
-      if (result.data.length === 0) {
-        container.innerHTML = '<p style="text-align: center;">知识库为空。</p>';
-        return;
-      }
+    if (result.success && result.data && result.data.length > 0) {
       const fragment = document.createDocumentFragment();
       result.data.forEach(group => {
         fragment.appendChild(settingsKnowledgeBaseDirModule._createGroupListItem(group.name));
       });
       container.appendChild(fragment);
     } else {
-      _logAndDisplayError(`Failed to load knowledge groups: ${result.error?.message}`, 'settingsKnowledgeBaseDirModule.renderPage');
-      container.innerHTML = '<p style="text-align: center; color: red;">加载知识组失败。</p>';
+      container.innerHTML = '<p style="text-align: center;">知识库为空。</p>';
     }
   },
 
@@ -270,14 +226,12 @@ const settingsKnowledgeBaseDirModule = {
       const result = await apiClientChatroomsModule.renameKnowledgeGroup(oldName, newName.trim());
       if (result.success && result.changes) {
           incrementalUpdateHandlerModule.processChanges(result.changes);
-      } else {
-          alert(`重命名失败: ${result.error?.message || '未知错误'}`);
       }
   },
   
   exportGroup: async (groupName) => {
       const result = await apiClientChatroomsModule.getKnowledgeGroupEntries(groupName);
-      if (result.success) {
+      if (result.success && result.data) {
           const exportData = {
               name: groupName,
               entries: result.data
@@ -291,8 +245,6 @@ const settingsKnowledgeBaseDirModule = {
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-      } else {
-          alert(`导出失败: 获取词条数据失败 - ${result.error?.message || '未知错误'}`);
       }
   }
 };

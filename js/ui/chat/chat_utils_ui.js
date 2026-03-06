@@ -2,29 +2,14 @@ const uiChatUtilsModule = {
   audioContext: null,
   init: () => {},
   playBeep: () => {
-    if (!uiChatUtilsModule.audioContext) {
-      try {
-        uiChatUtilsModule.audioContext = new(window.AudioContext || window.webkitAudioContext)();
-        if (uiChatUtilsModule.audioContext.state === 'suspended') {
-          uiChatUtilsModule.audioContext.resume();
-        }
-      } catch (e) {
-        console.error("Web Audio API is not supported in this browser", e);
-        return;
-      }
-    }
-    if (!uiChatUtilsModule.audioContext) return;
-    if (uiChatUtilsModule.audioContext.state === 'suspended') {
-      uiChatUtilsModule.audioContext.resume().then(() => {
-        uiChatUtilsModule._doPlayBeep(uiChatUtilsModule.audioContext);
-      }).catch(e => console.error("Failed to resume AudioContext:", e));
-    } else {
-      uiChatUtilsModule._doPlayBeep(uiChatUtilsModule.audioContext);
-    }
-  },
-
-  _doPlayBeep: (ctx) => {
     try {
+      if (!uiChatUtilsModule.audioContext) {
+        uiChatUtilsModule.audioContext = new(window.AudioContext || window.webkitAudioContext)();
+      }
+      if (uiChatUtilsModule.audioContext.state === 'suspended') {
+        uiChatUtilsModule.audioContext.resume();
+      }
+      const ctx = uiChatUtilsModule.audioContext;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.type = 'sine';
@@ -42,87 +27,49 @@ const uiChatUtilsModule = {
       console.error("Error playing beep:", e);
     }
   },
-
   _generateMessageId: () => {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   },
-
   formatStateObjectToText: (stateObj) => {
-    if (!stateObj || typeof stateObj !== 'object') return '[Invalid state object]';
-    let text = '';
-    for (const key in stateObj) {
-      if (stateObj.hasOwnProperty(key)) {
-        let value = stateObj[key];
-        if (typeof value === 'object' && value !== null) {
-          try {
-            value = JSON.stringify(value);
-          } catch (e) {
-            value = '[Cannot serialize object]';
-          }
-        }
-        text += `${key}: ${value}\n`;
-      }
-    }
-    return text.trim() || '[Empty state object]';
+    return Object.entries(stateObj).map(([key, value]) => {
+      let displayValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : value;
+      return `${key}: ${displayValue}`;
+    }).join('\n');
   },
-
   findBottomRoleButton: (roleName) => {
-    if (!roleName) return null;
-    const btns = elementsModule.roleButtonsListContainer.querySelectorAll('.role-button-container > .std-button');
-    for (const btn of btns) {
-      if (btn.dataset.roleName === roleName) return btn;
-    }
-    return null;
+    if (!roleName) throw new Error("findBottomRoleButton requires a valid roleName");
+    return elementsModule.roleButtonsListContainer.querySelector(`.role-button-container > .std-button[data-role-name="${roleName}"]`);
   },
-
   getRoleNameMaps: (partitionId) => {
-    const roleNameMap = {};
-    const reverseRoleNameMap = {};
+    const roleNameMap = {
+      '用户': '用户'
+    };
+    const reverseRoleNameMap = {
+      '用户': '用户'
+    };
     const chatroomDetails = stateModule.currentChatroomDetails;
-
-    roleNameMap['用户'] = '用户';
-    reverseRoleNameMap['用户'] = '用户';
-
-    if (!chatroomDetails || !chatroomDetails.partitions) {
-      return {
-        roleNameMap,
-        reverseRoleNameMap
-      };
-    }
-
-    // Fix: Only look at the specific partitionId passed in, do not iterate all partitions.
-    if (partitionId && chatroomDetails.partitions.has(partitionId)) {
+    if (partitionId && chatroomDetails?.partitions?.has(partitionId)) {
       const partition = chatroomDetails.partitions.get(partitionId);
       (partition.roleAliases || []).forEach(entry => {
         const originalName = entry.name;
         const alias = (entry.alias || '').trim() || originalName;
-
         if (originalName) {
           roleNameMap[originalName] = alias;
           reverseRoleNameMap[alias] = originalName;
         }
       });
     }
-
     return {
       roleNameMap,
       reverseRoleNameMap
     };
   },
-  
   getDisplayName: (uniqueName, partitionId) => {
-    if (!uniqueName) return '';
-    const {
-      roleNameMap
-    } = uiChatUtilsModule.getRoleNameMaps(partitionId);
-    return roleNameMap[uniqueName] || uniqueName;
+    if (!uniqueName) throw new Error("getDisplayName requires a valid uniqueName");
+    return uiChatUtilsModule.getRoleNameMaps(partitionId).roleNameMap[uniqueName] || uniqueName;
   },
-
   getUniqueName: (displayName, partitionId) => {
-    if (!displayName) return '';
-    const {
-      reverseRoleNameMap
-    } = uiChatUtilsModule.getRoleNameMaps(partitionId);
-    return reverseRoleNameMap[displayName] || displayName;
+    if (!displayName) throw new Error("getUniqueName requires a valid displayName");
+    return uiChatUtilsModule.getRoleNameMaps(partitionId).reverseRoleNameMap[displayName] || displayName;
   },
 };

@@ -1,24 +1,21 @@
 const uiChatImageViewerModule = {
   init: () => {
-    if (elementsModule.imageViewerPage) {
-      elementsModule.imageViewerPage.addEventListener('click', () => {
-        if (!stateModule.isCooldownActive) uiChatImageViewerModule.hideImageViewer();
-      });
-    }
+    const page = document.getElementById('image-viewer-page');
+    page.addEventListener('click', () => {
+      if (!stateModule.isCooldownActive) uiChatImageViewerModule.hideImageViewer();
+    });
   },
   showImageViewer: (imageSrc) => {
-    if (!imageSrc || !elementsModule.imageViewerPage || !elementsModule.imageViewerContent) {
-      return;
-    }
-    elementsModule.imageViewerContent.src = imageSrc;
-    elementsModule.imageViewerPage.classList.add('active');
+    if (!imageSrc) return;
+    const page = document.getElementById('image-viewer-page');
+    const content = document.getElementById('image-viewer-content');
+    content.src = imageSrc;
+    page.classList.add('active');
   },
-
   hideImageViewer: () => {
-    if (!elementsModule.imageViewerPage || !elementsModule.imageViewerContent) {
-      return;
-    }
-    elementsModule.imageViewerPage.classList.remove('active');
-    elementsModule.imageViewerContent.src = '';
+    const page = document.getElementById('image-viewer-page');
+    const content = document.getElementById('image-viewer-content');
+    page.classList.remove('active');
+    content.src = '';
   }
 };

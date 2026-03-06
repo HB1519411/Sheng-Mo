@@ -1,65 +1,99 @@
 import hashlib
 import json
-import math
 import random
 import time
-from backend.services.config_io import API_KEY_STATE_CACHE
 
-def _initialize_api_key_pools(global_config):
+GROUP_STATE_CACHE = {
+    "groups": [],
+    "history": {},
+    "failures": {},
+    "last_sync_hash": None
+}
+
+def _parse_api_key_groups(global_config):
     groups_text = global_config.get("apiKeyGroupsText", [])
     config_hash = hashlib.md5(json.dumps(groups_text, sort_keys=True).encode('utf-8')).hexdigest()
     
-    if API_KEY_STATE_CACHE.get("last_sync_hash") == config_hash:
-        return
+    if GROUP_STATE_CACHE["last_sync_hash"] == config_hash:
+        return GROUP_STATE_CACHE["groups"]
 
-    all_keys_info = []
-    for group_text in groups_text:
-        lines = [line.strip() for line in group_text.strip().split('\n') if line.strip()]
-        if len(lines) < 2: continue
-        group_id, keys = lines[0], lines[1:]
-        all_keys_info.extend([{"key": key, "groupId": group_id} for key in keys])
+    parsed = []
+    for txt in groups_text:
+        lines = [l.strip() for l in txt.strip().split('\n') if l.strip()]
+        if len(lines) >= 4:
+            parsed.append({
+                "group_id": lines[0],
+                "api_type": lines[1].lower(),
+                "address": lines[2],
+                "keys": lines[3:]
+            })
     
-    random.shuffle(all_keys_info)
-    mid_point = math.ceil(len(all_keys_info) / 2)
-    API_KEY_STATE_CACHE["active_pool"] = all_keys_info[:mid_point]
-    API_KEY_STATE_CACHE["cooldown_pool"] = all_keys_info[mid_point:]
-    
-    current_failures = API_KEY_STATE_CACHE.get("failures", {})
-    new_failures = {info['key']: current_failures.get(info['key'], 0) for info in all_keys_info}
-    API_KEY_STATE_CACHE["failures"] = new_failures
-    API_KEY_STATE_CACHE["cooldown_until"] = API_KEY_STATE_CACHE.get("cooldown_until", {})
-    API_KEY_STATE_CACHE["last_sync_hash"] = config_hash
+    GROUP_STATE_CACHE["groups"] = parsed
+    GROUP_STATE_CACHE["last_sync_hash"] = config_hash
+    return parsed
 
-def select_api_key(global_config, exclude_keys=None):
-    if exclude_keys is None:
-        exclude_keys = set()
+def get_available_channels(global_config, rate_limit, is_backup_fallback=False):
+    groups = _parse_api_key_groups(global_config)
+    now = time.time()
     
-    _initialize_api_key_pools(global_config)
-    
-    failures = API_KEY_STATE_CACHE["failures"]
-    cooldown_until = API_KEY_STATE_CACHE.get("cooldown_until", {})
-    current_time = time.time()
-    
-    all_available_keys = [
-        info for info in (API_KEY_STATE_CACHE["active_pool"] + API_KEY_STATE_CACHE["cooldown_pool"])
-        if info['key'] not in exclude_keys and current_time >= cooldown_until.get(info['key'], 0)
-    ]
+    for gid in GROUP_STATE_CACHE["history"]:
+        GROUP_STATE_CACHE["history"][gid] = [t for t in GROUP_STATE_CACHE["history"][gid] if now - t < 60]
 
-    if not all_available_keys:
-        raise ValueError("No available API keys to select from (all keys are on cooldown or excluded).")
+    backup_channel = None
+    if global_config.get('backup_proxy_url'):
+        backup_channel = {
+            "group_id": "备用",
+            "api_type": "gemini",
+            "address": global_config['backup_proxy_url'],
+            "api_key": global_config.get('backup_proxy_api_key', ''),
+            "is_backup": True
+        }
 
-    min_fails = min((failures.get(info['key'], 0) for info in all_available_keys), default=0)
-    candidates = [info for info in all_available_keys if failures.get(info['key'], 0) == min_fails]
+    if is_backup_fallback or global_config.get('useBackupProxyOnly', False):
+        return [backup_channel] if backup_channel else []
+
+    if not groups:
+        return [backup_channel] if backup_channel else []
+
+    scored = []
+    for g in groups:
+        gid = g["group_id"]
+        rpm = len(GROUP_STATE_CACHE["history"].get(gid, []))
+        scored.append((rpm, g))
     
-    selected_key_info = random.choice(candidates)
+    scored.sort(key=lambda x: x[0])
     
-    return selected_key_info['key']
+    channels = []
+    
+    for rpm, g in scored:
+        if rpm < rate_limit:
+            channels.append({
+                "group_id": g["group_id"],
+                "api_type": g["api_type"],
+                "address": g["address"],
+                "api_key": random.choice(g["keys"]),
+                "is_backup": False
+            })
+    
+    if backup_channel:
+        channels.append(backup_channel)
 
-def record_api_key_failure(api_key):
-    if api_key in API_KEY_STATE_CACHE["failures"]:
-        API_KEY_STATE_CACHE["failures"][api_key] += 1
+    return channels
 
-def start_api_key_cooldown(api_key, duration_seconds=180):
-    if "cooldown_until" not in API_KEY_STATE_CACHE:
-        API_KEY_STATE_CACHE["cooldown_until"] = {}
-    API_KEY_STATE_CACHE["cooldown_until"][api_key] = time.time() + duration_seconds
+def record_channel_usage(group_id):
+    if group_id != "备用":
+        GROUP_STATE_CACHE["history"].setdefault(group_id, []).append(time.time())
+
+def record_channel_success(group_id):
+    if group_id != "备用":
+        GROUP_STATE_CACHE["failures"][group_id] = 0
+
+def record_channel_failure(group_id):
+    if group_id != "备用":
+        count = GROUP_STATE_CACHE["failures"].get(group_id, 0) + 1
+        GROUP_STATE_CACHE["failures"][group_id] = count
+        return count
+    return 0
+
+def get_group_fail_stats():
+    return GROUP_STATE_CACHE["failures"].copy()
